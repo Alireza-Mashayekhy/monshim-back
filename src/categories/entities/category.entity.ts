@@ -12,7 +12,7 @@ import {
 @Entity()
 export class Category {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: number;
 
   @Column({
     length: 255,
@@ -23,6 +23,9 @@ export class Category {
     nullable: true,
   })
   image: string;
+
+  @Column()
+  description: string;
 
   @CreateDateColumn()
   createdAt: Date;
