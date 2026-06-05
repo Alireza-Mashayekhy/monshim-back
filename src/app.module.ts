@@ -15,6 +15,7 @@ import { FilesModule } from './files/files.module';
 import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
 import { UsersModule } from './users/users.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     RedisModule,
     OtpModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [
