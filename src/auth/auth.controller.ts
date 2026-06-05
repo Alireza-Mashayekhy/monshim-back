@@ -30,7 +30,7 @@ export class AuthController {
     @Body() createUserDto: CreateUserDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.authService.login(createUserDto, response);
+    return this.authService.signUp(createUserDto, response);
   }
 
   @Post('login-password')
