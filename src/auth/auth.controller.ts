@@ -1,5 +1,14 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 import { AuthService } from './auth.service';
@@ -15,6 +24,14 @@ export class AuthController {
   @Post('/send-otp')
   sendOtp(@Body() sendOtpDto: SendOtpDto) {
     return this.authService.sendCode(sendOtpDto);
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard)
+  me(@Req() request: Request & { user: any }) {
+    return {
+      data: request.user,
+    };
   }
 
   @Post('/login')

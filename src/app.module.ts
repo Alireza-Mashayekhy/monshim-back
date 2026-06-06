@@ -9,13 +9,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { CategoriesModule } from './categories/categories.module';
 import { TypeOrmConfigService } from './common/config/typeorm.config';
-import { RolesGuard } from './common/guards/roles.guard';
 import { FilesModule } from './files/files.module';
 import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
 import { UsersModule } from './users/users.module';
-import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -46,10 +45,6 @@ import { CategoriesModule } from './categories/categories.module';
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: RolesGuard,
-    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
