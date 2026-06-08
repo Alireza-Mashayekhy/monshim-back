@@ -75,6 +75,14 @@ export class CategoriesService {
     return payload;
   }
 
+  async findManyByIds(ids: number[]): Promise<Category[]> {
+    if (!ids.length) return [];
+    const categories = await this.categoriesRepository.findBy(
+      ids.map(id => ({ id })),
+    );
+    return categories;
+  }
+
   async update(id: number, updateCategoryDto: UpdateCategoryDto) {
     const categoryEntity = await this.categoriesRepository.findOne({
       where: { id },

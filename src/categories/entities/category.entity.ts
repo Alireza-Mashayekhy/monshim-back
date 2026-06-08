@@ -1,8 +1,10 @@
+import { Product } from 'src/products/entities/product.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -59,4 +61,7 @@ export class Category {
 
   @OneToMany(() => Category, category => category.parent)
   children: Category[];
+
+  @ManyToMany(() => Product, product => product.categories)
+  products: Product[];
 }

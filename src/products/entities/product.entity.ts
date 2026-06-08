@@ -1,3 +1,4 @@
+import { Category } from 'src/categories/entities/category.entity';
 import {
   Column,
   Entity,
@@ -52,6 +53,14 @@ export class Product {
     },
   })
   suggestedProducts: Product[];
+
+  @ManyToMany(() => Category, category => category.products)
+  @JoinTable({
+    name: 'product_categories',
+    joinColumn: { name: 'product_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'category_id', referencedColumnName: 'id' },
+  })
+  categories: Category[];
 
   @ManyToMany(() => Product, product => product.suggestedProducts)
   suggestedBy: Product[];

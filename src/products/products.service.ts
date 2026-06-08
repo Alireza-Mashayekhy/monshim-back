@@ -4,13 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CategoriesService } from 'src/categories/categories.service';
 import {
   applySearch,
   applySort,
   getPagination,
   QueryDto,
 } from 'src/common/query';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -24,26 +25,48 @@ export class ProductsService {
     @InjectRepository(Variant)
     private variantRepository: Repository<Variant>,
     private dataSource: DataSource,
+    private readonly categoriesService: CategoriesService,
   ) {}
 
   async create(createProductDto: CreateProductDto) {
-    const existing = await this.productRepository.findOneBy({
-      productCode: createProductDto.productCode,
-    });
-    if (existing) {
-      throw new ConflictException('Product code already exists');
+    const { categoryIds, variants, suggestedProductIds, ...rest } =
+      createProductDto;
+
+    const product = this.productRepository.create(rest);
+
+    // ارتباط با دسته‌بندی‌ها (با استفاده از repository)
+    if (categoryIds?.length) {
+      const categoriesPromises = categoryIds.map(id =>
+        this.categoriesService.findOne(id),
+      );
+      const categories = await Promise.all(categoriesPromises);
+
+      const validCategories = categories.filter(cat => cat !== null);
+      if (validCategories.length !== categoryIds.length) {
+        throw new NotFoundException('One or more category IDs invalid');
+      }
+      product.categories = validCategories;
     }
 
-    const product = this.productRepository.create({
-      productCode: createProductDto.productCode,
-      title: createProductDto.title,
-      careInstructionsHtml: createProductDto.careInstructionsHtml,
-      variants: createProductDto.variants,
-      suggestedProducts: createProductDto.suggestedProductIds?.map(id => ({
-        id,
-      })),
-    });
-    return await this.productRepository.save(product);
+    // واریانت‌ها
+    if (variants?.length) {
+      product.variants = variants.map(v => this.variantRepository.create(v));
+    }
+
+    // محصولات پیشنهادی
+    if (suggestedProductIds?.length) {
+      const suggestedProducts = await this.productRepository.findBy(
+        suggestedProductIds.map(id => ({ id })),
+      );
+      if (suggestedProducts.length !== suggestedProductIds.length) {
+        throw new NotFoundException(
+          'One or more suggested product IDs invalid',
+        );
+      }
+      product.suggestedProducts = suggestedProducts;
+    }
+
+    return this.productRepository.save(product);
   }
 
   async findAll(query: QueryDto) {
@@ -113,40 +136,39 @@ export class ProductsService {
     await queryRunner.startTransaction();
 
     try {
-      // 3. به‌روزرسانی فیلدهای ساده
-      Object.assign(product, updateProductDto);
-      // حذف فیلدهایی که نباید مستقیم set شوند (برای مدیریت دستی)
-      if (updateProductDto.variants) delete (product as any).variants;
-      if (updateProductDto.suggestedProductIds)
-        delete (product as any).suggestedProducts;
-
+      // 3. به‌روزرسانی فیلدهای ساده (جدا کردن فیلدهای روابط)
+      const { variants, suggestedProductIds, categoryIds, ...simpleFields } =
+        updateProductDto;
+      Object.assign(product, simpleFields);
       await queryRunner.manager.save(product);
 
-      // 4. به‌روزرسانی واریانت‌ها (اگر در DTO ارسال شده باشد)
-      if (updateProductDto.variants) {
-        await this.updateVariants(
-          product.id,
-          updateProductDto.variants,
-          queryRunner,
-        );
+      // 4. به‌روزرسانی واریانت‌ها (با queryRunner)
+      if (variants) {
+        await this.updateVariants(product.id, variants, queryRunner);
       }
 
-      // 5. به‌روزرسانی محصولات پیشنهادی (اگر آرایه suggestedProductIds ارسال شده باشد)
-      if (updateProductDto.suggestedProductIds !== undefined) {
+      // 5. به‌روزرسانی محصولات پیشنهادی (با queryRunner)
+      if (suggestedProductIds !== undefined) {
         await this.updateSuggestedProducts(
           product,
-          updateProductDto.suggestedProductIds,
+          suggestedProductIds,
           queryRunner,
         );
       }
 
-      // 6. بارگذاری مجدد محصول با تمام روابط برای خروجی نهایی
+      // 6. به‌روزرسانی دسته‌بندی‌ها (با استفاده از سرویس CategoriesService)
+      if (categoryIds !== undefined) {
+        await this.updateProductCategories(product, categoryIds, queryRunner);
+      }
+
+      // 7. دریافت محصول نهایی با تمام روابط
       const updatedProduct = await queryRunner.manager.findOne(Product, {
         where: { id: product.id },
         relations: {
           variants: true,
           suggestedProducts: true,
           comments: true,
+          categories: true,
         },
       });
 
@@ -211,6 +233,27 @@ export class ProductsService {
 
     if (toRemove.length) await queryRunner.manager.remove(toRemove);
     if (toSave.length) await queryRunner.manager.save(toSave);
+  }
+
+  private async updateProductCategories(
+    product: Product,
+    categoryIds: number[],
+    queryRunner: QueryRunner,
+  ) {
+    if (!categoryIds.length) {
+      product.categories = [];
+    } else {
+      // استفاده از سرویس CategoriesService (بدون queryRunner)
+      // توجه: این سرویس از ریپازیتوری معمولی استفاده می‌کند، نه queryRunner فعلی.
+      // اما چون فقط read است، در تراکنش اختلالی ایجاد نمی‌کند.
+      const categories =
+        await this.categoriesService.findManyByIds(categoryIds);
+      if (categories.length !== categoryIds.length) {
+        throw new NotFoundException('One or more category IDs invalid');
+      }
+      product.categories = categories;
+    }
+    await queryRunner.manager.save(product);
   }
 
   // متد کمکی برای به‌روزرسانی محصولات پیشنهادی

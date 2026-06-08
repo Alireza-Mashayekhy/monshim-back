@@ -41,4 +41,7 @@ export class CreateProductDto {
 
   @ApiProperty()
   suggestedProductIds: number[];
+
+  @ApiProperty()
+  categoryIds?: number[];
 }
