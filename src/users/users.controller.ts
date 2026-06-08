@@ -24,6 +24,7 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.Admin)
   @Post()
   create(@Body() createUserDto: CreateUserDto) {

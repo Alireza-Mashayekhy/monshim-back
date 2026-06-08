@@ -1,5 +1,6 @@
 import { Role } from 'src/common/enum/role.enum';
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Comment } from 'src/products/entities/comment.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -44,4 +45,7 @@ export class User {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @OneToMany(() => Comment, comment => comment.user)
+  comments: Comment[];
 }
