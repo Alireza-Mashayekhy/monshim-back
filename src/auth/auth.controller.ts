@@ -1,14 +1,19 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
   Post,
   Req,
   Res,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { FilesService } from 'src/files/files.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 import { AuthService } from './auth.service';
@@ -18,7 +23,10 @@ import { SendVerifyOtp } from './dto/verify-otp.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly filesService: FilesService,
+  ) {}
 
   @Post('/send-otp')
   sendOtp(@Body() sendOtpDto: SendOtpDto) {
@@ -59,10 +67,47 @@ export class AuthController {
   }
 
   @Post('register-barber')
-  registerBarber(
-    @Body() dto: RegisterBarberDto,
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'profileImage', maxCount: 1 },
+      { name: 'portfolio', maxCount: 10 },
+    ]),
+  )
+  async registerBarber(
+    @UploadedFiles()
+    files: {
+      profileImage?: Express.Multer.File[];
+      portfolio?: Express.Multer.File[];
+    },
+    @Body('data') data: string,
     @Res({ passthrough: true }) response: Response,
   ) {
+    let dto: RegisterBarberDto;
+    try {
+      dto = JSON.parse(data);
+    } catch (error) {
+      console.log(error);
+      throw new BadRequestException('Invalid JSON data');
+    }
+
+    // ذخیره عکس پروفایل (اگر ارسال شده باشد)
+    if (files.profileImage && files.profileImage.length > 0) {
+      const profilePath = this.filesService.saveFile(
+        files.profileImage[0],
+        'profiles',
+      );
+      dto.profileImage = profilePath;
+    }
+
+    // ذخیره نمونه کارها (در صورت ارسال)
+    if (files.portfolio && files.portfolio.length > 0) {
+      const portfolioPaths = this.filesService.saveMultipleFiles(
+        files.portfolio,
+        'portfolio',
+      );
+      dto.portfolioImages = portfolioPaths;
+    }
+
     return this.authService.registerBarber(dto, response);
   }
 

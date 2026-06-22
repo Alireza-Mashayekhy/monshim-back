@@ -5,23 +5,21 @@ import {
   Get,
   Param,
   Patch,
-  Post,
   Query,
 } from '@nestjs/common';
 import { QueryDto } from 'src/common/query';
 
 import { BarberService } from './barber.service';
-import { CreateBarberDto } from './dto/create-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 
 @Controller('barber')
 export class BarberController {
   constructor(private readonly barberService: BarberService) {}
 
-  @Post()
-  create(@Body() createBarberDto: CreateBarberDto) {
-    return this.barberService.create(createBarberDto);
-  }
+  // @Post()
+  // create(@Body() createBarberDto: CreateBarberDto) {
+  //   return this.barberService.create(createBarberDto);
+  // }
 
   @Get()
   findAll(

@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import { BarberService } from 'src/barber/barber.service';
 import { Role } from 'src/common/enum/role.enum';
@@ -46,15 +45,10 @@ export class AuthService {
     let user = await this.usersService.findWithPhone(sendVerifyOtp.phone);
 
     if (!user) {
-      // ساخت کاربر جدید با نقش پیش‌فرض User و رمز عبور تصادفی (غیرقابل استفاده)
-      const randomPassword = Math.random().toString(36).slice(-8);
-      const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
       user = await this.usersService.createWithRoles(
         {
           phone: sendVerifyOtp.phone,
           fullName: `کاربر ${sendVerifyOtp.phone}`,
-          password: hashedPassword,
           isActive: true,
         },
         [Role.User, Role.Barber],
@@ -70,46 +64,41 @@ export class AuthService {
   }
 
   async registerBarber(dto: RegisterBarberDto, response: Response) {
-    // 1. تأیید کد یک‌بارمصرف
+    // 1. تأیید کد
     await this.otpService.verifyOtp(dto.phone, dto.code);
 
-    // 2. بررسی عدم تکراری بودن شماره
+    // 2. بررسی تکراری نبودن شماره
     const existingUser = await this.usersService.findWithPhone(dto.phone);
     if (existingUser) {
       throw new BadRequestException('این شماره تلفن قبلاً ثبت شده است');
     }
-
-    // 3. هش کردن رمز عبور
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    // 4. ایجاد کاربر با دو نقش User و Barber
+    // 4. ایجاد کاربر
     const user = await this.usersService.createWithRoles(
       {
         fullName: dto.fullName,
         phone: dto.phone,
         email: dto.email || '',
-        password: hashedPassword,
         isActive: true,
         birthDate: dto.birthDate,
       },
       [Role.User, Role.Barber],
     );
 
-    // 5. ایجاد پروفایل آرایشگر (غیرفعال – نیاز به تأیید ادمین)
-    const _profile = await this.barberProfileService.create({
+    // 5. ایجاد پروفایل آرایشگر (فقط فیلدهای ضروری)
+    await this.barberProfileService.create({
       userId: user.id,
       salonName: dto.salonName,
-      city: dto.city,
+      provinceId: dto.provinceId,
+      cityId: dto.cityId,
       address: dto.address,
       profileImage: dto.profileImage,
       portfolioImages: dto.portfolioImages || [],
-      isApproved: false, // مهم: نیاز به تأیید
-      workStartTime: null, // اختیاری
-      workEndTime: null,
-      bio: '',
+      isApproved: false,
+      bio: '', // اختیاری
+      // workStartTime و workEndTime را حذف می‌کنیم تا از NULL استفاده شود
     });
 
-    // 6. ایجاد خدمات (اگر در فرم ارسال شده باشند)
+    // 6. ایجاد خدمات
     if (dto.services && dto.services.length > 0) {
       for (const svc of dto.services) {
         await this.servicesService.create({
@@ -122,7 +111,7 @@ export class AuthService {
       }
     }
 
-    // 7. صدور توکن و ذخیره در کوکی
+    // 7. صدور توکن
     const accessToken = await this.generateAccessToken(user);
     const refreshToken = await this.generateRefreshToken(user);
     response.cookie('access_token', accessToken, this.accessCookieOptions);
@@ -143,11 +132,8 @@ export class AuthService {
       throw new BadRequestException('user exist');
     }
 
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-
     const newUser = await this.usersService.create({
       ...createUserDto,
-      password: hashedPassword,
     });
 
     const accessToken = await this.generateAccessToken(newUser);
@@ -216,8 +202,7 @@ export class AuthService {
   };
 
   private async generateAccessToken(user: User) {
-    // eslint-disable-next-line unused-imports/no-unused-vars
-    const { password, ...payload } = user;
+    const { ...payload } = user;
 
     return this.jwtService.signAsync(payload, {
       secret: process.env.JWT_ACCESS_SECRET,

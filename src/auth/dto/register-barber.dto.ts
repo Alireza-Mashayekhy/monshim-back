@@ -1,7 +1,9 @@
+// src/auth/dto/register-barber.dto.ts
 import { Type } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
@@ -13,21 +15,28 @@ class ServiceInputDto {
   @IsNotEmpty()
   name: string;
 
+  @IsNumber()
   @IsNotEmpty()
   price: number;
 
+  @IsNumber()
   @IsNotEmpty()
   durationMinutes: number;
 }
 
+// auth/dto/register-barber.dto.ts
 export class RegisterBarberDto extends CreateUserDto {
   @IsString()
   @IsNotEmpty()
   salonName: string;
 
-  @IsString()
+  @IsNumber()
   @IsNotEmpty()
-  city: string;
+  provinceId: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  cityId: number;
 
   @IsString()
   @IsNotEmpty()
@@ -35,12 +44,12 @@ export class RegisterBarberDto extends CreateUserDto {
 
   @IsOptional()
   @IsString()
-  profileImage?: string;
+  profileImage?: string; // حالا مسیر فایل ذخیره شده
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  portfolioImages?: string[];
+  portfolioImages?: string[]; // آرایه‌ای از مسیرهای فایل
 
   @IsOptional()
   @IsArray()

@@ -16,9 +16,6 @@ export class User {
   @Column({ unique: true, nullable: true })
   email: string;
 
-  @Column()
-  password: string;
-
   @Column({
     type: 'date',
     nullable: true,

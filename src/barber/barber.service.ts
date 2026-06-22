@@ -4,18 +4,35 @@ import { getPagination, QueryDto } from 'src/common/query';
 import { User } from 'src/users/entities/user.entity';
 import { Brackets, Repository } from 'typeorm';
 
-import { CreateBarberDto } from './dto/create-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
+import { BarberProfile } from './entities/barber.entity';
 
 @Injectable()
 export class BarberService {
   constructor(
     @InjectRepository(User)
     private userRepo: Repository<User>,
+
+    @InjectRepository(BarberProfile)
+    private profileRepository: Repository<BarberProfile>,
   ) {}
 
-  async create(createBarberDto: CreateBarberDto) {
-    return 'This action adds a new barber';
+  // src/barber/barber.service.ts
+  async create(data: {
+    userId: number;
+    salonName: string;
+    provinceId: number;
+    cityId: number;
+    address: string;
+    profileImage?: string;
+    portfolioImages?: string[];
+    isApproved?: boolean;
+    workStartTime?: string | null; // اضافه کردن null
+    workEndTime?: string | null; // اضافه کردن null
+    bio?: string;
+  }) {
+    const profile = this.profileRepository.create(data);
+    return this.profileRepository.save(profile);
   }
 
   async findAll(
