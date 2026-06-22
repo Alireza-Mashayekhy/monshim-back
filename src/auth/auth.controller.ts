@@ -12,8 +12,7 @@ import { AuthGuard } from 'src/common/guards/auth.guard';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 import { AuthService } from './auth.service';
-import { LoginWithPasswordDto } from './dto/login-with-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RegisterBarberDto } from './dto/register-barber.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { SendVerifyOtp } from './dto/verify-otp.dto';
 
@@ -50,14 +49,6 @@ export class AuthController {
     return this.authService.signUp(createUserDto, response);
   }
 
-  @Post('login-password')
-  loginWithPassword(
-    @Body() dto: LoginWithPasswordDto,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    return this.authService.loginWithPassword(dto, response);
-  }
-
   @Post('/refresh')
   refresh(
     @Req() request: Request,
@@ -67,21 +58,19 @@ export class AuthController {
     return this.authService.refresh(request.cookies.refresh_token, response);
   }
 
+  @Post('register-barber')
+  registerBarber(
+    @Body() dto: RegisterBarberDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.registerBarber(dto, response);
+  }
+
   @Post('/logout')
   logout(
     @Res({ passthrough: true })
     response: Response,
   ) {
     return this.authService.logout(response);
-  }
-
-  @Post('forgot-password')
-  forgotPassword(@Body() dto: SendOtpDto) {
-    return this.authService.forgotPassword(dto);
-  }
-
-  @Post('reset-password')
-  resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto);
   }
 }

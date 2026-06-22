@@ -9,7 +9,7 @@ export class OtpService {
   async sendOtp(phone: string) {
     const redis = this.redisService.getClient();
 
-    const code = Math.floor(10000 + Math.random() * 90000).toString();
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
 
     await redis.set(`otp:${phone}`, code, {
       EX: 120,

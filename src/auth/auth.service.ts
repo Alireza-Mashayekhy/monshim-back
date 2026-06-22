@@ -2,13 +2,15 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
+import { BarberService } from 'src/barber/barber.service';
+import { Role } from 'src/common/enum/role.enum';
 import { OtpService } from 'src/otp/otp.service';
+import { ServicesService } from 'src/services/services.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { User } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 
-import { LoginWithPasswordDto } from './dto/login-with-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RegisterBarberDto } from './dto/register-barber.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { SendVerifyOtp } from './dto/verify-otp.dto';
 
@@ -18,6 +20,8 @@ export class AuthService {
     private jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly otpService: OtpService,
+    private barberProfileService: BarberService,
+    private servicesService: ServicesService,
   ) {}
 
   async sendCode(sendOtpDto: SendOtpDto) {
@@ -39,22 +43,94 @@ export class AuthService {
   async login(sendVerifyOtp: SendVerifyOtp, response: Response) {
     await this.otpService.verifyOtp(sendVerifyOtp.phone, sendVerifyOtp.code);
 
-    const user = await this.usersService.findWithPhone(sendVerifyOtp.phone);
+    let user = await this.usersService.findWithPhone(sendVerifyOtp.phone);
 
     if (!user) {
-      throw new BadRequestException('user doesnt exist');
+      // ساخت کاربر جدید با نقش پیش‌فرض User و رمز عبور تصادفی (غیرقابل استفاده)
+      const randomPassword = Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+      user = await this.usersService.createWithRoles(
+        {
+          phone: sendVerifyOtp.phone,
+          fullName: `کاربر ${sendVerifyOtp.phone}`,
+          password: hashedPassword,
+          isActive: true,
+        },
+        [Role.User, Role.Barber],
+      );
     }
 
     const accessToken = await this.generateAccessToken(user);
-
     const refreshToken = await this.generateRefreshToken(user);
-
     response.cookie('access_token', accessToken, this.accessCookieOptions);
+    response.cookie('refresh_token', refreshToken, this.refreshCookieOptions);
 
+    return { message: 'ورود با موفقیت انجام شد' };
+  }
+
+  async registerBarber(dto: RegisterBarberDto, response: Response) {
+    // 1. تأیید کد یک‌بارمصرف
+    await this.otpService.verifyOtp(dto.phone, dto.code);
+
+    // 2. بررسی عدم تکراری بودن شماره
+    const existingUser = await this.usersService.findWithPhone(dto.phone);
+    if (existingUser) {
+      throw new BadRequestException('این شماره تلفن قبلاً ثبت شده است');
+    }
+
+    // 3. هش کردن رمز عبور
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    // 4. ایجاد کاربر با دو نقش User و Barber
+    const user = await this.usersService.createWithRoles(
+      {
+        fullName: dto.fullName,
+        phone: dto.phone,
+        email: dto.email || '',
+        password: hashedPassword,
+        isActive: true,
+        birthDate: dto.birthDate,
+      },
+      [Role.User, Role.Barber],
+    );
+
+    // 5. ایجاد پروفایل آرایشگر (غیرفعال – نیاز به تأیید ادمین)
+    const _profile = await this.barberProfileService.create({
+      userId: user.id,
+      salonName: dto.salonName,
+      city: dto.city,
+      address: dto.address,
+      profileImage: dto.profileImage,
+      portfolioImages: dto.portfolioImages || [],
+      isApproved: false, // مهم: نیاز به تأیید
+      workStartTime: null, // اختیاری
+      workEndTime: null,
+      bio: '',
+    });
+
+    // 6. ایجاد خدمات (اگر در فرم ارسال شده باشند)
+    if (dto.services && dto.services.length > 0) {
+      for (const svc of dto.services) {
+        await this.servicesService.create({
+          name: svc.name,
+          price: svc.price,
+          durationMinutes: svc.durationMinutes,
+          barberId: user.id,
+          isActive: true,
+        });
+      }
+    }
+
+    // 7. صدور توکن و ذخیره در کوکی
+    const accessToken = await this.generateAccessToken(user);
+    const refreshToken = await this.generateRefreshToken(user);
+    response.cookie('access_token', accessToken, this.accessCookieOptions);
     response.cookie('refresh_token', refreshToken, this.refreshCookieOptions);
 
     return {
-      message: 'login successfully',
+      message:
+        'ثبت‌نام آرایشگر با موفقیت انجام شد. پس از تأیید ادمین، حساب شما فعال می‌شود.',
     };
   }
 
@@ -84,32 +160,6 @@ export class AuthService {
 
     return {
       message: 'sign up successfully',
-    };
-  }
-
-  async loginWithPassword(dto: LoginWithPasswordDto, response: Response) {
-    const user = await this.usersService.findWithPhone(dto.phone);
-
-    if (!user) {
-      throw new BadRequestException('phone or password is incorrect');
-    }
-
-    const isMatch = await bcrypt.compare(dto.password, user.password);
-
-    if (!isMatch) {
-      throw new BadRequestException('phone or password is incorrect');
-    }
-
-    const accessToken = await this.generateAccessToken(user);
-
-    const refreshToken = await this.generateRefreshToken(user);
-
-    response.cookie('access_token', accessToken, this.accessCookieOptions);
-
-    response.cookie('refresh_token', refreshToken, this.refreshCookieOptions);
-
-    return {
-      message: 'login successfully',
     };
   }
 
@@ -148,40 +198,6 @@ export class AuthService {
 
     return {
       message: 'logout success',
-    };
-  }
-
-  async forgotPassword(dto: SendOtpDto) {
-    const user = await this.usersService.findWithPhone(dto.phone);
-
-    if (!user) {
-      throw new BadRequestException('user not found');
-    }
-
-    return this.otpService.sendOtp(dto.phone);
-  }
-
-  async resetPassword(dto: ResetPasswordDto) {
-    await this.otpService.verifyOtp(dto.phone, dto.code);
-
-    const user = await this.usersService.findWithPhone(dto.phone);
-
-    if (!user) {
-      throw new BadRequestException('user not found');
-    }
-
-    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
-
-    await this.usersService.update(
-      user.id,
-      {
-        password: hashedPassword,
-      },
-      user,
-    );
-
-    return {
-      message: 'password changed successfully',
     };
   }
 

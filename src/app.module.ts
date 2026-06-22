@@ -5,17 +5,19 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { redisStore } from 'cache-manager-redis-yet';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { CategoriesModule } from './categories/categories.module';
+import { BarberModule } from './barber/barber.module';
 import { TypeOrmConfigService } from './common/config/typeorm.config';
 import { FilesModule } from './files/files.module';
+import { LocationsModule } from './locations/locations.module';
 import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
+import { ServicesModule } from './services/services.module';
 import { UsersModule } from './users/users.module';
-import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
@@ -26,9 +28,16 @@ import { ProductsModule } from './products/products.module';
     TypeOrmModule.forRootAsync({
       useClass: TypeOrmConfigService,
     }),
-    CacheModule.register({
-      ttl: 5000,
-      max: 10,
+    CacheModule.registerAsync({
+      useFactory: async () => ({
+        store: await redisStore({
+          socket: {
+            host: process.env.REDIS_HOST || 'localhost',
+            port: parseInt(process.env.REDIS_PORT || '6381', 10) || 6379,
+          },
+          ttl: 86400, // ۱ روز (به ثانیه)
+        }),
+      }),
     }),
     ThrottlerModule.forRoot([
       {
@@ -41,8 +50,9 @@ import { ProductsModule } from './products/products.module';
     AuthModule,
     RedisModule,
     OtpModule,
-    CategoriesModule,
-    ProductsModule,
+    BarberModule,
+    ServicesModule,
+    LocationsModule,
   ],
   controllers: [AppController],
   providers: [

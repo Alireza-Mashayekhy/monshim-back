@@ -10,7 +10,7 @@ export class SendVerifyOtp {
 
   @ApiProperty()
   @IsNotEmpty()
-  @MaxLength(5)
-  @MinLength(5)
+  @MaxLength(4)
+  @MinLength(4)
   code: string;
 }

@@ -28,5 +28,5 @@ export class CreateUserDto {
 
   @ApiProperty()
   @IsDateString()
-  birthDate: string;
+  birthDate: Date;
 }

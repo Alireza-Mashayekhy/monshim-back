@@ -1,5 +1,5 @@
 import { Role } from 'src/common/enum/role.enum';
-import { Comment } from 'src/products/entities/comment.entity';
+import { Service } from 'src/services/entities/service.entity';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
@@ -13,7 +13,7 @@ export class User {
   @Column({ unique: true })
   phone: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   email: string;
 
   @Column()
@@ -46,6 +46,6 @@ export class User {
   })
   updatedAt: Date;
 
-  @OneToMany(() => Comment, comment => comment.user)
-  comments: Comment[];
+  @OneToMany(() => Service, service => service.barber)
+  services: Service[];
 }

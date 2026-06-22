@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Role } from 'src/common/enum/role.enum';
 import {
   applySearch,
   applySort,
@@ -26,6 +27,14 @@ export class UsersService {
     const user = this.usersRepository.create(createUserDto);
 
     return await this.usersRepository.save(user);
+  }
+
+  async createWithRoles(data: Partial<User>, roles: Role[]): Promise<User> {
+    const user = this.usersRepository.create({
+      ...data,
+      roles,
+    });
+    return this.usersRepository.save(user);
   }
 
   async findWithPhone(phone: string) {
