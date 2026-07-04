@@ -9,14 +9,12 @@ export class FilesService {
   private readonly uploadDir = path.join(__dirname, '../../uploads');
 
   constructor() {
-    // ایجاد پوشه uploads اگر وجود ندارد
     if (!fs.existsSync(this.uploadDir)) {
       fs.mkdirSync(this.uploadDir, { recursive: true });
     }
   }
 
   saveFile(file: Express.Multer.File, subFolder: string = ''): string {
-    // ایجاد نام یکتا برای فایل
     const ext = path.extname(file.originalname);
     const filename = `${uuidv4()}${ext}`;
     const folderPath = path.join(this.uploadDir, subFolder);
@@ -25,7 +23,7 @@ export class FilesService {
     }
     const filePath = path.join(folderPath, filename);
     fs.writeFileSync(filePath, file.buffer);
-    // برگرداندن مسیر نسبی برای ذخیره در دیتابیس
+    // بازگرداندن مسیر نسبی (شامل ساب‌فولدر)
     return `/uploads/${subFolder}/${filename}`;
   }
 
@@ -34,5 +32,26 @@ export class FilesService {
     subFolder: string = '',
   ): string[] {
     return files.map(file => this.saveFile(file, subFolder));
+  }
+
+  /**
+   * حذف فایل با دریافت مسیر نسبی ذخیره‌شده در دیتابیس
+   * مثال: `/uploads/profiles/abc-123.jpg`
+   */
+  deleteFile(filePath: string): { message: string } {
+    if (!filePath) {
+      return { message: 'مسیر فایل ارائه نشده است' };
+    }
+
+    // حذف پیشوند `/uploads/` برای استخراج مسیر نسبی داخل پوشه uploads
+    const relativePath = filePath.replace(/^\/uploads\//, '');
+    const fullPath = path.join(this.uploadDir, relativePath);
+
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+      return { message: 'فایل با موفقیت حذف شد' };
+    }
+
+    return { message: 'فایل یافت نشد' };
   }
 }

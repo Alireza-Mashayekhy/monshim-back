@@ -6,13 +6,16 @@ import {
   Param,
   Patch,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 import { QueryDto } from 'src/common/query';
 
 import { BarberService } from './barber.service';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 
 @Controller('barber')
+@UseGuards(AuthGuard)
 export class BarberController {
   constructor(private readonly barberService: BarberService) {}
 
@@ -22,16 +25,9 @@ export class BarberController {
   // }
 
   @Get()
-  findAll(
-    @Query() query: QueryDto,
-    @Query('categoryIds') categoryIds?: string,
-    @Query('colorIds') colorIds?: string,
-    @Query('sizeIds') sizeIds?: string,
-  ) {
+  findAll(@Query() query: QueryDto, @Query('cityId') cityId?: number) {
     const filters = {
-      categoryIds: categoryIds ? categoryIds.split(',').map(Number) : undefined,
-      colorIds: colorIds ? colorIds.split(',').map(Number) : undefined,
-      sizeIds: sizeIds ? sizeIds.split(',').map(Number) : undefined,
+      cityId: cityId || undefined,
     };
 
     return this.barberService.findAll(query, filters);

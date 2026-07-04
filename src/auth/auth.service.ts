@@ -77,7 +77,6 @@ export class AuthService {
       {
         fullName: dto.fullName,
         phone: dto.phone,
-        email: dto.email || '',
         isActive: true,
         birthDate: dto.birthDate,
       },

@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enum/role.enum';
@@ -15,6 +16,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { LocationsService } from './locations.service';
 
 @Controller('locations')
+@UseGuards(AuthGuard)
 export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 

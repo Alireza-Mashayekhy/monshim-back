@@ -18,6 +18,7 @@ import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
 import { ServicesModule } from './services/services.module';
 import { UsersModule } from './users/users.module';
+import { BookingModule } from './booking/booking.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module';
     BarberModule,
     ServicesModule,
     LocationsModule,
+    BookingModule,
   ],
   controllers: [AppController],
   providers: [

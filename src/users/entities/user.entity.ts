@@ -1,6 +1,13 @@
+import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Role } from 'src/common/enum/role.enum';
 import { Service } from 'src/services/entities/service.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity()
 export class User {
@@ -13,8 +20,12 @@ export class User {
   @Column({ unique: true })
   phone: string;
 
-  @Column({ unique: true, nullable: true })
-  email: string;
+  @Column({
+    type: 'varchar',
+    unique: true,
+    nullable: true,
+  })
+  email: string | null;
 
   @Column({
     type: 'date',
@@ -45,4 +56,7 @@ export class User {
 
   @OneToMany(() => Service, service => service.barber)
   services: Service[];
+
+  @OneToOne(() => BarberProfile, profile => profile.user)
+  barberProfile: BarberProfile;
 }
