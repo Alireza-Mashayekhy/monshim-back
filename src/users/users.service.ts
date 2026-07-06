@@ -94,6 +94,22 @@ export class UsersService {
     return this.usersRepository.save(userEntity);
   }
 
+  async updateMe(updateUserDto: UpdateUserDto, user: any) {
+    if (!user.id) {
+      throw new ForbiddenException('access denied');
+    }
+
+    const userEntity = await this.usersRepository.findOne({
+      where: { id: user.id },
+    });
+
+    if (!userEntity) throw new NotFoundException();
+
+    Object.assign(userEntity, updateUserDto);
+
+    return this.usersRepository.save(userEntity);
+  }
+
   async remove(id: number) {
     const user = await this.usersRepository.findOne({
       where: { id },
