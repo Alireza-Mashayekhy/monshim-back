@@ -1,27 +1,32 @@
+// src/otp/otp.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import { SmsIrService } from '../common/services/sms-ir.service';
 import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class OtpService {
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly smsIrService: SmsIrService,
+  ) {}
 
   async sendOtp(phone: string) {
     const redis = this.redisService.getClient();
 
+    // تولید کد ۶ رقمی (یا ۴ رقمی)
     const code = Math.floor(1000 + Math.random() * 9000).toString();
 
+    // ذخیره در Redis با انقضای ۱۲۰ ثانیه
     await redis.set(`otp:${phone}`, code, {
       EX: 120,
     });
 
-    console.log(code);
-
-    // sms provider
+    // ارسال پیامک با استفاده از قالب
+    await this.smsIrService.sendVerify(phone, [{ name: 'OTP', value: code }]);
 
     return {
-      message: 'otp sent',
-      otp: code,
+      message: 'کد تأیید با موفقیت ارسال شد',
     };
   }
 
@@ -31,11 +36,11 @@ export class OtpService {
     const storedCode = await redis.get(`otp:${phone}`);
 
     if (!storedCode) {
-      throw new BadRequestException('otp expired');
+      throw new BadRequestException('کد تأیید منقضی شده است');
     }
 
     if (storedCode !== code) {
-      throw new BadRequestException('invalid otp');
+      throw new BadRequestException('کد تأیید نامعتبر است');
     }
 
     await redis.del(`otp:${phone}`);
