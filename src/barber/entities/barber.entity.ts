@@ -58,6 +58,9 @@ export class BarberProfile {
   @Column({ default: false })
   isApproved: boolean;
 
+  @Column({ type: 'text', nullable: true })
+  rejectionReason: string | null;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 

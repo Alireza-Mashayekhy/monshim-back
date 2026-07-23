@@ -176,8 +176,88 @@ export class BarberService {
     };
   }
 
-  update(id: number, updateBarberDto: UpdateBarberDto) {
-    return `This action updates a #${id} barber`;
+  async findOneByUserId(userId: number): Promise<any> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: {
+        barberProfile: {
+          city: true,
+          province: true,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+
+    const profile = user.barberProfile;
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      phone: user.phone,
+      email: user.email,
+      salonName: profile.salonName,
+      provinceId: profile.provinceId,
+      cityId: profile.cityId,
+      provinceName: profile.province?.name || null,
+      cityName: profile.city?.name || null,
+      address: profile.address,
+      bio: profile.bio,
+      profileImage: profile.profileImage,
+      portfolioImages: profile.portfolioImages || [],
+      workStartTime: profile.workStartTime,
+      workEndTime: profile.workEndTime,
+      isApproved: profile.isApproved,
+      rejectionReason: profile.rejectionReason || null,
+      createdAt: profile.createdAt,
+    };
+  }
+
+  // متد update اصلاح‌شده برای پشتیبانی از فیلدهای جدید
+  async update(userId: number, dto: UpdateBarberDto): Promise<BarberProfile> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: { barberProfile: true },
+    });
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+
+    const profile = user.barberProfile;
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    // به‌روزرسانی فیلدهای User
+    if (dto.fullName) {
+      user.fullName = dto.fullName;
+      await this.userRepo.save(user);
+    }
+
+    // به‌روزرسانی فیلدهای BarberProfile
+    const updateData: Partial<BarberProfile> = {};
+    if (dto.salonName !== undefined) updateData.salonName = dto.salonName;
+    if (dto.provinceId !== undefined) updateData.provinceId = dto.provinceId;
+    if (dto.cityId !== undefined) updateData.cityId = dto.cityId;
+    if (dto.address !== undefined) updateData.address = dto.address;
+    if (dto.bio !== undefined) updateData.bio = dto.bio;
+    if (dto.workStartTime !== undefined)
+      updateData.workStartTime = dto.workStartTime;
+    if (dto.workEndTime !== undefined) updateData.workEndTime = dto.workEndTime;
+    if (dto.profileImage !== undefined)
+      updateData.profileImage = dto.profileImage;
+    if (dto.isApproved !== undefined) updateData.isApproved = dto.isApproved;
+    if (dto.rejectionReason === null) {
+      updateData.rejectionReason = null;
+    }
+
+    Object.assign(profile, updateData);
+    return this.profileRepository.save(profile);
   }
 
   remove(id: number) {
