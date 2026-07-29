@@ -5,6 +5,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -12,10 +13,13 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
+import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { Repository } from 'typeorm';
 
 import { BookingsService } from './booking.service';
 import { BookingQueryDto } from './dto/booking-query.dto';
@@ -25,7 +29,11 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 @Controller('bookings')
 @UseGuards(AuthGuard)
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(
+    private readonly bookingsService: BookingsService,
+    @InjectRepository(BarberProfile)
+    private barberProfileRepo: Repository<BarberProfile>,
+  ) {}
 
   // ایجاد رزرو جدید (مشتری)
   @Post()
@@ -42,6 +50,24 @@ export class BookingsController {
   ) {
     const user = req.user;
     return this.bookingsService.findByCustomer(user.id, query);
+  }
+
+  @Get('barber/my')
+  @Roles(Role.Barber, Role.Admin)
+  async findMyBarberBookings(
+    @Req() req: Request & { user: any },
+    @Query() query: BookingQueryDto,
+  ) {
+    const user = req.user;
+    // پیدا کردن پروفایل آرایشگر بر اساس userId
+    const barberProfile = await this.barberProfileRepo.findOne({
+      where: { userId: user.id },
+    });
+    if (!barberProfile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+    // ارسال barberId (که در اینجا userId است) به سرویس
+    return this.bookingsService.findByBarber(barberProfile.userId, query);
   }
 
   // دریافت لیست رزروهای یک آرایشگر (فقط آرایشگر خودش یا ادمین)
@@ -86,15 +112,23 @@ export class BookingsController {
     return this.bookingsService.cancelByCustomer(id, user.id);
   }
 
-  // دریافت زمان‌های آزاد یک آرایشگر در تاریخ مشخص (عمومی - بدون احراز هویت)
-  @Get('available-times')
-  async getAvailableTimes(
+  // src/bookings/bookings.controller.ts (افزودن)
+  @Get('available-slots')
+  async getAvailableSlots(
     @Query('barberId') barberId: string,
     @Query('date') date: string,
+    @Query('serviceId') serviceId: string,
   ) {
-    if (!barberId || !date) {
-      throw new BadRequestException('باربرآیدی و تاریخ الزامی هستند');
+    if (!barberId || !date || !serviceId) {
+      throw new BadRequestException(
+        'باربرآیدی، تاریخ و شناسه سرویس الزامی هستند',
+      );
     }
-    return this.bookingsService.getAvailableTimes(+barberId, date);
+    const slots = await this.bookingsService.getAvailableSlots(
+      barberId,
+      date,
+      serviceId,
+    );
+    return { slots };
   }
 }

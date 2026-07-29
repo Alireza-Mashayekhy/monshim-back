@@ -5,6 +5,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -15,12 +16,16 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { InjectRepository } from '@nestjs/typeorm';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { QueryDto } from 'src/common/query';
 import { FilesService } from 'src/files/files.service';
+import { Repository } from 'typeorm';
 
 import { BarberService } from './barber.service';
 import { UpdateBarberDto } from './dto/update-barber.dto';
+import { BarberProfile } from './entities/barber.entity';
+import { WorkHoursService } from './work-hours.service';
 
 @Controller('barber')
 @UseGuards(AuthGuard)
@@ -28,6 +33,9 @@ export class BarberController {
   constructor(
     private readonly barberService: BarberService,
     private readonly filesService: FilesService,
+    private readonly workHoursService: WorkHoursService,
+    @InjectRepository(BarberProfile)
+    private barberProfileRepo: Repository<BarberProfile>,
   ) {}
 
   // ---- مسیرهای عمومی ----
@@ -83,5 +91,43 @@ export class BarberController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.barberService.remove(+id);
+  }
+
+  @Post('profile/work-hours')
+  async setWorkHours(
+    @Req() req: any,
+    @Body()
+    dto: { hours: { dayOfWeek: number; startTime: string; endTime: string }[] },
+  ) {
+    const user = req.user;
+
+    // پیدا کردن پروفایل آرایشگر بر اساس userId
+    const profile = await this.barberProfileRepo.findOne({
+      where: { userId: user.id },
+    });
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    if (!dto.hours || !Array.isArray(dto.hours)) {
+      throw new BadRequestException('فیلد hours باید یک آرایه باشد');
+    }
+
+    // ارسال profile.id (UUID) به سرویس
+    return this.workHoursService.setWorkHours(profile.id, dto.hours);
+  }
+
+  @Get('profile/work-hours')
+  async getWorkHours(@Req() req: any) {
+    const user = req.user;
+
+    const profile = await this.barberProfileRepo.findOne({
+      where: { userId: user.id },
+    });
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    return this.workHoursService.getWorkHours(profile.id);
   }
 }

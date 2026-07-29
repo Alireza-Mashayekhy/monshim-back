@@ -7,10 +7,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
+import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { getPagination } from 'src/common/query';
 import { Service } from 'src/services/entities/service.entity';
-import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -26,8 +26,8 @@ export class BookingsService {
     private barberProfileRepo: Repository<BarberProfile>,
     @InjectRepository(Service)
     private serviceRepo: Repository<Service>,
-    @InjectRepository(User)
-    private userRepo: Repository<User>,
+    @InjectRepository(BarberWorkHours)
+    private workHoursRepo: Repository<BarberWorkHours>,
   ) {}
 
   async create(customerId: number, dto: CreateBookingDto): Promise<Booking> {
@@ -208,32 +208,88 @@ export class BookingsService {
     return this.bookingRepo.save(booking);
   }
 
-  async getAvailableTimes(barberId: number, date: string): Promise<string[]> {
-    const barber = await this.barberProfileRepo.findOne({
-      where: { userId: barberId },
-    });
-    if (!barber) {
-      throw new NotFoundException('آرایشگر یافت نشد');
+  async getAvailableSlots(
+    barberId: string,
+    date: string,
+    serviceId: string,
+  ): Promise<string[]> {
+    // 0. تبدیل barberId به عدد برای Booking
+    const barberIdNumber = parseInt(barberId, 10);
+    if (isNaN(barberIdNumber)) {
+      throw new BadRequestException('شناسه آرایشگر نامعتبر است');
     }
 
-    const bookings = await this.bookingRepo
-      .createQueryBuilder('booking')
-      .where('booking.barberId = :barberId', { barberId })
-      .andWhere('booking.date = :date', { date })
-      .andWhere('booking.status NOT IN (:...statuses)', {
-        statuses: [BookingStatus.CANCELED, BookingStatus.REJECTED],
-      })
-      .getMany();
+    // 1. دریافت مدت زمان سرویس
+    const service = await this.serviceRepo.findOne({
+      where: { id: serviceId },
+    });
+    if (!service) {
+      throw new NotFoundException('سرویس مورد نظر یافت نشد');
+    }
+    const serviceDuration = service.durationMinutes;
 
-    const bookedTimes = bookings.map(b => b.time);
-    const allTimes: string[] = [];
-    for (let h = 9; h <= 20; h++) {
-      for (let m = 0; m < 60; m += 30) {
-        const hour = h.toString().padStart(2, '0');
-        const min = m.toString().padStart(2, '0');
-        allTimes.push(`${hour}:${min}`);
+    // 2. دریافت روز هفته (0=شنبه ... 6=جمعه)
+    const dayOfWeek = new Date(date).getDay();
+
+    // 3. دریافت بازه‌های کاری آن روز (با barberId رشته‌ای)
+    const workHours = await this.workHoursRepo.find({
+      where: { barberId, dayOfWeek },
+      order: { startTime: 'ASC' },
+    });
+
+    if (!workHours.length) {
+      return []; // روز تعطیل
+    }
+
+    // 4. دریافت رزروهای تایید/در انتظار آن روز (با barberId عددی)
+    const bookings = await this.bookingRepo.find({
+      where: {
+        barberId: barberIdNumber,
+        date,
+        status: In([BookingStatus.CONFIRMED, BookingStatus.PENDING]),
+      },
+      relations: {
+        service: true,
+      },
+      order: { time: 'ASC' },
+    });
+
+    // 5. تبدیل زمان به دقیقه از نیمه‌شب
+    const toMinutes = (time: string) => {
+      const [h, m] = time.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    // 6. تولید بازه‌های آزاد با گام ۱۵ دقیقه
+    const freeSlots: string[] = [];
+    const step = 15;
+
+    for (const wh of workHours) {
+      let currentStart = toMinutes(wh.startTime);
+      const end = toMinutes(wh.endTime);
+
+      while (currentStart + serviceDuration <= end) {
+        const slotEnd = currentStart + serviceDuration;
+
+        // بررسی تداخل با رزروها
+        const isBooked = bookings.some(b => {
+          const bStart = toMinutes(b.time);
+          const bEnd = bStart + (b.service?.durationMinutes || serviceDuration);
+          return currentStart < bEnd && slotEnd > bStart;
+        });
+
+        if (!isBooked) {
+          const h = Math.floor(currentStart / 60)
+            .toString()
+            .padStart(2, '0');
+          const m = (currentStart % 60).toString().padStart(2, '0');
+          freeSlots.push(`${h}:${m}`);
+        }
+
+        currentStart += step;
       }
     }
-    return allTimes.filter(time => !bookedTimes.includes(time));
+
+    return freeSlots;
   }
 }
