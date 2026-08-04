@@ -17,6 +17,7 @@ import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
 import { ServicesModule } from './services/services.module';
 import { UsersModule } from './users/users.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module';
     ServicesModule,
     LocationsModule,
     BookingModule,
+    WalletModule,
   ],
   controllers: [AppController],
   providers: [

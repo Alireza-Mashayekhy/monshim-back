@@ -1,4 +1,3 @@
-// src/bookings/booking.service.ts
 import {
   BadRequestException,
   ForbiddenException,
@@ -22,61 +21,165 @@ export class BookingsService {
   constructor(
     @InjectRepository(Booking)
     private bookingRepo: Repository<Booking>,
+
     @InjectRepository(BarberProfile)
     private barberProfileRepo: Repository<BarberProfile>,
+
     @InjectRepository(Service)
     private serviceRepo: Repository<Service>,
+
     @InjectRepository(BarberWorkHours)
     private workHoursRepo: Repository<BarberWorkHours>,
   ) {}
 
+  // =========================================================
+  // CREATE BOOKING
+  // =========================================================
+
   async create(customerId: number, dto: CreateBookingDto): Promise<Booking> {
+    // dto.barberId = User.id
+    const barberId = Number(dto.barberId);
+
+    if (!Number.isInteger(barberId)) {
+      throw new BadRequestException('شناسه آرایشگر نامعتبر است');
+    }
+
+    // پیدا کردن پروفایل آرایشگر
     const barber = await this.barberProfileRepo.findOne({
-      where: { userId: dto.barberId, isApproved: true },
+      where: {
+        userId: barberId,
+        isApproved: true,
+      },
     });
+
     if (!barber) {
       throw new NotFoundException(
         'آرایشگر مورد نظر یافت نشد یا تایید نشده است',
       );
     }
 
+    // پیدا کردن سرویس
     const service = await this.serviceRepo.findOne({
-      where: { id: dto.serviceId, isActive: true },
+      where: {
+        id: dto.serviceId,
+        isActive: true,
+      },
     });
+
     if (!service) {
       throw new NotFoundException('سرویس مورد نظر یافت نشد');
     }
 
-    // بررسی تداخل زمانی با استفاده از QueryBuilder برای پشتیبانی از Not با چند شرط
-    const existingBooking = await this.bookingRepo
-      .createQueryBuilder('booking')
-      .where('booking.barberId = :barberId', { barberId: dto.barberId })
-      .andWhere('booking.date = :date', { date: dto.date })
-      .andWhere('booking.time = :time', { time: dto.time })
-      .andWhere('booking.status NOT IN (:...statuses)', {
-        statuses: [BookingStatus.CANCELED, BookingStatus.REJECTED],
-      })
-      .getOne();
+    // بررسی اینکه زمان انتخابی داخل ساعت کاری آرایشگر باشد
+    const jsDay = new Date(dto.date).getDay();
 
-    if (existingBooking) {
+    // سیستم شما:
+    // 0 = شنبه
+    // 1 = یکشنبه
+    // 2 = دوشنبه
+    // 3 = سه‌شنبه
+    // 4 = چهارشنبه
+    // 5 = پنجشنبه
+    // 6 = جمعه
+    const dayOfWeek = (jsDay + 1) % 7;
+
+    const workHours = await this.workHoursRepo.find({
+      where: {
+        barberId: barber.id,
+        dayOfWeek,
+      },
+      order: {
+        startTime: 'ASC',
+      },
+    });
+
+    if (!workHours.length) {
+      throw new BadRequestException('آرایشگر در این روز ساعت کاری ندارد');
+    }
+
+    // تبدیل HH:mm / HH:mm:ss به دقیقه
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+
+      return hours * 60 + minutes;
+    };
+
+    const bookingStart = toMinutes(dto.time);
+    const bookingEnd = bookingStart + service.durationMinutes;
+
+    // بررسی اینکه کل زمان سرویس داخل یکی از بازه‌های کاری باشد
+    const isWithinWorkHours = workHours.some(workHour => {
+      const start = toMinutes(workHour.startTime);
+      const end = toMinutes(workHour.endTime);
+
+      return bookingStart >= start && bookingEnd <= end;
+    });
+
+    if (!isWithinWorkHours) {
+      throw new BadRequestException(
+        'زمان انتخاب شده خارج از ساعت کاری آرایشگر است',
+      );
+    }
+
+    // بررسی تداخل با رزروهای قبلی
+    const existingBookings = await this.bookingRepo.find({
+      where: {
+        barberId: barber.id,
+        date: dto.date,
+        status: In([BookingStatus.CONFIRMED, BookingStatus.PENDING]),
+      },
+      relations: {
+        service: true,
+      },
+      order: {
+        time: 'ASC',
+      },
+    });
+
+    const hasConflict = existingBookings.some(booking => {
+      const existingStart = toMinutes(booking.time);
+
+      const existingDuration =
+        booking.service?.durationMinutes ?? service.durationMinutes;
+
+      const existingEnd = existingStart + existingDuration;
+
+      return bookingStart < existingEnd && bookingEnd > existingStart;
+    });
+
+    if (hasConflict) {
       throw new BadRequestException(
         'این زمان قبلاً توسط شخص دیگری رزرو شده است',
       );
     }
 
+    // ایجاد رزرو
+    // مهم:
+    // booking.barberId = BarberProfile.id
     const booking = this.bookingRepo.create({
       customerId,
-      barberId: dto.barberId,
+
+      barberId: barber.id,
+
       serviceId: dto.serviceId,
+
       date: dto.date,
+
       time: dto.time,
+
       price: service.price,
-      note: dto.note,
+
+      note: dto.note ?? '',
+
       status: BookingStatus.PENDING,
     });
 
     return this.bookingRepo.save(booking);
   }
+
+  // =========================================================
+  // GET CUSTOMER BOOKINGS
+  // =========================================================
 
   async findByCustomer(customerId: number, query: BookingQueryDto) {
     const page = query.page ?? 1;
@@ -94,9 +197,11 @@ export class BookingsService {
     }
 
     const { skip, take } = getPagination(page, limit);
+
     qb.skip(skip).take(take).orderBy('booking.createdAt', 'DESC');
 
     const [data, total] = await qb.getManyAndCount();
+
     return {
       data,
       pagination: {
@@ -108,7 +213,23 @@ export class BookingsService {
     };
   }
 
-  async findByBarber(barberId: number, query: BookingQueryDto) {
+  // =========================================================
+  // GET BARBER BOOKINGS
+  // =========================================================
+
+  async findByBarber(userId: number, query: BookingQueryDto) {
+    // userId -> BarberProfile
+    const barber = await this.barberProfileRepo.findOne({
+      where: {
+        userId,
+        isApproved: true,
+      },
+    });
+
+    if (!barber) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const status = query.status;
@@ -117,19 +238,23 @@ export class BookingsService {
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.customer', 'customer')
       .leftJoinAndSelect('booking.service', 'service')
-      .where('booking.barberId = :barberId', { barberId });
+      .where('booking.barberId = :barberId', {
+        barberId: barber.id,
+      });
 
     if (status) {
       qb.andWhere('booking.status = :status', { status });
     }
 
     const { skip, take } = getPagination(page, limit);
+
     qb.skip(skip)
       .take(take)
       .orderBy('booking.date', 'DESC')
       .addOrderBy('booking.time', 'DESC');
 
     const [data, total] = await qb.getManyAndCount();
+
     return {
       data,
       pagination: {
@@ -141,21 +266,32 @@ export class BookingsService {
     };
   }
 
+  // =========================================================
+  // GET SINGLE BOOKING
+  // =========================================================
+
   async findOne(id: string, userId: number, roles: string[]): Promise<Booking> {
     const booking = await this.bookingRepo.findOne({
-      where: { id },
+      where: {
+        id,
+      },
       relations: {
         customer: true,
         barber: true,
         service: true,
       },
     });
+
     if (!booking) {
       throw new NotFoundException('رزرو یافت نشد');
     }
 
     const isCustomer = booking.customerId === userId;
-    const isBarber = booking.barberId === userId;
+
+    // booking.barber = BarberProfile
+    // پس باید userId داخل profile را مقایسه کنیم
+    const isBarber = booking.barber?.userId === userId;
+
     const isAdmin = roles?.includes('admin');
 
     if (!isCustomer && !isBarber && !isAdmin) {
@@ -165,6 +301,10 @@ export class BookingsService {
     return booking;
   }
 
+  // =========================================================
+  // UPDATE BOOKING STATUS
+  // =========================================================
+
   async updateStatus(
     id: string,
     userId: number,
@@ -173,8 +313,10 @@ export class BookingsService {
   ): Promise<Booking> {
     const booking = await this.findOne(id, userId, roles);
 
-    const isBarber = booking.barberId === userId;
+    const isBarber = booking.barber?.userId === userId;
+
     const isAdmin = roles?.includes('admin');
+
     if (!isBarber && !isAdmin) {
       throw new ForbiddenException(
         'فقط آرایشگر یا ادمین می‌توانند وضعیت را تغییر دهند',
@@ -191,99 +333,169 @@ export class BookingsService {
     }
 
     booking.status = dto.status;
+
     return this.bookingRepo.save(booking);
   }
 
+  // =========================================================
+  // CANCEL BY CUSTOMER
+  // =========================================================
+
   async cancelByCustomer(id: string, userId: number): Promise<Booking> {
     const booking = await this.findOne(id, userId, []);
+
     if (booking.customerId !== userId) {
       throw new ForbiddenException('شما اجازه لغو این رزرو را ندارید');
     }
+
     if (booking.status !== BookingStatus.PENDING) {
       throw new BadRequestException(
         'فقط رزروهای در انتظار تایید قابل لغو هستند',
       );
     }
+
     booking.status = BookingStatus.CANCELED;
+
     return this.bookingRepo.save(booking);
   }
 
+  // =========================================================
+  // GET AVAILABLE SLOTS
+  // =========================================================
+
   async getAvailableSlots(
-    barberId: string,
+    userId: string,
     date: string,
     serviceId: string,
   ): Promise<string[]> {
-    // 0. تبدیل barberId به عدد برای Booking
-    const barberIdNumber = parseInt(barberId, 10);
-    if (isNaN(barberIdNumber)) {
+    const barberUserId = Number(userId);
+
+    if (!Number.isInteger(barberUserId)) {
       throw new BadRequestException('شناسه آرایشگر نامعتبر است');
     }
 
-    // 1. دریافت مدت زمان سرویس
-    const service = await this.serviceRepo.findOne({
-      where: { id: serviceId },
+    // userId -> BarberProfile
+    const barber = await this.barberProfileRepo.findOne({
+      where: {
+        userId: barberUserId,
+        isApproved: true,
+      },
     });
+
+    if (!barber) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد یا تایید نشده است');
+    }
+
+    // سرویس
+    const service = await this.serviceRepo.findOne({
+      where: {
+        id: serviceId,
+        isActive: true,
+      },
+    });
+
     if (!service) {
       throw new NotFoundException('سرویس مورد نظر یافت نشد');
     }
+
     const serviceDuration = service.durationMinutes;
 
-    // 2. دریافت روز هفته (0=شنبه ... 6=جمعه)
-    const dayOfWeek = new Date(date).getDay();
+    // JS:
+    // 0 Sunday
+    // 1 Monday
+    // 2 Tuesday
+    // 3 Wednesday
+    // 4 Thursday
+    // 5 Friday
+    // 6 Saturday
+    //
+    // DB:
+    // 0 Saturday
+    // 1 Sunday
+    // 2 Monday
+    // 3 Tuesday
+    // 4 Wednesday
+    // 5 Thursday
+    // 6 Friday
 
-    // 3. دریافت بازه‌های کاری آن روز (با barberId رشته‌ای)
+    const jsDay = new Date(date).getDay();
+
+    const dayOfWeek = (jsDay + 1) % 7;
+
+    // ساعت کاری
     const workHours = await this.workHoursRepo.find({
-      where: { barberId, dayOfWeek },
-      order: { startTime: 'ASC' },
+      where: {
+        barberId: barber.id,
+        dayOfWeek,
+      },
+      order: {
+        startTime: 'ASC',
+      },
     });
 
     if (!workHours.length) {
-      return []; // روز تعطیل
+      return [];
     }
 
-    // 4. دریافت رزروهای تایید/در انتظار آن روز (با barberId عددی)
+    // رزروهای همان روز
     const bookings = await this.bookingRepo.find({
       where: {
-        barberId: barberIdNumber,
+        barberId: barber.id,
         date,
         status: In([BookingStatus.CONFIRMED, BookingStatus.PENDING]),
       },
       relations: {
         service: true,
       },
-      order: { time: 'ASC' },
+      order: {
+        time: 'ASC',
+      },
     });
 
-    // 5. تبدیل زمان به دقیقه از نیمه‌شب
     const toMinutes = (time: string) => {
-      const [h, m] = time.split(':').map(Number);
-      return h * 60 + m;
+      const [hours, minutes] = time.split(':').map(Number);
+
+      return hours * 60 + minutes;
     };
 
-    // 6. تولید بازه‌های آزاد با گام ۱۵ دقیقه
     const freeSlots: string[] = [];
+
     const step = 15;
 
-    for (const wh of workHours) {
-      let currentStart = toMinutes(wh.startTime);
-      const end = toMinutes(wh.endTime);
+    for (const workHour of workHours) {
+      const start = toMinutes(workHour.startTime);
+
+      const end = toMinutes(workHour.endTime);
+
+      // بازه نامعتبر
+      if (start >= end) {
+        continue;
+      }
+
+      let currentStart = start;
 
       while (currentStart + serviceDuration <= end) {
         const slotEnd = currentStart + serviceDuration;
 
-        // بررسی تداخل با رزروها
-        const isBooked = bookings.some(b => {
-          const bStart = toMinutes(b.time);
-          const bEnd = bStart + (b.service?.durationMinutes || serviceDuration);
-          return currentStart < bEnd && slotEnd > bStart;
+        const isBooked = bookings.some(booking => {
+          const bookingStart = toMinutes(booking.time);
+
+          const bookingDuration =
+            booking.service?.durationMinutes ?? serviceDuration;
+
+          const bookingEnd = bookingStart + bookingDuration;
+
+          return currentStart < bookingEnd && slotEnd > bookingStart;
         });
 
         if (!isBooked) {
-          const h = Math.floor(currentStart / 60)
+          const hours = Math.floor(currentStart / 60)
             .toString()
             .padStart(2, '0');
-          const m = (currentStart % 60).toString().padStart(2, '0');
-          freeSlots.push(`${h}:${m}`);
+
+          const minutes = (currentStart % 60).toString().padStart(2, '0');
+
+          freeSlots.push(`${hours}:${minutes}`);
         }
 
         currentStart += step;

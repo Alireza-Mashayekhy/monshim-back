@@ -1,5 +1,6 @@
 // src/services/services.service.ts
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -21,10 +22,19 @@ export class ServicesService {
 
   // ایجاد سرویس جدید
   async create(createServiceDto: CreateServiceDto): Promise<Service> {
+    if (
+      createServiceDto.depositPrice != null &&
+      Number(createServiceDto.depositPrice) > Number(createServiceDto.price)
+    ) {
+      throw new BadRequestException(
+        'مبلغ بیعانه نمی‌تواند بیشتر از مبلغ کل باشد.',
+      );
+    }
+
     const service = this.serviceRepository.create(createServiceDto);
+
     return this.serviceRepository.save(service);
   }
-
   // دریافت تمام سرویس‌های یک آرایشگر خاص
   async findByBarberId(barberId: number): Promise<Service[]> {
     return this.serviceRepository.find({
@@ -50,12 +60,22 @@ export class ServicesService {
   ): Promise<Service> {
     const service = await this.findOne(id);
 
-    // بررسی دسترسی: فقط آرایشگری که سرویس را ایجاد کرده می‌تواند ویرایش کند
     if (service.barberId !== currentUser.id) {
       throw new ForbiddenException('شما اجازه ویرایش این سرویس را ندارید');
     }
 
+    const price = updateServiceDto.price ?? Number(service.price);
+
+    const depositPrice = updateServiceDto.depositPrice ?? service.depositPrice;
+
+    if (depositPrice != null && Number(depositPrice) > Number(price)) {
+      throw new BadRequestException(
+        'مبلغ بیعانه نمی‌تواند بیشتر از مبلغ کل باشد.',
+      );
+    }
+
     Object.assign(service, updateServiceDto);
+
     return this.serviceRepository.save(service);
   }
 

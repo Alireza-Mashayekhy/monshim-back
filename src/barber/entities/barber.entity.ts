@@ -1,4 +1,6 @@
-// barber-profile.entity.ts
+// src/barber/entities/barber.entity.ts
+
+import { Booking } from 'src/booking/entities/booking.entity';
 import { City } from 'src/locations/entities/city.entity';
 import { Province } from 'src/locations/entities/province.entity';
 import { User } from 'src/users/entities/user.entity';
@@ -7,6 +9,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -23,24 +26,34 @@ export class BarberProfile {
   @Column({ name: 'user_id' })
   userId: number;
 
-  // مشخص کردن type: 'varchar' برای جلوگیری از تشخیص اشتباه
-  @Column({ type: 'varchar', nullable: true })
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
   profileImage: string | null;
 
   @Column({ length: 100 })
   salonName: string;
 
-  @Column({ name: 'province_id', nullable: true })
+  @Column({
+    name: 'province_id',
+    nullable: true,
+  })
   provinceId?: number;
 
-  @Column({ name: 'city_id', nullable: true })
+  @Column({
+    name: 'city_id',
+    nullable: true,
+  })
   cityId?: number;
 
   @Column({ type: 'text' })
   address: string;
 
-  // مشخص کردن type: 'text' برای bio
-  @Column({ type: 'text', nullable: true })
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
   bio: string | null;
 
   @Column({
@@ -49,19 +62,31 @@ export class BarberProfile {
   })
   portfolioImages: string[] | null;
 
-  @Column({ type: 'time', nullable: true })
+  @Column({
+    type: 'time',
+    nullable: true,
+  })
   workStartTime: string | null;
 
-  @Column({ type: 'time', nullable: true })
+  @Column({
+    type: 'time',
+    nullable: true,
+  })
   workEndTime: string | null;
 
   @Column({ default: false })
   isApproved: boolean;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
   rejectionReason: string | null;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdAt: Date;
 
   @ManyToOne(() => Province)
@@ -71,4 +96,8 @@ export class BarberProfile {
   @ManyToOne(() => City)
   @JoinColumn({ name: 'city_id' })
   city?: City;
+
+  // رزروهای این آرایشگر
+  @OneToMany(() => Booking, booking => booking.barber)
+  bookings: Booking[];
 }

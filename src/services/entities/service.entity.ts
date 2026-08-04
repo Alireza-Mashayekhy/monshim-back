@@ -16,8 +16,20 @@ export class Service {
   @Column({ length: 100 })
   name: string; // نام خدمت (مثلاً "کوتاهی مو")
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  price: number;
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+  })
+  price: number; // مبلغ کل سرویس
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
+  depositPrice?: number | null; // مبلغ بیعانه
 
   @Column({ type: 'int' })
   durationMinutes: number; // مدت زمان به دقیقه

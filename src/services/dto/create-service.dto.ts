@@ -16,6 +16,11 @@ export class CreateServiceDto {
   @Min(0)
   price: number;
 
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  depositPrice?: number;
+
   @IsNumber()
   @Min(1)
   durationMinutes: number;
@@ -24,7 +29,7 @@ export class CreateServiceDto {
   @IsBoolean()
   isActive?: boolean;
 
+  @IsOptional()
   @IsNumber()
-  @IsNotEmpty()
-  barberId: number;
+  barberId?: number;
 }

@@ -168,6 +168,7 @@ export class BarberService {
           id: service.id,
           name: service.name,
           price: service.price,
+          depositePrice: service.depositPrice,
           durationMinutes: service.durationMinutes,
         })) || [],
       portfolio: profile.portfolioImages || [],

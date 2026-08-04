@@ -86,6 +86,25 @@ export class BookingsController {
     return this.bookingsService.findByBarber(+barberId, query);
   }
 
+  @Get('available-slots')
+  async getAvailableSlots(
+    @Query('barberId') barberId: string,
+    @Query('date') date: string,
+    @Query('serviceId') serviceId: string,
+  ) {
+    if (!barberId || !date || !serviceId) {
+      throw new BadRequestException(
+        'باربرآیدی، تاریخ و شناسه سرویس الزامی هستند',
+      );
+    }
+    const slots = await this.bookingsService.getAvailableSlots(
+      barberId,
+      date,
+      serviceId,
+    );
+    return { slots };
+  }
+
   // دریافت یک رزرو خاص
   @Get(':id')
   findOne(@Param('id') id: string, @Req() req: Request & { user: any }) {
@@ -110,25 +129,5 @@ export class BookingsController {
   cancel(@Param('id') id: string, @Req() req: Request & { user: any }) {
     const user = req.user;
     return this.bookingsService.cancelByCustomer(id, user.id);
-  }
-
-  // src/bookings/bookings.controller.ts (افزودن)
-  @Get('available-slots')
-  async getAvailableSlots(
-    @Query('barberId') barberId: string,
-    @Query('date') date: string,
-    @Query('serviceId') serviceId: string,
-  ) {
-    if (!barberId || !date || !serviceId) {
-      throw new BadRequestException(
-        'باربرآیدی، تاریخ و شناسه سرویس الزامی هستند',
-      );
-    }
-    const slots = await this.bookingsService.getAvailableSlots(
-      barberId,
-      date,
-      serviceId,
-    );
-    return { slots };
   }
 }
