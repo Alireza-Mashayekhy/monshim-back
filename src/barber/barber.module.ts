@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { FilesModule } from 'src/files/files.module';
 import { User } from 'src/users/entities/user.entity';
 
+import { BarberAdminController } from './barber.admin.controller';
 import { BarberController } from './barber.controller';
 import { BarberService } from './barber.service';
 import { BarberProfile } from './entities/barber.entity';
@@ -14,7 +15,7 @@ import { WorkHoursService } from './work-hours.service';
     TypeOrmModule.forFeature([BarberProfile, User, BarberWorkHours]),
     FilesModule,
   ],
-  controllers: [BarberController],
+  controllers: [BarberController, BarberAdminController],
   providers: [BarberService, WorkHoursService],
   exports: [BarberService, WorkHoursService],
 })

@@ -3,7 +3,6 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Delete,
   Get,
   NotFoundException,
   Param,
@@ -80,17 +79,6 @@ export class BarberController {
     await this.barberService.update(user.id, { profileImage: imagePath });
 
     return { imageUrl: imagePath };
-  }
-
-  // ---- مسیرهای مدیریتی (ادمین) ----
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBarberDto: UpdateBarberDto) {
-    return this.barberService.update(+id, updateBarberDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.barberService.remove(+id);
   }
 
   @Post('profile/work-hours')

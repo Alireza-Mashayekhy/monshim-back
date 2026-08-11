@@ -1,9 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
 import { User } from 'src/users/entities/user.entity';
 import { Brackets, Repository } from 'typeorm';
 
+import { ReviewBarberDto } from './dto/review-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 import { BarberProfile } from './entities/barber.entity';
 
@@ -40,6 +46,7 @@ export class BarberService {
     filters?: {
       cityId?: number;
     },
+    notApproved?: boolean,
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
@@ -52,9 +59,15 @@ export class BarberService {
       .leftJoinAndSelect('profile.city', 'city')
       .leftJoinAndSelect('profile.province', 'province');
 
-    qb.andWhere('profile.isApproved = :isApproved', {
-      isApproved: true,
-    });
+    if (notApproved) {
+      qb.andWhere('profile.isApproved != :isApproved', {
+        isApproved: true,
+      });
+    } else {
+      qb.andWhere('profile.isApproved = :isApproved', {
+        isApproved: true,
+      });
+    }
 
     if (filters?.cityId) {
       qb.andWhere('profile.cityId = :cityId', { cityId: filters.cityId });
@@ -155,25 +168,8 @@ export class BarberService {
 
     // ساختار خروجی
     return {
-      id: user.id,
-      name: user.fullName,
-      shopName: profile.salonName,
-      image: profile.profileImage || null,
-      address: profile.address,
-      bio: profile.bio || '',
-      rating: 4.8, // در صورت وجود فیلد امتیاز، از آن استفاده کنید
-      reviewCount: 0, // در صورت وجود جدول نظرات
-      services:
-        user.services?.map(service => ({
-          id: service.id,
-          name: service.name,
-          price: service.price,
-          depositePrice: service.depositPrice,
-          durationMinutes: service.durationMinutes,
-        })) || [],
-      portfolio: profile.portfolioImages || [],
-      city: profile.city?.name || null,
-      province: profile.province?.name || null,
+      ...user,
+      ...profile,
     };
   }
 
@@ -253,8 +249,8 @@ export class BarberService {
     if (dto.profileImage !== undefined)
       updateData.profileImage = dto.profileImage;
     if (dto.isApproved !== undefined) updateData.isApproved = dto.isApproved;
-    if (dto.rejectionReason === null) {
-      updateData.rejectionReason = null;
+    if (dto.rejectionReason !== undefined) {
+      updateData.rejectionReason = dto.rejectionReason;
     }
 
     Object.assign(profile, updateData);
@@ -263,5 +259,71 @@ export class BarberService {
 
   remove(id: number) {
     return `This action removes a #${id} barber`;
+  }
+
+  async reviewBarber(userId: number, dto: ReviewBarberDto): Promise<any> {
+    // چون id دریافتی از فرانت User.id است
+    const user = await this.userRepo.findOne({
+      where: {
+        id: userId,
+      },
+      relations: {
+        barberProfile: {
+          province: true,
+          city: true,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('کاربر مورد نظر یافت نشد');
+    }
+
+    // بررسی اینکه کاربر واقعاً آرایشگر است
+    if (!user.roles?.includes(Role.Barber)) {
+      throw new BadRequestException('کاربر مورد نظر آرایشگر نیست');
+    }
+
+    const barber = user.barberProfile;
+
+    if (!barber) {
+      throw new NotFoundException('پروفایل آرایشگر برای این کاربر یافت نشد');
+    }
+
+    // تایید پروفایل
+    if (dto.isApproved === true) {
+      barber.isApproved = true;
+      barber.rejectionReason = null;
+    }
+
+    // رد پروفایل
+    else {
+      const reason = dto.rejectionReason?.trim();
+
+      if (!reason) {
+        throw new BadRequestException(
+          'برای رد کردن پروفایل، وارد کردن دلیل الزامی است',
+        );
+      }
+
+      barber.isApproved = false;
+      barber.rejectionReason = reason;
+    }
+
+    const updatedBarber = await this.profileRepository.save(barber);
+
+    return {
+      status: 200,
+      message: dto.isApproved
+        ? 'پروفایل آرایشگر با موفقیت تایید شد'
+        : 'پروفایل آرایشگر رد شد',
+      data: {
+        id: user.id,
+        fullName: user.fullName,
+        salonName: updatedBarber.salonName,
+        isApproved: updatedBarber.isApproved,
+        rejectionReason: updatedBarber.rejectionReason,
+      },
+    };
   }
 }
