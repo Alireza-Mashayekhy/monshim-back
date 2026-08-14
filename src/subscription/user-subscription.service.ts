@@ -150,4 +150,16 @@ export class UserSubscriptionService {
 
     return userSubscription;
   }
+
+  async getActivePlans() {
+    return this.subscriptionPlanRepo.find({
+      where: {
+        isActive: true,
+      },
+      order: {
+        sortOrder: 'ASC',
+        price: 'ASC',
+      },
+    });
+  }
 }

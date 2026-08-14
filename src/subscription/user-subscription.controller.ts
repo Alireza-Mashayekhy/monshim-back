@@ -35,6 +35,11 @@ export class UserSubscriptionController {
     return this.userSubscriptionService.findAll(req.user.id);
   }
 
+  @Get('plans')
+  getPlans() {
+    return this.userSubscriptionService.getActivePlans();
+  }
+
   @Get(':id')
   findOne(@Req() req, @Param('id') id: string) {
     return this.userSubscriptionService.findOne(id, req.user.id);
