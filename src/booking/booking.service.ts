@@ -233,6 +233,7 @@ export class BookingsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const status = query.status;
+    const date = query.date;
 
     const qb = this.bookingRepo
       .createQueryBuilder('booking')
@@ -242,8 +243,18 @@ export class BookingsService {
         barberId: barber.id,
       });
 
+    // فیلتر وضعیت
     if (status) {
-      qb.andWhere('booking.status = :status', { status });
+      qb.andWhere('booking.status = :status', {
+        status,
+      });
+    }
+
+    // فیلتر تاریخ
+    if (date) {
+      qb.andWhere('booking.date = :date', {
+        date,
+      });
     }
 
     const { skip, take } = getPagination(page, limit);
@@ -314,7 +325,6 @@ export class BookingsService {
     const booking = await this.findOne(id, userId, roles);
 
     const isBarber = booking.barber?.userId === userId;
-
     const isAdmin = roles?.includes('admin');
 
     if (!isBarber && !isAdmin) {
@@ -323,16 +333,67 @@ export class BookingsService {
       );
     }
 
-    if (
-      booking.status === BookingStatus.COMPLETED ||
-      booking.status === BookingStatus.CANCELED
-    ) {
-      throw new BadRequestException(
-        'امکان تغییر وضعیت رزرو انجام‌شده یا لغو‌شده وجود ندارد',
-      );
+    const currentStatus = booking.status;
+    const newStatus = dto.status;
+
+    // اگر وضعیت تغییری نکرده
+    if (currentStatus === newStatus) {
+      return booking;
     }
 
-    booking.status = dto.status;
+    // ==========================================
+    // PENDING
+    // ==========================================
+
+    if (currentStatus === BookingStatus.PENDING) {
+      const allowedStatuses = [
+        BookingStatus.CONFIRMED,
+        BookingStatus.REJECTED,
+        BookingStatus.CANCELED,
+      ];
+
+      if (!allowedStatuses.includes(newStatus)) {
+        throw new BadRequestException(
+          'از وضعیت در انتظار فقط امکان تایید، رد یا لغو رزرو وجود دارد',
+        );
+      }
+    }
+
+    // ==========================================
+    // CONFIRMED
+    // ==========================================
+    else if (currentStatus === BookingStatus.CONFIRMED) {
+      const allowedStatuses = [BookingStatus.COMPLETED, BookingStatus.CANCELED];
+
+      if (!allowedStatuses.includes(newStatus)) {
+        throw new BadRequestException(
+          'از وضعیت تایید شده فقط امکان تکمیل یا لغو رزرو وجود دارد',
+        );
+      }
+    }
+
+    // ==========================================
+    // COMPLETED
+    // ==========================================
+    else if (currentStatus === BookingStatus.COMPLETED) {
+      throw new BadRequestException('رزرو انجام شده قابل تغییر نیست');
+    }
+
+    // ==========================================
+    // REJECTED
+    // ==========================================
+    else if (currentStatus === BookingStatus.REJECTED) {
+      throw new BadRequestException('رزرو رد شده قابل تغییر نیست');
+    }
+
+    // ==========================================
+    // CANCELED
+    // ==========================================
+    else if (currentStatus === BookingStatus.CANCELED) {
+      throw new BadRequestException('رزرو لغو شده قابل تغییر نیست');
+    }
+
+    booking.status = newStatus;
 
     return this.bookingRepo.save(booking);
   }

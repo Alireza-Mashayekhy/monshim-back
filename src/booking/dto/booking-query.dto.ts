@@ -1,5 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  Min,
+} from 'class-validator';
 
 import { BookingStatus } from '../entities/booking.entity';
 
@@ -19,4 +25,8 @@ export class BookingQueryDto {
   @IsNumber()
   @Min(1)
   limit?: number = 10;
+
+  @IsOptional()
+  @IsDateString()
+  date?: string;
 }
