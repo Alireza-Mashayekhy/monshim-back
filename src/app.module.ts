@@ -18,6 +18,8 @@ import { RedisModule } from './redis/redis.module';
 import { ServicesModule } from './services/services.module';
 import { UsersModule } from './users/users.module';
 import { WalletModule } from './wallet/wallet.module';
+import { SettingsModule } from './settings/settings.module';
+import { SubscriptionModule } from './subscription/subscription.module';
 
 @Module({
   imports: [
@@ -55,6 +57,8 @@ import { WalletModule } from './wallet/wallet.module';
     LocationsModule,
     BookingModule,
     WalletModule,
+    SettingsModule,
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [
