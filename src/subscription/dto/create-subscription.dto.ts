@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -18,7 +19,7 @@ export class CreateSubscriptionPlanDto {
   price: number;
 
   @IsInt()
-  @Min(1)
+  @IsIn([30, 90, 365])
   durationDays: number;
 
   @IsOptional()
