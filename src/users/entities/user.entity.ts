@@ -31,7 +31,7 @@ export class User {
     type: 'date',
     nullable: true,
   })
-  birthDate: Date;
+  birthDate: Date | null;
 
   @Column({
     type: 'simple-array',

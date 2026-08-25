@@ -8,6 +8,10 @@ export class UpdateBarberDto {
 
   @IsOptional()
   @IsString()
+  birthDate?: string | null;
+
+  @IsOptional()
+  @IsString()
   salonName?: string;
 
   @IsOptional()

@@ -252,6 +252,7 @@ export class BarberService {
       fullName: user.fullName,
       phone: user.phone,
       email: user.email,
+      birthDate: user.birthDate || null,
       salonName: profile.salonName,
       provinceId: profile.provinceId,
       cityId: profile.cityId,
@@ -287,8 +288,11 @@ export class BarberService {
     // به‌روزرسانی فیلدهای User
     if (dto.fullName) {
       user.fullName = dto.fullName;
-      await this.userRepo.save(user);
     }
+    if (dto.birthDate !== undefined) {
+      user.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
+    }
+    await this.userRepo.save(user);
 
     // به‌روزرسانی فیلدهای BarberProfile
     const updateData: Partial<BarberProfile> = {};
