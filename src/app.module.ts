@@ -15,11 +15,12 @@ import { FilesModule } from './files/files.module';
 import { LocationsModule } from './locations/locations.module';
 import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
+import { ReferralModule } from './referral/referral.module';
 import { ServicesModule } from './services/services.module';
-import { UsersModule } from './users/users.module';
-import { WalletModule } from './wallet/wallet.module';
 import { SettingsModule } from './settings/settings.module';
 import { SubscriptionModule } from './subscription/subscription.module';
+import { UsersModule } from './users/users.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
     LocationsModule,
     BookingModule,
     WalletModule,
+    ReferralModule,
     SettingsModule,
     SubscriptionModule,
   ],

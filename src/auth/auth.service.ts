@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { BarberService } from 'src/barber/barber.service';
 import { Role } from 'src/common/enum/role.enum';
 import { OtpService } from 'src/otp/otp.service';
+import { ReferralService } from 'src/referral/referral.service';
 import { ServicesService } from 'src/services/services.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { User } from 'src/users/entities/user.entity';
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly otpService: OtpService,
     private barberProfileService: BarberService,
     private servicesService: ServicesService,
+    private referralService: ReferralService,
   ) {}
 
   async sendCode(sendOtpDto: SendOtpDto) {
@@ -83,7 +85,17 @@ export class AuthService {
       [Role.User, Role.Barber],
     );
 
-    // 5. ایجاد پروفایل آرایشگر (فقط فیلدهای ضروری)
+    // 5. بررسی کد معرف (در صورت وجود)
+    let referredByUserId: number | undefined;
+    if (dto.referralCode) {
+      const referrerProfile =
+        await this.barberProfileService.findByReferralCode(dto.referralCode);
+      if (referrerProfile) {
+        referredByUserId = referrerProfile.userId;
+      }
+    }
+
+    // 6. ایجاد پروفایل آرایشگر (فقط فیلدهای ضروری)
     await this.barberProfileService.create({
       userId: user.id,
       salonName: dto.salonName,
@@ -94,6 +106,7 @@ export class AuthService {
       portfolioImages: dto.portfolioImages || [],
       isApproved: false,
       bio: '', // اختیاری
+      referredBy: referredByUserId,
       // workStartTime و workEndTime را حذف می‌کنیم تا از NULL استفاده شود
     });
 
@@ -110,7 +123,12 @@ export class AuthService {
       }
     }
 
-    // 7. صدور توکن
+    // 7. ثبت رکورد دعوت (در صورت وجود کد معرف)
+    if (referredByUserId) {
+      await this.referralService.createReferral(referredByUserId, user.id);
+    }
+
+    // 8. صدور توکن
     const accessToken = await this.generateAccessToken(user);
     const refreshToken = await this.generateRefreshToken(user);
     response.cookie('access_token', accessToken, this.accessCookieOptions);

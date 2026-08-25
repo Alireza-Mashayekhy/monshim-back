@@ -118,4 +118,15 @@ export class BarberController {
 
     return this.workHoursService.getWorkHours(profile.id);
   }
+
+  // دریافت کد معرف کاربر
+  @Get('profile/referral-code')
+  async getMyReferralCode(@Req() req: any) {
+    const user = req.user;
+    const referralInfo = await this.barberService.getReferralInfo(user.id);
+    return {
+      message: 'کد معرف با موفقیت دریافت شد',
+      data: referralInfo,
+    };
+  }
 }

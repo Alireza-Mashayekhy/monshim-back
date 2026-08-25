@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { getPagination } from 'src/common/query';
+import { ReferralService } from 'src/referral/referral.service';
 import { Service } from 'src/services/entities/service.entity';
 import { In, Repository } from 'typeorm';
 
@@ -30,6 +31,8 @@ export class BookingsService {
 
     @InjectRepository(BarberWorkHours)
     private workHoursRepo: Repository<BarberWorkHours>,
+
+    private referralService: ReferralService,
   ) {}
 
   // =========================================================
@@ -394,6 +397,12 @@ export class BookingsService {
     }
 
     booking.status = newStatus;
+
+    // اگر رزرو تکمیل شد، سیستم معرف را بررسی کن
+    if (newStatus === BookingStatus.COMPLETED) {
+      // booking.customerId = شناسه کاربری که رزرو کرده (مشتری)
+      await this.referralService.onBookingCompleted(booking.customerId);
+    }
 
     return this.bookingRepo.save(booking);
   }

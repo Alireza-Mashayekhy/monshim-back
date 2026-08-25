@@ -12,9 +12,11 @@ import {
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm';
 
 @Entity()
+@Unique(['referralCode'])
 export class BarberProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -88,6 +90,19 @@ export class BarberProfile {
     default: () => 'CURRENT_TIMESTAMP',
   })
   createdAt: Date;
+
+  // کد معرف برای دعوت آرایشگرهای دیگر
+  @Column({
+    type: 'varchar',
+    length: 8,
+    unique: true,
+    nullable: true,
+  })
+  referralCode: string | null;
+
+  // شناسه کاربری که این آرایشگر را دعوت کرده
+  @Column({ name: 'referred_by', type: 'int', nullable: true })
+  referredBy: number | null;
 
   @ManyToOne(() => Province)
   @JoinColumn({ name: 'province_id' })

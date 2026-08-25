@@ -56,4 +56,8 @@ export class RegisterBarberDto extends CreateUserDto {
   @ValidateNested({ each: true })
   @Type(() => ServiceInputDto)
   services?: ServiceInputDto[];
+
+  @IsOptional()
+  @IsString()
+  referralCode?: string; // کد معرف آرایشگر دعوت کننده
 }

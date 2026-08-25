@@ -36,9 +36,63 @@ export class BarberService {
     workStartTime?: string | null; // اضافه کردن null
     workEndTime?: string | null; // اضافه کردن null
     bio?: string;
+    referredBy?: number;
   }) {
-    const profile = this.profileRepository.create(data);
+    // تولید کد معرف یکتا
+    const referralCode = await this.generateUniqueReferralCode();
+
+    const profile = this.profileRepository.create({
+      ...data,
+      referralCode,
+      referredBy: data.referredBy || null,
+    });
     return this.profileRepository.save(profile);
+  }
+
+  // تولید کد معرف یکتا (۸ کاراکتر)
+  private async generateUniqueReferralCode(): Promise<string> {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code: string;
+    let isUnique = false;
+
+    while (!isUnique) {
+      code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      // بررسی یکتا بودن کد
+      const existing = await this.profileRepository.findOne({
+        where: { referralCode: code },
+      });
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+
+    return code!;
+  }
+
+  // دریافت پروفایل بر اساس کد معرف
+  async findByReferralCode(code: string): Promise<BarberProfile | null> {
+    return this.profileRepository.findOne({
+      where: { referralCode: code },
+    });
+  }
+
+  // دریافت اطلاعات معرف برای یک آرایشگر
+  async getReferralInfo(userId: number) {
+    const profile = await this.profileRepository.findOne({
+      where: { userId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    return {
+      referralCode: profile.referralCode,
+      referredBy: profile.referredBy,
+    };
   }
 
   async findAll(

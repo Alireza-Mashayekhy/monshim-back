@@ -4,6 +4,7 @@ import { BarberModule } from 'src/barber/barber.module';
 import { jwtConstants } from 'src/common/constants/constants';
 import { FilesModule } from 'src/files/files.module';
 import { OtpModule } from 'src/otp/otp.module';
+import { ReferralModule } from 'src/referral/referral.module';
 import { ServicesModule } from 'src/services/services.module';
 import { UsersModule } from 'src/users/users.module';
 
@@ -17,6 +18,7 @@ import { AuthService } from './auth.service';
     BarberModule,
     ServicesModule,
     FilesModule,
+    ReferralModule,
     JwtModule.register({
       global: true,
       secret: jwtConstants.secret,
