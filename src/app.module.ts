@@ -19,6 +19,7 @@ import { ReferralModule } from './referral/referral.module';
 import { ServicesModule } from './services/services.module';
 import { SettingsModule } from './settings/settings.module';
 import { SubscriptionModule } from './subscription/subscription.module';
+import { TicketModule } from './ticket/ticket.module';
 import { UsersModule } from './users/users.module';
 import { WalletModule } from './wallet/wallet.module';
 
@@ -61,6 +62,7 @@ import { WalletModule } from './wallet/wallet.module';
     ReferralModule,
     SettingsModule,
     SubscriptionModule,
+    TicketModule,
   ],
   controllers: [AppController],
   providers: [
