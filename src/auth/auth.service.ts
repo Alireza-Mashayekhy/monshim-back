@@ -222,13 +222,37 @@ export class AuthService {
     path: '/',
   };
 
-  private async generateAccessToken(user: User) {
-    const { ...payload } = user;
+  private normalizeRoles(roles: unknown): Role[] {
+    const list: string[] = Array.isArray(roles)
+      ? roles.map(role => String(role).trim())
+      : typeof roles === 'string'
+        ? roles.split(',').map(role => role.trim())
+        : [];
 
-    return this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_ACCESS_SECRET,
-      expiresIn: '6h',
-    });
+    const valid = list.filter((role): role is Role =>
+      Object.values(Role).includes(role as Role),
+    );
+
+    return valid.length ? valid : [Role.User];
+  }
+
+  private async generateAccessToken(user: User) {
+    const roles = this.normalizeRoles(user.roles);
+
+    return this.jwtService.signAsync(
+      {
+        id: user.id,
+        fullName: user.fullName,
+        phone: user.phone,
+        email: user.email,
+        roles,
+        isActive: user.isActive,
+      },
+      {
+        secret: process.env.JWT_ACCESS_SECRET,
+        expiresIn: '6h',
+      },
+    );
   }
 
   private async generateRefreshToken(user: any) {

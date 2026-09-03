@@ -35,7 +35,7 @@ export class ServicesController {
 
   // دریافت لیست سرویس‌های آرایشگر جاری
   @Get('my-services')
-  @Roles(Role.Barber)
+  @Roles(Role.Barber, Role.Admin)
   findMyServices(@Req() req) {
     return this.servicesService.findByBarberId(req.user.id);
   }
