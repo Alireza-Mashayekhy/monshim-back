@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, Matches, MaxLength, MinLength } from 'class-validator';
+import { IRAN_PHONE_REGEX } from 'src/common/constants/constants';
 
 export class SendVerifyOtp {
   @ApiProperty()
   @IsNotEmpty()
-  @MaxLength(11)
-  @MinLength(11)
+  @Matches(IRAN_PHONE_REGEX, { message: 'شماره موبایل معتبر نیست' })
   phone: string;
 
   @ApiProperty()

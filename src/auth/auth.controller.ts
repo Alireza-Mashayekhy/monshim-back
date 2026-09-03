@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
+import { memoryStorage } from 'multer';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { FilesService } from 'src/files/files.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
@@ -35,9 +36,10 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(AuthGuard)
-  me(@Req() request: Request & { user: any }) {
+  async me(@Req() request: Request & { user: any }) {
+    const user = await this.authService.getProfile(request.user.id);
     return {
-      data: request.user,
+      data: user,
     };
   }
 
@@ -68,10 +70,16 @@ export class AuthController {
 
   @Post('register-barber')
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'profileImage', maxCount: 1 },
-      { name: 'portfolio', maxCount: 10 },
-    ]),
+    FileFieldsInterceptor(
+      [
+        { name: 'profileImage', maxCount: 1 },
+        { name: 'portfolio', maxCount: 10 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 1024 * 1024 },
+      },
+    ),
   )
   async registerBarber(
     @UploadedFiles()
@@ -100,7 +108,7 @@ export class AuthController {
     }
 
     // ذخیره نمونه کارها (در صورت ارسال)
-    if (files.portfolio && files.portfolio.length > 0) {
+    if (files?.portfolio && files.portfolio.length > 0) {
       const portfolioPaths = this.filesService.saveMultipleFiles(
         files.portfolio,
         'portfolio',

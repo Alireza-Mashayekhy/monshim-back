@@ -4,9 +4,10 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
-  MinLength,
 } from 'class-validator';
+import { IRAN_PHONE_REGEX } from 'src/common/constants/constants';
 
 export class CreateClubCustomerDto {
   @ApiProperty()
@@ -23,8 +24,7 @@ export class CreateClubCustomerDto {
 
   @ApiProperty({ example: '09123456789' })
   @IsString()
-  @MinLength(11)
-  @MaxLength(11)
+  @Matches(IRAN_PHONE_REGEX, { message: 'شماره موبایل معتبر نیست' })
   phone: string;
 
   @ApiPropertyOptional()

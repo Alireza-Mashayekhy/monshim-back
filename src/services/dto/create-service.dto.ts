@@ -1,4 +1,5 @@
 import {
+  Allow,
   IsBoolean,
   IsNotEmpty,
   IsNumber,
@@ -29,7 +30,6 @@ export class CreateServiceDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @IsOptional()
-  @IsNumber()
+  @Allow()
   barberId?: number;
 }

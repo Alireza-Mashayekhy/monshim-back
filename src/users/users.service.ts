@@ -24,7 +24,12 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto) {
-    const user = this.usersRepository.create(createUserDto);
+    const { code: _code, ...safeData } = createUserDto;
+    const user = this.usersRepository.create({
+      ...safeData,
+      roles: [Role.User],
+      isActive: true,
+    });
 
     return await this.usersRepository.save(user);
   }
@@ -52,7 +57,7 @@ export class UsersService {
     applySearch(qb, query.search, ['user.fullName', 'user.phone']);
 
     // sort
-    applySort(qb, query.sort);
+    applySort(qb, query.sort, ['user.id', 'user.fullName', 'user.createdAt']);
 
     // pagination
     const { skip, take } = getPagination(page, limit);
@@ -76,6 +81,15 @@ export class UsersService {
       where: { id },
     });
     return payload;
+  }
+
+  async findOneForViewer(id: number, viewer: { id: number; roles?: string[] }) {
+    if (viewer.id !== id && !viewer.roles?.includes(Role.Admin)) {
+      throw new ForbiddenException('access denied');
+    }
+    const user = await this.findOne(id);
+    if (!user) throw new NotFoundException();
+    return user;
   }
 
   async update(id: number, updateUserDto: UpdateUserDto, user: any) {

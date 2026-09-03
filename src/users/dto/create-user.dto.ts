@@ -1,39 +1,39 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsDateString,
+  IsEmail,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IRAN_PHONE_REGEX } from 'src/common/constants/constants';
 
 export class CreateUserDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(120)
   fullName: string;
 
   @ApiProperty()
   @IsString()
-  @MaxLength(11)
-  @MinLength(11)
+  @Matches(IRAN_PHONE_REGEX, { message: 'شماره موبایل معتبر نیست' })
   phone: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
-  email: string;
+  @IsEmail()
+  email?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
   @IsString()
-  @IsOptional()
-  @MaxLength(5)
-  @MinLength(5)
+  @MaxLength(4)
+  @MinLength(4)
   code: string;
 
-  @ApiProperty()
-  @IsOptional()
-  @IsDateString()
+  @ApiPropertyOptional()
+  @IsOptional({ message: 'optional' })
   @Type(() => Date)
-  birthDate: Date;
+  birthDate?: Date;
 }

@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enum/role.enum';
@@ -43,7 +44,7 @@ export class LocationsController {
 
   // مسیر پاک کردن کش (فقط ادمین)
   @Delete('cache')
-  @UseGuards(RolesGuard)
+  @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.Admin)
   async clearCache() {
     await this.locationsService.clearAllCache();

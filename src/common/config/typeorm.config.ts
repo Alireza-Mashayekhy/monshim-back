@@ -14,7 +14,7 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
       password: this.configService.get('DATABASE_PASSWORD'),
       database: this.configService.get('DATABASE_NAME'),
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: this.configService.get('NODE_ENV') !== 'production',
 
       retryAttempts: 20,
       retryDelay: 3000,

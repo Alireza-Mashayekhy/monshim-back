@@ -1,11 +1,29 @@
+import { Type } from 'class-transformer';
+import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 export class QueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
   page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
   limit?: number = 10;
 
+  @IsOptional()
+  @IsString()
   search?: string;
 
-  sort?: string; // مثلا: "createdAt:DESC"
+  @IsOptional()
+  @IsString()
+  sort?: string;
 
-  // ساده‌ترین حالت filter
-  [key: string]: any;
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  cityId?: number;
 }

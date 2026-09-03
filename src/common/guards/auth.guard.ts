@@ -6,10 +6,16 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { UsersService } from 'src/users/users.service';
+
+import { jwtConstants } from '../constants/constants';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -21,12 +27,34 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync(token);
+      const secret = process.env.JWT_ACCESS_SECRET || jwtConstants.secret;
+      const payload = await this.jwtService.verifyAsync(token, { secret });
+      const userId = Number(payload.id ?? payload.sub);
 
-      request['user'] = payload;
+      if (!Number.isInteger(userId)) {
+        throw new UnauthorizedException('Invalid token');
+      }
+
+      const user = await this.usersService.findOne(userId);
+
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('Invalid token');
+      }
+
+      request['user'] = {
+        id: user.id,
+        fullName: user.fullName,
+        phone: user.phone,
+        email: user.email,
+        roles: user.roles,
+        isActive: user.isActive,
+      };
 
       return true;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid token');
     }
   }

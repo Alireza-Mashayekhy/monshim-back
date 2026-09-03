@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { BarberModule } from 'src/barber/barber.module';
-import { jwtConstants } from 'src/common/constants/constants';
 import { FilesModule } from 'src/files/files.module';
 import { OtpModule } from 'src/otp/otp.module';
 import { ReferralModule } from 'src/referral/referral.module';
@@ -19,10 +19,13 @@ import { AuthService } from './auth.service';
     ServicesModule,
     FilesModule,
     ReferralModule,
-    JwtModule.register({
+    JwtModule.registerAsync({
       global: true,
-      secret: jwtConstants.secret,
-      signOptions: { expiresIn: `30d` },
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_ACCESS_SECRET'),
+        signOptions: { expiresIn: '6h' },
+      }),
     }),
   ],
   controllers: [AuthController],

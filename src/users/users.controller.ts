@@ -13,6 +13,7 @@ import {
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { QueryDto } from 'src/common/query';
 
 import { CreateUserDto } from './dto/create-user.dto';
@@ -20,7 +21,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -36,9 +37,14 @@ export class UsersController {
     return this.usersService.findAll(query);
   }
 
+  @Get('me')
+  me(@Req() req) {
+    return this.usersService.findOne(req.user.id);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+  findOne(@Param('id') id: string, @Req() req) {
+    return this.usersService.findOneForViewer(+id, req.user);
   }
 
   @Patch('me')

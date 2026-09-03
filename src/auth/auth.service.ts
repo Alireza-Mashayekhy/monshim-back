@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Response } from 'express';
 import { BarberService } from 'src/barber/barber.service';
+import { jwtConstants } from 'src/common/constants/constants';
 import { Role } from 'src/common/enum/role.enum';
 import { OtpService } from 'src/otp/otp.service';
 import { ReferralService } from 'src/referral/referral.service';
@@ -24,6 +25,14 @@ export class AuthService {
     private servicesService: ServicesService,
     private referralService: ReferralService,
   ) {}
+
+  async getProfile(userId: number) {
+    const user = await this.usersService.findOne(userId);
+    if (!user) {
+      throw new BadRequestException('user not found');
+    }
+    return user;
+  }
 
   async sendCode(sendOtpDto: SendOtpDto) {
     const user = await this.usersService.findWithPhone(sendOtpDto.phone);
@@ -53,8 +62,12 @@ export class AuthService {
           fullName: `کاربر ${sendVerifyOtp.phone}`,
           isActive: true,
         },
-        [Role.User, Role.Barber],
+        [Role.User],
       );
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException('حساب کاربری غیرفعال است');
     }
 
     const accessToken = await this.generateAccessToken(user);
@@ -149,9 +162,7 @@ export class AuthService {
       throw new BadRequestException('user exist');
     }
 
-    const newUser = await this.usersService.create({
-      ...createUserDto,
-    });
+    const newUser = await this.usersService.create(createUserDto);
 
     const accessToken = await this.generateAccessToken(newUser);
 
@@ -167,13 +178,17 @@ export class AuthService {
   }
 
   async refresh(refreshToken: string, response: Response) {
+    if (!refreshToken) {
+      throw new BadRequestException('refresh token not found');
+    }
+
     const payload = await this.jwtService.verifyAsync(refreshToken, {
-      secret: process.env.JWT_REFRESH_SECRET,
+      secret: process.env.JWT_REFRESH_SECRET || jwtConstants.refreshSecret,
     });
 
     const user = await this.usersService.findOne(payload.sub);
 
-    if (!user) {
+    if (!user || !user.isActive) {
       throw new BadRequestException('user not found');
     }
 
@@ -195,32 +210,36 @@ export class AuthService {
   }
 
   logout(response: Response) {
-    response.clearCookie('access_token');
-
-    response.clearCookie('refresh_token');
+    response.clearCookie('access_token', { path: '/' });
+    response.clearCookie('refresh_token', { path: '/' });
 
     return {
       message: 'logout success',
     };
   }
 
-  private readonly accessCookieOptions = {
-    httpOnly: true,
-    // secure: process.env.NODE_ENV === 'production',
-    secure: false,
-    sameSite: 'lax' as const,
-    maxAge: 15 * 60 * 1000,
-    path: '/',
-  };
+  private get cookieBase() {
+    return {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/',
+    };
+  }
 
-  private readonly refreshCookieOptions = {
-    httpOnly: true,
-    // secure: process.env.NODE_ENV === 'production',
-    secure: false,
-    sameSite: 'lax' as const,
-    maxAge: 30 * 24 * 60 * 60 * 1000,
-    path: '/',
-  };
+  private get accessCookieOptions() {
+    return {
+      ...this.cookieBase,
+      maxAge: 6 * 60 * 60 * 1000,
+    };
+  }
+
+  private get refreshCookieOptions() {
+    return {
+      ...this.cookieBase,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    };
+  }
 
   private normalizeRoles(roles: unknown): Role[] {
     const list: string[] = Array.isArray(roles)
@@ -249,7 +268,7 @@ export class AuthService {
         isActive: user.isActive,
       },
       {
-        secret: process.env.JWT_ACCESS_SECRET,
+        secret: process.env.JWT_ACCESS_SECRET || jwtConstants.secret,
         expiresIn: '6h',
       },
     );
@@ -261,7 +280,7 @@ export class AuthService {
         sub: user.id,
       },
       {
-        secret: process.env.JWT_REFRESH_SECRET,
+        secret: process.env.JWT_REFRESH_SECRET || jwtConstants.refreshSecret,
         expiresIn: '30d',
       },
     );

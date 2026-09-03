@@ -15,7 +15,12 @@ export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 1024 * 1024 },
+    }),
+  )
   uploadFile(
     @UploadedFile(new FileSizeValidationPipe()) file: Express.Multer.File,
   ) {
