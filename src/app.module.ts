@@ -22,6 +22,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { TicketModule } from './ticket/ticket.module';
 import { UsersModule } from './users/users.module';
 import { WalletModule } from './wallet/wallet.module';
+import { ClubModule } from './club/club.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { WalletModule } from './wallet/wallet.module';
     SettingsModule,
     SubscriptionModule,
     TicketModule,
+    ClubModule,
   ],
   controllers: [AppController],
   providers: [

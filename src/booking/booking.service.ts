@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
+import { ClubService } from 'src/club/club.service';
+import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { getPagination } from 'src/common/query';
 import { ReferralService } from 'src/referral/referral.service';
 import { Service } from 'src/services/entities/service.entity';
@@ -33,6 +35,7 @@ export class BookingsService {
     private workHoursRepo: Repository<BarberWorkHours>,
 
     private referralService: ReferralService,
+    private clubService: ClubService,
   ) {}
 
   // =========================================================
@@ -399,12 +402,63 @@ export class BookingsService {
     booking.status = newStatus;
 
     // اگر رزرو تکمیل شد، سیستم معرف را بررسی کن
+    if (newStatus === BookingStatus.CONFIRMED) {
+      await this.clubService.addFromSuccessfulBooking({
+        barberId: booking.barberId,
+        customerId: booking.customerId,
+      });
+    }
+
     if (newStatus === BookingStatus.COMPLETED) {
       // booking.customerId = شناسه کاربری که رزرو کرده (مشتری)
       await this.referralService.onBookingCompleted(booking.customerId);
+      await this.clubService.addFromSuccessfulBooking({
+        barberId: booking.barberId,
+        customerId: booking.customerId,
+      });
     }
 
     return this.bookingRepo.save(booking);
+  }
+
+  // =========================================================
+  // MANUAL BOOKING BY BARBER FOR CLUB CUSTOMER
+  // =========================================================
+
+  async createManualByBarber(
+    barberUserId: number,
+    dto: CreateManualBookingDto,
+  ) {
+    const barber = await this.barberProfileRepo.findOne({
+      where: { userId: barberUserId },
+    });
+
+    if (!barber) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    const member = await this.clubService.findMemberForBarber(
+      barber.id,
+      dto.clubCustomerId,
+    );
+
+    const booking = await this.create(member.customerId, {
+      barberId: barber.userId,
+      serviceId: dto.serviceId,
+      date: dto.date,
+      time: dto.time,
+      note: dto.note,
+    });
+
+    booking.status = BookingStatus.CONFIRMED;
+    const saved = await this.bookingRepo.save(booking);
+
+    await this.clubService.addFromSuccessfulBooking({
+      barberId: barber.id,
+      customerId: member.customerId,
+    });
+
+    return saved;
   }
 
   // =========================================================

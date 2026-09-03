@@ -16,6 +16,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Request, Response } from 'express';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
+import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
@@ -40,6 +41,16 @@ export class BookingsController {
   create(@Req() req: Request & { user: any }, @Body() dto: CreateBookingDto) {
     const user = req.user;
     return this.bookingsService.create(user.id, dto);
+  }
+
+  // ثبت دستی نوبت توسط آرایشگر برای مشتری باشگاه
+  @Post('manual')
+  @Roles(Role.Barber, Role.Admin)
+  createManual(
+    @Req() req: Request & { user: any },
+    @Body() dto: CreateManualBookingDto,
+  ) {
+    return this.bookingsService.createManualByBarber(req.user.id, dto);
   }
 
   // دریافت لیست رزروهای مشتری جاری

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
+import { ClubModule } from 'src/club/club.module';
 import { ReferralModule } from 'src/referral/referral.module';
 import { Service } from 'src/services/entities/service.entity';
 import { User } from 'src/users/entities/user.entity';
@@ -20,6 +21,7 @@ import { Booking } from './entities/booking.entity';
       BarberWorkHours,
     ]),
     ReferralModule,
+    ClubModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],
