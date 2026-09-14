@@ -65,6 +65,9 @@ dependencies:
   eslint-plugin-unused-imports:
     specifier: ^4.4.1
     version: 4.4.1(eslint@9.39.5)
+  multer:
+    specifier: ^2.4.0
+    version: 2.4.0
   mysql2:
     specifier: ^3.22.3
     version: 3.24.4(@types/node@24.13.4)
@@ -119,7 +122,7 @@ devDependencies:
     specifier: ^30.0.0
     version: 30.0.0
   '@types/multer':
-    specifier: ^2.1.0
+    specifier: ^2.2.0
     version: 2.2.0
   '@types/node':
     specifier: ^24.12.4
@@ -5277,6 +5280,15 @@ packages:
       busboy: 1.6.0
       concat-stream: 2.0.0
       type-is: 1.6.18
+
+  /multer@2.4.0:
+    resolution: {integrity: sha512-7dqa0ZcFfzbefdTuIkzOSMvZWC0J7FLqBOjJUZvDCXShIURWKxAyTT1wHhnE5q19c7jOJf43IYYKjBmZVZmvhg==}
+    engines: {node: '>= 10.16.0'}
+    dependencies:
+      append-field: 1.0.0
+      busboy: 1.6.0
+      type-is: 1.6.18
+    dev: false
 
   /mute-stream@2.0.0:
     resolution: {integrity: sha512-WWdIxpyjEn+FhQJQQv9aQAYlHoNVdzIzUySNV1gHUPDSdZJ3yZn7pAAbQcV7B56Mvu881q9FZV+0Vx2xC44VWA==}
