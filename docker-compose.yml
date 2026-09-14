@@ -3,7 +3,7 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     volumes:
-      - monshim_mysql_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
@@ -41,5 +41,5 @@ services:
         condition: service_healthy
 
 volumes:
-  monshim_mysql_data:
-  monshim_redis_data:
+  mysql_data:
+  redis_data:
