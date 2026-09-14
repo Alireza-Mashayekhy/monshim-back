@@ -1,4 +1,5 @@
 services:
+
   mysql:
     container_name: monshim_mysql_prod
     ports:
@@ -8,10 +9,12 @@ services:
       MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
       MYSQL_DATABASE: ${DATABASE_NAME}
 
+
   redis:
     container_name: monshim_redis_prod
     ports:
       - "6381:6379"
+
 
   backend:
     container_name: monshim_backend_prod
