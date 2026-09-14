@@ -1,14 +1,8 @@
 services:
-  mysql:
-    container_name: monshim_mysql_dev
-    ports:
-      - "3307:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: nest_db
-
   redis:
+    image: redis:7
     container_name: monshim_redis_dev
+    restart: unless-stopped
     ports:
       - "6381:6379"
 
@@ -20,14 +14,14 @@ services:
       dockerfile: Dockerfile.dev
 
     ports:
-      - "3000:3000"
+      - "4000:3000"
 
     environment:
-      DATABASE_HOST: mysql
+      DATABASE_HOST: host.docker.internal
       DATABASE_PORT: 3306
       DATABASE_USERNAME: root
-      DATABASE_PASSWORD: root
-      DATABASE_NAME: nest_db
+      DATABASE_PASSWORD: "1379445566"
+      DATABASE_NAME: monshim
 
       REDIS_HOST: redis
       REDIS_PORT: 6379
