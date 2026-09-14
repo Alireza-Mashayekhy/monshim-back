@@ -20,6 +20,7 @@ import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Repository } from 'typeorm';
 
 import { BookingsService } from './booking.service';
@@ -28,7 +29,7 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 
 @Controller('bookings')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 export class BookingsController {
   constructor(
     private readonly bookingsService: BookingsService,

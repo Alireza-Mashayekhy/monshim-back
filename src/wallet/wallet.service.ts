@@ -45,7 +45,7 @@ export class WalletService {
         { userId, balance: 0 },
         { conflictPaths: ['userId'] },
       );
-    } catch (error) {
+    } catch {
       // در صورت بروز خطا (مثلاً به دلیل رقابت)، فقط نادیده بگیر و دوباره بخوان
       // چون ممکن است رکورد توسط درخواست دیگر ایجاد شده باشد
     }

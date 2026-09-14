@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Role } from '../enum/role.enum';
+import { hasRole } from '../utils/roles.util';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -19,13 +20,6 @@ export class RolesGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest();
     if (!user) return false;
 
-    const rawRoles = user.roles;
-    const roles: string[] = Array.isArray(rawRoles)
-      ? rawRoles.map((role: string) => String(role).trim())
-      : typeof rawRoles === 'string'
-        ? rawRoles.split(',').map(role => role.trim())
-        : [];
-
-    return requiredRoles.some(role => roles.includes(role));
+    return requiredRoles.some(role => hasRole(user.roles, role));
   }
 }

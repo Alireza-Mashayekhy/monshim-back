@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
@@ -21,7 +21,10 @@ export class ServicesService {
   ) {}
 
   // ایجاد سرویس جدید
-  async create(createServiceDto: CreateServiceDto): Promise<Service> {
+  async create(
+    createServiceDto: CreateServiceDto,
+    manager?: EntityManager,
+  ): Promise<Service> {
     if (
       createServiceDto.depositPrice != null &&
       Number(createServiceDto.depositPrice) > Number(createServiceDto.price)
@@ -31,10 +34,15 @@ export class ServicesService {
       );
     }
 
-    const service = this.serviceRepository.create(createServiceDto);
+    const repository = manager
+      ? manager.getRepository(Service)
+      : this.serviceRepository;
 
-    return this.serviceRepository.save(service);
+    const service = repository.create(createServiceDto);
+
+    return repository.save(service);
   }
+
   // دریافت تمام سرویس‌های یک آرایشگر خاص
   async findByBarberId(barberId: number): Promise<Service[]> {
     return this.serviceRepository.find({

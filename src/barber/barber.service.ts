@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
 import { User } from 'src/users/entities/user.entity';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, EntityManager, Repository } from 'typeorm';
 
 import { ReviewBarberDto } from './dto/review-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
@@ -24,33 +24,45 @@ export class BarberService {
   ) {}
 
   // src/barber/barber.service.ts
-  async create(data: {
-    userId: number;
-    salonName: string;
-    provinceId: number;
-    cityId: number;
-    address: string;
-    profileImage?: string;
-    portfolioImages?: string[];
-    isApproved?: boolean;
-    workStartTime?: string | null; // اضافه کردن null
-    workEndTime?: string | null; // اضافه کردن null
-    bio?: string;
-    referredBy?: number;
-  }) {
-    // تولید کد معرف یکتا
-    const referralCode = await this.generateUniqueReferralCode();
+  async create(
+    data: {
+      userId: number;
+      salonName: string;
+      provinceId: number;
+      cityId: number;
+      address: string;
+      profileImage?: string;
+      portfolioImages?: string[];
+      isApproved?: boolean;
+      workStartTime?: string | null; // اضافه کردن null
+      workEndTime?: string | null; // اضافه کردن null
+      bio?: string;
+      referredBy?: number;
+    },
+    manager?: EntityManager,
+  ) {
+    const repository = manager
+      ? manager.getRepository(BarberProfile)
+      : this.profileRepository;
 
-    const profile = this.profileRepository.create({
+    // تولید کد معرف یکتا
+    const referralCode = await this.generateUniqueReferralCode(manager);
+
+    const profile = repository.create({
       ...data,
       referralCode,
       referredBy: data.referredBy || null,
     });
-    return this.profileRepository.save(profile);
+    return repository.save(profile);
   }
 
   // تولید کد معرف یکتا (۸ کاراکتر)
-  private async generateUniqueReferralCode(): Promise<string> {
+  private async generateUniqueReferralCode(
+    manager?: EntityManager,
+  ): Promise<string> {
+    const repository = manager
+      ? manager.getRepository(BarberProfile)
+      : this.profileRepository;
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code: string;
     let isUnique = false;
@@ -61,7 +73,7 @@ export class BarberService {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
       }
       // بررسی یکتا بودن کد
-      const existing = await this.profileRepository.findOne({
+      const existing = await repository.findOne({
         where: { referralCode: code },
       });
       if (!existing) {

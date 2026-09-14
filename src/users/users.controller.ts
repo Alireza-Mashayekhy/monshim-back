@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -43,8 +44,8 @@ export class UsersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Req() req) {
-    return this.usersService.findOneForViewer(+id, req.user);
+  findOne(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    return this.usersService.findOneForViewer(id, req.user);
   }
 
   @Patch('me')
@@ -53,13 +54,17 @@ export class UsersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: number, @Body() dto: UpdateUserDto, @Req() req) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto,
+    @Req() req,
+  ) {
     return this.usersService.update(id, dto, req.user);
   }
 
   @Roles(Role.Admin)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.remove(id);
   }
 }

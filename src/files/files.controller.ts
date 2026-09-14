@@ -2,15 +2,19 @@ import {
   Controller,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { IMAGE_MAX_SIZE_BYTES } from 'src/common/constants/constants';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 import { FilesService } from './files.service';
 import { FileSizeValidationPipe } from './validation/fileSize.validator';
 
 @Controller('files')
+@UseGuards(AuthGuard)
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
@@ -18,7 +22,7 @@ export class FilesController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 1024 * 1024 },
+      limits: { fileSize: IMAGE_MAX_SIZE_BYTES },
     }),
   )
   uploadFile(

@@ -8,7 +8,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { UsersService } from 'src/users/users.service';
 
-import { jwtConstants } from '../constants/constants';
+import { getAccessTokenSecret } from '../config/jwt.config';
+import { extractAccessToken } from '../utils/auth-cookie.util';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -20,56 +21,47 @@ export class AuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
 
-    const token = this.extractToken(request);
+    const token = extractAccessToken(request);
 
     if (!token) {
-      throw new UnauthorizedException('Access token not found');
+      throw new UnauthorizedException('توکن دسترسی ارسال نشده است');
     }
 
+    let userId: number;
     try {
-      const secret = process.env.JWT_ACCESS_SECRET || jwtConstants.secret;
-      const payload = await this.jwtService.verifyAsync(token, { secret });
-      const userId = Number(payload.id ?? payload.sub);
-
-      if (!Number.isInteger(userId)) {
-        throw new UnauthorizedException('Invalid token');
-      }
-
-      const user = await this.usersService.findOne(userId);
-
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('Invalid token');
-      }
-
-      request['user'] = {
-        id: user.id,
-        fullName: user.fullName,
-        phone: user.phone,
-        email: user.email,
-        roles: user.roles,
-        isActive: user.isActive,
-      };
-
-      return true;
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      throw new UnauthorizedException('Invalid token');
-    }
-  }
-
-  private extractToken(request: Request): string | undefined {
-    const cookieToken = request.cookies?.access_token;
-    if (cookieToken) {
-      return cookieToken;
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: getAccessTokenSecret(),
+      });
+      userId = Number(payload.id ?? payload.sub);
+    } catch {
+      throw new UnauthorizedException('توکن دسترسی نامعتبر یا منقضی شده است');
     }
 
-    const header = request.headers.authorization;
-    if (header?.startsWith('Bearer ')) {
-      return header.slice(7);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      throw new UnauthorizedException('توکن دسترسی نامعتبر است');
     }
 
-    return undefined;
+    const user = await this.usersService.findOne(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('کاربر یافت نشد');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException(
+        'حساب کاربری شما غیرفعال است. با پشتیبانی تماس بگیرید',
+      );
+    }
+
+    request['user'] = {
+      id: user.id,
+      fullName: user.fullName,
+      phone: user.phone,
+      email: user.email,
+      roles: user.roles,
+      isActive: user.isActive,
+    };
+
+    return true;
   }
 }

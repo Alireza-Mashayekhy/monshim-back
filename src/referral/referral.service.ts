@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { WalletService } from 'src/wallet/wallet.service';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 
 import { Referral, ReferralStatus } from './entities/referral.entity';
 
@@ -30,14 +30,22 @@ export class ReferralService {
   async createReferral(
     referrerUserId: number,
     referredUserId: number,
+    manager?: EntityManager,
   ): Promise<Referral | null> {
+    const barberProfileRepo = manager
+      ? manager.getRepository(BarberProfile)
+      : this.barberProfileRepo;
+    const referralRepo = manager
+      ? manager.getRepository(Referral)
+      : this.referralRepo;
+
     // پیدا کردن پروفایل دعوت‌کننده
-    const referrerProfile = await this.barberProfileRepo.findOne({
+    const referrerProfile = await barberProfileRepo.findOne({
       where: { userId: referrerUserId },
     });
 
     // پیدا کردن پروفایل دعوت‌شده
-    const referredProfile = await this.barberProfileRepo.findOne({
+    const referredProfile = await barberProfileRepo.findOne({
       where: { userId: referredUserId },
     });
 
@@ -49,7 +57,7 @@ export class ReferralService {
     }
 
     // بررسی تکراری نبودن
-    const existing = await this.referralRepo.findOne({
+    const existing = await referralRepo.findOne({
       where: {
         referrerProfileId: referrerProfile.id,
         referredProfileId: referredProfile.id,
@@ -60,7 +68,7 @@ export class ReferralService {
       return existing;
     }
 
-    const referral = this.referralRepo.create({
+    const referral = referralRepo.create({
       referrerUserId,
       referredUserId,
       referrerProfileId: referrerProfile.id,
@@ -69,7 +77,7 @@ export class ReferralService {
       completedBookingsCount: 0,
     });
 
-    return this.referralRepo.save(referral);
+    return referralRepo.save(referral);
   }
 
   /**

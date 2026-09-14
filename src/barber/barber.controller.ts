@@ -16,6 +16,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
+import { memoryStorage } from 'multer';
+import { IMAGE_MAX_SIZE_BYTES } from 'src/common/constants/constants';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { QueryDto } from 'src/common/query';
 import { FilesService } from 'src/files/files.service';
@@ -62,7 +64,12 @@ export class BarberController {
   }
 
   @Post('profile/image')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: memoryStorage(),
+      limits: { fileSize: IMAGE_MAX_SIZE_BYTES },
+    }),
+  )
   async uploadProfileImage(
     @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
@@ -73,7 +80,7 @@ export class BarberController {
     }
 
     // ذخیره فایل در پوشه profiles
-    const imagePath = this.filesService.saveFile(file, 'profiles');
+    const imagePath = await this.filesService.saveFile(file, 'profiles');
 
     // به‌روزرسانی پروفایل کاربر
     await this.barberService.update(user.id, { profileImage: imagePath });

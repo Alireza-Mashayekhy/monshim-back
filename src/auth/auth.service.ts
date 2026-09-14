@@ -1,35 +1,63 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Response } from 'express';
 import { BarberService } from 'src/barber/barber.service';
-import { jwtConstants } from 'src/common/constants/constants';
+import {
+  ACCESS_TOKEN_EXPIRES_IN,
+  getAccessTokenSecret,
+  getRefreshTokenSecret,
+  REFRESH_TOKEN_EXPIRES_IN,
+} from 'src/common/config/jwt.config';
 import { Role } from 'src/common/enum/role.enum';
+import {
+  clearAuthCookies,
+  setAuthCookies,
+} from 'src/common/utils/auth-cookie.util';
+import { isDuplicateEntryError } from 'src/common/utils/db-error.util';
+import { normalizeRoles } from 'src/common/utils/roles.util';
 import { OtpService } from 'src/otp/otp.service';
 import { ReferralService } from 'src/referral/referral.service';
 import { ServicesService } from 'src/services/services.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { User } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
+import { DataSource } from 'typeorm';
 
 import { RegisterBarberDto } from './dto/register-barber.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { SendVerifyOtp } from './dto/verify-otp.dto';
 
+const INVALID_REFRESH_TOKEN_MESSAGE = 'توکن تازه‌سازی نامعتبر است';
+const EXPIRED_SESSION_MESSAGE =
+  'نشست شما منقضی شده است. لطفاً دوباره وارد شوید';
+const PHONE_ALREADY_REGISTERED_MESSAGE = 'این شماره تلفن قبلاً ثبت شده است';
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
-    private jwtService: JwtService,
+    private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly otpService: OtpService,
-    private barberProfileService: BarberService,
-    private servicesService: ServicesService,
-    private referralService: ReferralService,
+    private readonly barberProfileService: BarberService,
+    private readonly servicesService: ServicesService,
+    private readonly referralService: ReferralService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async getProfile(userId: number) {
     const user = await this.usersService.findOne(userId);
     if (!user) {
-      throw new BadRequestException('user not found');
+      throw new NotFoundException('کاربر یافت نشد');
     }
     return user;
   }
@@ -50,102 +78,140 @@ export class AuthService {
     };
   }
 
-  async login(sendVerifyOtp: SendVerifyOtp, response: Response) {
-    await this.otpService.verifyOtp(sendVerifyOtp.phone, sendVerifyOtp.code);
+  async verifyCode(sendVerifyOtp: SendVerifyOtp) {
+    await this.otpService.verifyOtp(
+      sendVerifyOtp.phone,
+      sendVerifyOtp.code,
+      false,
+    );
 
-    let user = await this.usersService.findWithPhone(sendVerifyOtp.phone);
+    const user = await this.usersService.findWithPhone(sendVerifyOtp.phone);
 
-    if (!user) {
-      user = await this.usersService.createWithRoles(
-        {
-          phone: sendVerifyOtp.phone,
-          fullName: `کاربر ${sendVerifyOtp.phone}`,
-          isActive: true,
-        },
-        [Role.User],
+    if (user && !user.isActive) {
+      throw new ForbiddenException(
+        'حساب کاربری شما غیرفعال است. با پشتیبانی تماس بگیرید',
       );
     }
 
-    if (!user.isActive) {
-      throw new BadRequestException('حساب کاربری غیرفعال است');
+    return {
+      message: 'کد تأیید معتبر است',
+      data: { valid: true, newUser: !user },
+    };
+  }
+
+  async login(sendVerifyOtp: SendVerifyOtp, response: Response) {
+    await this.otpService.verifyOtp(sendVerifyOtp.phone, sendVerifyOtp.code);
+
+    const user = await this.usersService.findWithPhone(sendVerifyOtp.phone);
+
+    if (!user) {
+      return {
+        message:
+          'این شماره هنوز ثبت‌نام نشده است. لطفاً برای تکمیل ثبت‌نام نام و تاریخ تولد را وارد کنید',
+        data: { newUser: true, phone: sendVerifyOtp.phone },
+      };
     }
 
-    const accessToken = await this.generateAccessToken(user);
-    const refreshToken = await this.generateRefreshToken(user);
-    response.cookie('access_token', accessToken, this.accessCookieOptions);
-    response.cookie('refresh_token', refreshToken, this.refreshCookieOptions);
+    if (!user.isActive) {
+      throw new ForbiddenException(
+        'حساب کاربری شما غیرفعال است. با پشتیبانی تماس بگیرید',
+      );
+    }
 
-    return { message: 'ورود با موفقیت انجام شد' };
+    await this.issueTokens(user, response);
+
+    return { message: 'ورود با موفقیت انجام شد', data: { newUser: false } };
   }
 
   async registerBarber(dto: RegisterBarberDto, response: Response) {
-    // 1. تأیید کد
-    await this.otpService.verifyOtp(dto.phone, dto.code);
-
-    // 2. بررسی تکراری نبودن شماره
     const existingUser = await this.usersService.findWithPhone(dto.phone);
     if (existingUser) {
-      throw new BadRequestException('این شماره تلفن قبلاً ثبت شده است');
+      throw new ConflictException(PHONE_ALREADY_REGISTERED_MESSAGE);
     }
-    // 4. ایجاد کاربر
-    const user = await this.usersService.createWithRoles(
-      {
-        fullName: dto.fullName,
-        phone: dto.phone,
-        isActive: true,
-        birthDate: dto.birthDate,
-      },
-      [Role.User, Role.Barber],
-    );
-
-    // 5. بررسی کد معرف (در صورت وجود)
-    let referredByUserId: number | undefined;
-    if (dto.referralCode) {
+    let referredByUserId: number | null = null;
+    if (dto.referralCode?.trim()) {
       const referrerProfile =
-        await this.barberProfileService.findByReferralCode(dto.referralCode);
-      if (referrerProfile) {
-        referredByUserId = referrerProfile.userId;
+        await this.barberProfileService.findByReferralCode(
+          dto.referralCode.trim().toUpperCase(),
+        );
+
+      if (!referrerProfile) {
+        throw new BadRequestException('کد معرف وارد شده معتبر نیست');
       }
+
+      referredByUserId = referrerProfile.userId;
     }
 
-    // 6. ایجاد پروفایل آرایشگر (فقط فیلدهای ضروری)
-    await this.barberProfileService.create({
-      userId: user.id,
-      salonName: dto.salonName,
-      provinceId: dto.provinceId,
-      cityId: dto.cityId,
-      address: dto.address,
-      profileImage: dto.profileImage,
-      portfolioImages: dto.portfolioImages || [],
-      isApproved: false,
-      bio: '', // اختیاری
-      referredBy: referredByUserId,
-      // workStartTime و workEndTime را حذف می‌کنیم تا از NULL استفاده شود
-    });
+    // ۳. تأیید کد یکبارمصرف
+    await this.otpService.verifyOtp(dto.phone, dto.code);
 
-    // 6. ایجاد خدمات
-    if (dto.services && dto.services.length > 0) {
-      for (const svc of dto.services) {
-        await this.servicesService.create({
-          name: svc.name,
-          price: svc.price,
-          durationMinutes: svc.durationMinutes,
-          barberId: user.id,
-          isActive: true,
-        });
+    // ۴. ایجاد کاربر، پروفایل، خدمات و رکورد دعوت به صورت تراکنشی
+    let user: User;
+    try {
+      user = await this.dataSource.transaction(async manager => {
+        const createdUser = await this.usersService.createWithRoles(
+          {
+            fullName: dto.fullName,
+            phone: dto.phone,
+            isActive: true,
+            birthDate: dto.birthDate,
+          },
+          [Role.User, Role.Barber],
+          manager,
+        );
+
+        await this.barberProfileService.create(
+          {
+            userId: createdUser.id,
+            salonName: dto.salonName,
+            provinceId: dto.provinceId,
+            cityId: dto.cityId,
+            address: dto.address,
+            profileImage: dto.profileImage,
+            portfolioImages: dto.portfolioImages || [],
+            isApproved: false,
+            bio: '',
+            referredBy: referredByUserId ?? undefined,
+          },
+          manager,
+        );
+
+        if (dto.services && dto.services.length > 0) {
+          for (const svc of dto.services) {
+            await this.servicesService.create(
+              {
+                name: svc.name,
+                price: svc.price,
+                durationMinutes: svc.durationMinutes,
+                barberId: createdUser.id,
+                isActive: true,
+              },
+              manager,
+            );
+          }
+        }
+
+        if (referredByUserId) {
+          await this.referralService.createReferral(
+            referredByUserId,
+            createdUser.id,
+            manager,
+          );
+        }
+
+        return createdUser;
+      });
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        throw new ConflictException(PHONE_ALREADY_REGISTERED_MESSAGE);
       }
+
+      this.logger.error(`registerBarber failed: ${String(error)}`);
+      throw error;
     }
 
-    // 7. ثبت رکورد دعوت (در صورت وجود کد معرف)
-    if (referredByUserId) {
-      await this.referralService.createReferral(referredByUserId, user.id);
-    }
-
-    // 8. صدور توکن
-    const accessToken = await this.generateAccessToken(user);
-    const refreshToken = await this.generateRefreshToken(user);
-    response.cookie('access_token', accessToken, this.accessCookieOptions);
-    response.cookie('refresh_token', refreshToken, this.refreshCookieOptions);
+    // ۵. صدور توکن
+    await this.issueTokens(user, response);
 
     return {
       message:
@@ -156,132 +222,121 @@ export class AuthService {
   async signUp(createUserDto: CreateUserDto, response: Response) {
     await this.otpService.verifyOtp(createUserDto.phone, createUserDto.code);
 
-    const user = await this.usersService.findWithPhone(createUserDto.phone);
-
-    if (user) {
-      throw new BadRequestException('user exist');
-    }
-
-    const newUser = await this.usersService.create(createUserDto);
-
-    const accessToken = await this.generateAccessToken(newUser);
-
-    const refreshToken = await this.generateRefreshToken(newUser);
-
-    response.cookie('access_token', accessToken, this.accessCookieOptions);
-
-    response.cookie('refresh_token', refreshToken, this.refreshCookieOptions);
-
-    return {
-      message: 'sign up successfully',
-    };
-  }
-
-  async refresh(refreshToken: string, response: Response) {
-    if (!refreshToken) {
-      throw new BadRequestException('refresh token not found');
-    }
-
-    const payload = await this.jwtService.verifyAsync(refreshToken, {
-      secret: process.env.JWT_REFRESH_SECRET || jwtConstants.refreshSecret,
-    });
-
-    const user = await this.usersService.findOne(payload.sub);
-
-    if (!user || !user.isActive) {
-      throw new BadRequestException('user not found');
-    }
-
-    const newAccessToken = await this.generateAccessToken(user);
-
-    const newRefreshToken = await this.generateRefreshToken(user);
-
-    response.cookie('access_token', newAccessToken, this.accessCookieOptions);
-
-    response.cookie(
-      'refresh_token',
-      newRefreshToken,
-      this.refreshCookieOptions,
+    const existingUser = await this.usersService.findWithPhone(
+      createUserDto.phone,
     );
 
-    return {
-      message: 'token refreshed',
-    };
+    if (existingUser) {
+      throw new ConflictException(PHONE_ALREADY_REGISTERED_MESSAGE);
+    }
+
+    await this.otpService.verifyOtp(createUserDto.phone, createUserDto.code);
+
+    let newUser: User;
+    try {
+      newUser = await this.usersService.create(createUserDto);
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        throw new ConflictException(PHONE_ALREADY_REGISTERED_MESSAGE);
+      }
+      throw error;
+    }
+
+    if (!newUser.isActive) {
+      throw new ForbiddenException(
+        'حساب کاربری شما غیرفعال است. با پشتیبانی تماس بگیرید',
+      );
+    }
+
+    await this.issueTokens(newUser, response);
+
+    return { message: 'ثبت‌نام با موفقیت انجام شد' };
+  }
+
+  async refresh(refreshToken: string | undefined, response: Response) {
+    if (!refreshToken) {
+      clearAuthCookies(response);
+      throw new UnauthorizedException('توکن تازه‌سازی ارسال نشده است');
+    }
+
+    let payload: { sub?: number | string };
+    try {
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: getRefreshTokenSecret(),
+      });
+    } catch (error) {
+      this.logger.debug(`refresh token rejected: ${String(error)}`);
+      clearAuthCookies(response);
+
+      const isExpired =
+        (error as { name?: string })?.name === 'TokenExpiredError';
+      throw new UnauthorizedException(
+        isExpired ? EXPIRED_SESSION_MESSAGE : INVALID_REFRESH_TOKEN_MESSAGE,
+      );
+    }
+
+    const userId = Number(payload?.sub);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      clearAuthCookies(response);
+      throw new UnauthorizedException(INVALID_REFRESH_TOKEN_MESSAGE);
+    }
+
+    const user = await this.usersService.findOne(userId);
+
+    if (!user) {
+      clearAuthCookies(response);
+      throw new UnauthorizedException('کاربر یافت نشد');
+    }
+
+    if (!user.isActive) {
+      clearAuthCookies(response);
+      throw new ForbiddenException(
+        'حساب کاربری شما غیرفعال است. با پشتیبانی تماس بگیرید',
+      );
+    }
+
+    await this.issueTokens(user, response);
+
+    return { message: 'نشست شما با موفقیت تازه‌سازی شد' };
   }
 
   logout(response: Response) {
-    response.clearCookie('access_token', { path: '/' });
-    response.clearCookie('refresh_token', { path: '/' });
+    clearAuthCookies(response);
 
-    return {
-      message: 'logout success',
-    };
+    return { message: 'خروج با موفقیت انجام شد' };
   }
 
-  private get cookieBase() {
-    return {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-    };
-  }
+  private async issueTokens(user: User, response: Response) {
+    const accessToken = await this.generateAccessToken(user);
+    const refreshToken = await this.generateRefreshToken(user);
 
-  private get accessCookieOptions() {
-    return {
-      ...this.cookieBase,
-      maxAge: 6 * 60 * 60 * 1000,
-    };
-  }
-
-  private get refreshCookieOptions() {
-    return {
-      ...this.cookieBase,
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    };
-  }
-
-  private normalizeRoles(roles: unknown): Role[] {
-    const list: string[] = Array.isArray(roles)
-      ? roles.map(role => String(role).trim())
-      : typeof roles === 'string'
-        ? roles.split(',').map(role => role.trim())
-        : [];
-
-    const valid = list.filter((role): role is Role =>
-      Object.values(Role).includes(role as Role),
-    );
-
-    return valid.length ? valid : [Role.User];
+    setAuthCookies(response, accessToken, refreshToken);
   }
 
   private async generateAccessToken(user: User) {
-    const roles = this.normalizeRoles(user.roles);
-
     return this.jwtService.signAsync(
       {
         id: user.id,
         fullName: user.fullName,
         phone: user.phone,
         email: user.email,
-        roles,
+        roles: normalizeRoles(user.roles),
         isActive: user.isActive,
       },
       {
-        secret: process.env.JWT_ACCESS_SECRET || jwtConstants.secret,
-        expiresIn: '6h',
+        secret: getAccessTokenSecret(),
+        expiresIn: ACCESS_TOKEN_EXPIRES_IN,
       },
     );
   }
 
-  private async generateRefreshToken(user: any) {
+  private async generateRefreshToken(user: User) {
     return this.jwtService.signAsync(
+      { sub: user.id },
       {
-        sub: user.id,
-      },
-      {
-        secret: process.env.JWT_REFRESH_SECRET || jwtConstants.refreshSecret,
-        expiresIn: '30d',
+        secret: getRefreshTokenSecret(),
+        expiresIn: REFRESH_TOKEN_EXPIRES_IN,
       },
     );
   }

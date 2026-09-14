@@ -11,7 +11,8 @@ import {
   getPagination,
   QueryDto,
 } from 'src/common/query';
-import { Repository } from 'typeorm';
+import { hasRole } from 'src/common/utils/roles.util';
+import { EntityManager, Repository } from 'typeorm';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -34,12 +35,20 @@ export class UsersService {
     return await this.usersRepository.save(user);
   }
 
-  async createWithRoles(data: Partial<User>, roles: Role[]): Promise<User> {
-    const user = this.usersRepository.create({
+  async createWithRoles(
+    data: Partial<User>,
+    roles: Role[],
+    manager?: EntityManager,
+  ): Promise<User> {
+    const repository = manager
+      ? manager.getRepository(User)
+      : this.usersRepository;
+
+    const user = repository.create({
       ...data,
       roles,
     });
-    return this.usersRepository.save(user);
+    return repository.save(user);
   }
 
   async findWithPhone(phone: string) {
@@ -84,7 +93,7 @@ export class UsersService {
   }
 
   async findOneForViewer(id: number, viewer: { id: number; roles?: string[] }) {
-    if (viewer.id !== id && !viewer.roles?.includes(Role.Admin)) {
+    if (viewer.id !== id && !hasRole(viewer.roles, Role.Admin)) {
       throw new ForbiddenException('access denied');
     }
     const user = await this.findOne(id);
@@ -93,7 +102,7 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto, user: any) {
-    if (user.id !== id && !user.roles.includes('admin')) {
+    if (user.id !== id && !hasRole(user.roles, Role.Admin)) {
       throw new ForbiddenException('access denied');
     }
 

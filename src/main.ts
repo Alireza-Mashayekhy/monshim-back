@@ -1,5 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
@@ -7,6 +7,7 @@ import { join } from 'path';
 
 import { AppModule } from './app.module';
 import { setupSwagger } from './common/config/swagger.config';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
@@ -28,6 +29,10 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new ResponseInterceptor());
+
+  // خطاهای غیر HTTP (multer، MySQL و ...) با کد وضعیت مناسب برگردانده شوند
+  const { httpAdapter } = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new AllExceptionsFilter(httpAdapter));
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads',
