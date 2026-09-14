@@ -1,0 +1,39 @@
+services:
+  mysql:
+    container_name: monshim_mysql_prod
+    ports:
+      - "3307:3306"
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+
+  redis:
+    container_name: monshim_redis_prod
+    ports:
+      - "6381:6379"
+
+  backend:
+    container_name: monshim_backend_prod
+
+    ports:
+      - "3000:3000"
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USERNAME: root
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      NODE_ENV: production
+      PORT: 3000
+
+    volumes:
+      - ./uploads:/backend/uploads

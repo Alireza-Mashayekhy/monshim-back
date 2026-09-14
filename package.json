@@ -1,10 +1,11 @@
 {
-  "name": "mehrzad",
+  "name": "monshim-back",
   "version": "0.0.1",
-  "description": "",
+  "description": "Monshim Backend",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "packageManager": "pnpm@8.15.4",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",

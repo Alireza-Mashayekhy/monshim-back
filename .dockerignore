@@ -4,6 +4,7 @@ npm-debug.log
 pnpm-debug.log
 yarn-debug.log
 yarn-error.log
+uploads
 
 # Build output
 dist
@@ -42,6 +43,8 @@ logs
 Dockerfile
 docker-compose.yml
 .dockerignore
+Dockerfile*
+docker-compose*.yml
 
 # Misc
 README.md

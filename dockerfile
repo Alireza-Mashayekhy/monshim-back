@@ -1,15 +1,22 @@
 FROM node:22-alpine
 
-WORKDIR /app
+WORKDIR /backend
 
-COPY package*.json ./
+RUN corepack disable
 
-RUN npm install
+RUN npm config set registry https://package-mirror.liara.ir/repository/npm/
+
+RUN npm install -g pnpm@8.15.4
+
+COPY package.json pnpm-lock.yaml ./
+
+RUN pnpm install --frozen-lockfile \
+    --registry https://package-mirror.liara.ir/repository/npm/
 
 COPY . .
 
-RUN npm run build
+RUN pnpm build
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+CMD ["pnpm", "start:prod"]
