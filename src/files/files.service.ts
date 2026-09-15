@@ -160,7 +160,7 @@ export class FilesService {
 
     if (file.size && file.size > IMAGE_MAX_SIZE_BYTES) {
       throw new BadRequestException(
-        `حجم فایل نباید بیشتر از ${IMAGE_MAX_SIZE_BYTES / (1024 * 1024)}MB باشد`,
+        `حجم فایل نباید بیشتر از ${IMAGE_MAX_SIZE_BYTES / (1024 * 1024 * 3)}MB باشد`,
       );
     }
 

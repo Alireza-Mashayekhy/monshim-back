@@ -34,6 +34,6 @@ export const OUTPUT_IMAGE_EXTENSION = '.webp';
 export const IMAGE_WEBP_QUALITY = 82; // کیفیت webp (۰ تا ۱۰۰)
 export const IMAGE_MAX_DIMENSION = 1600; // حداکثر عرض/ارتفاع خروجی (px)
 export const IMAGE_MAX_INPUT_PIXELS = 50_000_000; // محافظت از بمب‌های decompression
-export const IMAGE_MAX_SIZE_BYTES = 1024 * 1024; // ۱ مگابایت
+export const IMAGE_MAX_SIZE_BYTES = 1024 * 1024 * 3; // 3 مگابایت
 
 export const IRAN_PHONE_REGEX = /^09\d{9}$/;
