@@ -1,37 +1,18 @@
 services:
+
   redis:
-    image: redis:7
     container_name: monshim_redis_dev
+
+    image: redis:7-alpine
+
     restart: unless-stopped
+
     ports:
       - "6381:6379"
 
-  backend:
-    container_name: monshim_backend_dev
-
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-
-    ports:
-      - "4000:3000"
-
-    environment:
-      DATABASE_HOST: host.docker.internal
-      DATABASE_PORT: 3306
-      DATABASE_USERNAME: root
-      DATABASE_PASSWORD: "1379445566"
-      DATABASE_NAME: monshim
-
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-
-      NODE_ENV: development
-      PORT: 3000
-
-      CHOKIDAR_USEPOLLING: "true"
-      CHOKIDAR_INTERVAL: "100"
-
     volumes:
-      - .:/backend
-      - /backend/node_modules
+      - redis_dev_data:/data
+
+
+volumes:
+  redis_dev_data:

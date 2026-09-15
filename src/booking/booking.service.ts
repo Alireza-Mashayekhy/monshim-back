@@ -228,7 +228,6 @@ export class BookingsService {
     const barber = await this.barberProfileRepo.findOne({
       where: {
         userId,
-        isApproved: true,
       },
     });
 
