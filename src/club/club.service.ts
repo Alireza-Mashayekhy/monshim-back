@@ -135,10 +135,11 @@ export class ClubService {
       qb.andWhere('club.groupId = :groupId', { groupId: query.groupId });
     }
 
-    if (query.search) {
+    if (query.search?.trim()) {
+      const search = query.search.trim();
       qb.andWhere(
-        '(club.firstName LIKE :search OR club.lastName LIKE :search OR club.phone LIKE :search)',
-        { search: `%${query.search}%` },
+        `( club.firstName LIKE :search OR club.lastName LIKE :search OR club.phone LIKE :search OR CONCAT(club.firstName, ' ', club.lastName) LIKE :search OR CONCAT(club.lastName, ' ', club.firstName) LIKE :search OR CONCAT(club.lastName, club.firstName) LIKE :search )`,
+        { search: `%${search}%` },
       );
     }
 
