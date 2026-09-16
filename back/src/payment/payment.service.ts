@@ -62,9 +62,7 @@ export class PaymentService {
 
   private getAppUrl(): string {
     return (
-      this.configService.get<string>('APP_URL') ||
-      this.configService.get<string>('FRONTEND_URL') ||
-      'http://localhost:3000'
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000'
     ).replace(/\/+$/, '');
   }
 
