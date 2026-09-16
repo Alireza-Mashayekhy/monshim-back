@@ -80,6 +80,14 @@ export class BarberProfile {
   isApproved: boolean;
 
   @Column({
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    default: 4.8,
+  })
+  rating: number;
+
+  @Column({
     type: 'text',
     nullable: true,
   })
