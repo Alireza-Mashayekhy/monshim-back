@@ -1,0 +1,18 @@
+{
+  "name": "monshim",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm dev:back\" \"pnpm dev:front\"",
+    "dev:back": "cd back && docker compose -f docker-compose.dev.yml up -d && pnpm start:dev",
+    "dev:front": "cd front && pnpm dev",
+    "docker:up": "cd back && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d",
+    "docker:down": "cd back && docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
+    "docker:prod:build": "cd back && docker compose -f docker-compose.yml -f docker-compose.prod.yml build",
+    "docker:prod:up": "cd back && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d",
+    "docker:prod:down": "cd back && docker compose -f docker-compose.yml -f docker-compose.prod.yml down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

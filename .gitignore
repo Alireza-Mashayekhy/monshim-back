@@ -1,0 +1,38 @@
+# Dependencies
+**/node_modules/
+
+# Build
+**/dist/
+**/.next/
+
+# Environment
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+**/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+**/tmp/
+**/coverage/
+
+front/.git
+back/.git
+
+front/node_modules
+back/node_modules
+
+front/.next
+back/dist
+
+.env
+**/.env
