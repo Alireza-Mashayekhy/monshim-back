@@ -8,7 +8,8 @@
 # Environment
 **/.env
 **/.env.*
-!**/.env.example
+!.env.example
+!.**/.env.example
 
 # Logs
 **/*.log
@@ -24,16 +25,3 @@ Thumbs.db
 # Temporary
 **/tmp/
 **/coverage/
-
-# Ignore nested git metadata
-front/.git/
-back/.git/
-
-front/node_modules
-back/node_modules
-
-front/.next
-back/dist
-
-.env
-**/.env
