@@ -1,7 +1,7 @@
 // app/(dashboard)/financial/page.tsx
 'use client';
 
-import { ArrowDownLeft, Plus, Wallet } from 'lucide-react';
+import { ArrowDownLeft, Wallet } from 'lucide-react';
 import { useState } from 'react';
 
 import { CardModal } from '@/components/dashboard/financial/cardModal';
@@ -60,21 +60,21 @@ export default function FinancialPage() {
             </div>
             <Wallet size={32} className="text-white/50" />
           </div>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-wrap gap-2.5">
             <Button
               variant="secondary"
               className="flex-1 text-primary"
               onClick={() => setShowWithdrawModal(true)}
               disabled={balance <= 0}
             >
-              <ArrowDownLeft size={16} /> درخواست تسویه
+              <ArrowDownLeft size={16} /> تسویه وجه
             </Button>
             <Button
               variant="secondary"
               className="flex-1 text-primary"
               onClick={() => setShowCardModal(true)}
             >
-              <Plus size={16} /> مدیریت کارت‌ها
+              کارت‌ها
             </Button>
           </div>
         </AppCard>

@@ -8,9 +8,9 @@ import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
 import { cn, formatPrice } from '@/lib/utils';
+import { usePaySubscription } from '@/services/features/payment/hooks';
 import {
   useActiveSubscriptionPlans,
-  useCreateUserSubscription,
   useCurrentUserSubscription,
 } from '@/services/features/subscription/hooks';
 
@@ -46,7 +46,7 @@ export default function SubscriptionPage() {
   const { data: currentSubscription, isLoading: currentLoading } =
     useCurrentUserSubscription();
 
-  const createSubscription = useCreateUserSubscription();
+  const paySubscriptionMutation = usePaySubscription();
 
   const filteredPlans = useMemo(() => {
     if (!plans) return [];
@@ -57,9 +57,9 @@ export default function SubscriptionPage() {
   const currentPlan = currentSubscription?.data?.subscriptionPlan ?? null;
 
   const handleUpgrade = (planId: string) => {
-    if (createSubscription.isPending) return;
+    if (paySubscriptionMutation.isPending) return;
 
-    createSubscription.mutate(planId);
+    paySubscriptionMutation.mutate({ subscriptionPlanId: planId });
   };
 
   if (plansLoading || currentLoading) {
@@ -216,18 +216,18 @@ export default function SubscriptionPage() {
                   <Button
                     className="w-full"
                     variant={isCurrent ? 'secondary' : 'default'}
-                    disabled={isCurrent || createSubscription.isPending}
+                    disabled={isCurrent || paySubscriptionMutation.isPending}
                     onClick={() => handleUpgrade(plan.id)}
                   >
-                    {createSubscription.isPending ? (
+                    {paySubscriptionMutation.isPending ? (
                       <>
                         <Loader2 className="ml-2 size-4 animate-spin" />
-                        در حال پردازش...
+                        در حال انتقال به زیبال...
                       </>
                     ) : isCurrent ? (
                       'پلن فعلی'
                     ) : (
-                      'انتخاب و پرداخت'
+                      'پرداخت با درگاه زیبال'
                     )}
                   </Button>
                 </AppCard>

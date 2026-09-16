@@ -15,6 +15,7 @@ import {
   useAvailableSlots,
   useCreateBooking,
 } from '@/services/features/booking/hooks';
+import { usePayBooking } from '@/services/features/payment/hooks';
 
 export default function BookingWizard() {
   const { id } = useParams<{ id: string }>();
@@ -48,6 +49,7 @@ export default function BookingWizard() {
   );
 
   const createBookingMutation = useCreateBooking();
+  const payBookingMutation = usePayBooking();
 
   // Handlers
   const handleConfirmService = () => {
@@ -67,6 +69,23 @@ export default function BookingWizard() {
       s => s.id === selectedServiceId,
     );
     if (!service) return;
+
+    if (paymentMethod === 'ONLINE') {
+      try {
+        await payBookingMutation.mutateAsync({
+          barberId: Number(id),
+          serviceId: selectedServiceId,
+          date: selectedDate,
+          time: selectedTime,
+          note: '',
+        });
+      } catch (error: any) {
+        toast.error(
+          error.response?.data?.message || 'خطا در اتصال به درگاه پرداخت زیبال',
+        );
+      }
+      return;
+    }
 
     try {
       await createBookingMutation.mutateAsync({
@@ -155,7 +174,9 @@ export default function BookingWizard() {
           onPaymentMethodChange={setPaymentMethod}
           onPay={handlePayment}
           onBack={() => setStep(3)}
-          isSubmitting={createBookingMutation.isPending}
+          isSubmitting={
+            createBookingMutation.isPending || payBookingMutation.isPending
+          }
         />
       )}
 

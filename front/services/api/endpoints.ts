@@ -106,4 +106,10 @@ export const endpoints = {
       close: (id: string) => `/admin/ticket/${id}/close`,
     },
   },
+
+  payment: {
+    subscription: '/payment/subscription',
+    booking: '/payment/booking',
+    status: (trackId: number | string) => `/payment/status/${trackId}`,
+  },
 };
