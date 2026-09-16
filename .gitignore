@@ -25,8 +25,9 @@ Thumbs.db
 **/tmp/
 **/coverage/
 
-front/.git
-back/.git
+# Ignore nested git metadata
+front/.git/
+back/.git/
 
 front/node_modules
 back/node_modules
