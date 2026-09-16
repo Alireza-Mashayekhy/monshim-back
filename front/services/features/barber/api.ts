@@ -12,10 +12,15 @@ import {
 } from './types';
 
 export async function barberList(query?: {
-  page: number;
-  limit: number;
+  page?: number;
+  limit?: number;
   cityId?: number;
+  provinceId?: number;
   search?: string;
+  sort?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
 }) {
   const { data } = await api.get<ApiListResponse<BarberResponse>>(
     endpoints.barber.list,

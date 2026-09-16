@@ -2,12 +2,14 @@ import { CityResponse, ProvinceResponse } from '../locations/types';
 
 export interface BarberResponse {
   id: string;
-  barberProfile: BarberProfile;
-  cityName: string;
-  provinceName: string;
+  barberProfile?: BarberProfile;
+  cityName: string | null;
+  provinceName: string | null;
   fullName: string;
   profileImage: string | null;
   salonName: string;
+  minPrice?: number | null;
+  rating?: number | null;
 }
 
 export interface Service {

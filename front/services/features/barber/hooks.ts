@@ -19,9 +19,14 @@ import {
 } from './api';
 import { UpdateBarberProfile, WorkHours } from './types';
 
-export const useBarberList = (params: {
+export const useBarberList = (params?: {
   cityId?: number;
+  provinceId?: number;
   search?: string;
+  sort?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
   limit?: number;
 }) => {
   return useInfiniteQuery({
@@ -29,9 +34,14 @@ export const useBarberList = (params: {
     queryFn: ({ pageParam = 1 }) =>
       barberList({
         page: pageParam,
-        limit: params.limit || 10,
-        cityId: params.cityId,
-        search: params.search,
+        limit: params?.limit || 10,
+        cityId: params?.cityId,
+        provinceId: params?.provinceId,
+        search: params?.search,
+        sort: params?.sort,
+        minPrice: params?.minPrice,
+        maxPrice: params?.maxPrice,
+        minRating: params?.minRating,
       }),
     getNextPageParam: lastPage => {
       const { page, totalPages } = lastPage.pagination;
@@ -42,9 +52,14 @@ export const useBarberList = (params: {
   });
 };
 
-export const useHomeBarberList = (params: {
+export const useHomeBarberList = (params?: {
   cityId?: number;
+  provinceId?: number;
   search?: string;
+  sort?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
   limit?: number;
 }) => {
   return useQuery({
@@ -52,9 +67,14 @@ export const useHomeBarberList = (params: {
     queryFn: () =>
       barberList({
         page: 1,
-        limit: params.limit || 10,
-        cityId: params.cityId,
-        search: params.search,
+        limit: params?.limit || 10,
+        cityId: params?.cityId,
+        provinceId: params?.provinceId,
+        search: params?.search,
+        sort: params?.sort,
+        minPrice: params?.minPrice,
+        maxPrice: params?.maxPrice,
+        minRating: params?.minRating,
       }),
     staleTime: 2 * 60 * 1000,
     enabled: true,

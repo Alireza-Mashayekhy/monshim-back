@@ -261,7 +261,13 @@ export default function Home() {
                 barbersData.data.length > 0 &&
                 // داده‌های واقعی از دیتابیس
                 barbersData.data.slice(0, 4).map(barber => {
-                  return <BarberCard key={barber?.salonName} barber={barber} />;
+                  return (
+                    <BarberCard
+                      variant="vertical"
+                      key={barber?.salonName}
+                      barber={barber}
+                    />
+                  );
                 })}
           </div>
         </section>
