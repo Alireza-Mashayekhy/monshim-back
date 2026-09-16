@@ -1,0 +1,118 @@
+// src/barber/entities/barber.entity.ts
+
+import { Booking } from 'src/booking/entities/booking.entity';
+import { City } from 'src/locations/entities/city.entity';
+import { Province } from 'src/locations/entities/province.entity';
+import { User } from 'src/users/entities/user.entity';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
+
+@Entity()
+@Unique(['referralCode'])
+export class BarberProfile {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @OneToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @Column({ name: 'user_id' })
+  userId: number;
+
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  profileImage: string | null;
+
+  @Column({ length: 100 })
+  salonName: string;
+
+  @Column({
+    name: 'province_id',
+    nullable: true,
+  })
+  provinceId?: number;
+
+  @Column({
+    name: 'city_id',
+    nullable: true,
+  })
+  cityId?: number;
+
+  @Column({ type: 'text' })
+  address: string;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
+  bio: string | null;
+
+  @Column({
+    type: 'simple-array',
+    nullable: true,
+  })
+  portfolioImages: string[] | null;
+
+  @Column({
+    type: 'time',
+    nullable: true,
+  })
+  workStartTime: string | null;
+
+  @Column({
+    type: 'time',
+    nullable: true,
+  })
+  workEndTime: string | null;
+
+  @Column({ default: false })
+  isApproved: boolean;
+
+  @Column({
+    type: 'text',
+    nullable: true,
+  })
+  rejectionReason: string | null;
+
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  createdAt: Date;
+
+  // کد معرف برای دعوت آرایشگرهای دیگر
+  @Column({
+    type: 'varchar',
+    length: 8,
+    unique: true,
+    nullable: true,
+  })
+  referralCode: string | null;
+
+  // شناسه کاربری که این آرایشگر را دعوت کرده
+  @Column({ name: 'referred_by', type: 'int', nullable: true })
+  referredBy: number | null;
+
+  @ManyToOne(() => Province)
+  @JoinColumn({ name: 'province_id' })
+  province?: Province;
+
+  @ManyToOne(() => City)
+  @JoinColumn({ name: 'city_id' })
+  city?: City;
+
+  // رزروهای این آرایشگر
+  @OneToMany(() => Booking, booking => booking.barber)
+  bookings: Booking[];
+}
