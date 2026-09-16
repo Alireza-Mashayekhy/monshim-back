@@ -23,70 +23,13 @@ export class UserSubscriptionService {
     private readonly subscriptionPlanRepo: Repository<SubscriptionPlan>,
   ) {}
 
-  async create(
-    userId: number,
-    dto: CreateUserSubscriptionDto,
+  create(
+    _userId: number,
+    _dto: CreateUserSubscriptionDto,
   ): Promise<UserSubscription> {
-    // پیدا کردن پلن
-    const plan = await this.subscriptionPlanRepo.findOne({
-      where: {
-        id: dto.subscriptionPlanId,
-        isActive: true,
-      },
-    });
-
-    if (!plan) {
-      throw new NotFoundException('پلن اشتراک مورد نظر یافت نشد یا فعال نیست');
-    }
-
-    const now = new Date();
-
-    // منقضی کردن اشتراک‌های قبلی
-    await this.userSubscriptionRepo
-      .createQueryBuilder()
-      .update(UserSubscription)
-      .set({
-        status: UserSubscriptionStatus.EXPIRED,
-      })
-      .where('user_id = :userId', { userId })
-      .andWhere('status = :status', {
-        status: UserSubscriptionStatus.ACTIVE,
-      })
-      .andWhere('end_date <= :now', { now })
-      .execute();
-
-    // بررسی اشتراک فعال
-    const activeSubscription = await this.userSubscriptionRepo.findOne({
-      where: {
-        userId,
-        status: UserSubscriptionStatus.ACTIVE,
-      },
-      relations: {
-        subscriptionPlan: true,
-      },
-    });
-
-    if (activeSubscription) {
-      throw new BadRequestException('شما در حال حاضر یک اشتراک فعال دارید');
-    }
-
-    // محاسبه تاریخ پایان
-    const startDate = new Date();
-
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + plan.durationDays);
-
-    // ایجاد اشتراک کاربر
-    const userSubscription = this.userSubscriptionRepo.create({
-      userId,
-      subscriptionPlanId: plan.id,
-      price: plan.price,
-      status: UserSubscriptionStatus.ACTIVE,
-      startDate,
-      endDate,
-    });
-
-    return this.userSubscriptionRepo.save(userSubscription);
+    throw new BadRequestException(
+      'برای فعال‌سازی اشتراک، پرداخت آنلاین الزامی است. لطفاً از طریق درگاه پرداخت زیبال اقدام نمایید.',
+    );
   }
 
   async getCurrent(userId: number) {

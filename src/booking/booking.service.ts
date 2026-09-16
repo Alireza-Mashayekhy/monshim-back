@@ -12,7 +12,7 @@ import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { getPagination } from 'src/common/query';
 import { ReferralService } from 'src/referral/referral.service';
 import { Service } from 'src/services/entities/service.entity';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -51,12 +51,20 @@ export class BookingsService {
     }
 
     // پیدا کردن پروفایل آرایشگر
-    const barber = await this.barberProfileRepo.findOne({
-      where: {
-        userId: barberId,
-        isApproved: true,
-      },
-    });
+    const barberIdNum = Number(dto.barberId);
+    let barber: BarberProfile | null = null;
+    if (Number.isInteger(barberIdNum)) {
+      barber = await this.barberProfileRepo.findOne({
+        where: [
+          { userId: barberIdNum, isApproved: true },
+          { id: String(dto.barberId), isApproved: true },
+        ],
+      });
+    } else {
+      barber = await this.barberProfileRepo.findOne({
+        where: { id: String(dto.barberId), isApproved: true },
+      });
+    }
 
     if (!barber) {
       throw new NotFoundException(
@@ -132,7 +140,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date: dto.date,
-        status: In([BookingStatus.CONFIRMED, BookingStatus.PENDING]),
+        status: BookingStatus.CONFIRMED,
       },
       relations: {
         service: true,
@@ -493,17 +501,19 @@ export class BookingsService {
   ): Promise<string[]> {
     const barberUserId = Number(userId);
 
-    if (!Number.isInteger(barberUserId)) {
-      throw new BadRequestException('شناسه آرایشگر نامعتبر است');
+    let barber: BarberProfile | null = null;
+    if (Number.isInteger(barberUserId)) {
+      barber = await this.barberProfileRepo.findOne({
+        where: [
+          { userId: barberUserId, isApproved: true },
+          { id: String(userId), isApproved: true },
+        ],
+      });
+    } else {
+      barber = await this.barberProfileRepo.findOne({
+        where: { id: String(userId), isApproved: true },
+      });
     }
-
-    // userId -> BarberProfile
-    const barber = await this.barberProfileRepo.findOne({
-      where: {
-        userId: barberUserId,
-        isApproved: true,
-      },
-    });
 
     if (!barber) {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد یا تایید نشده است');
@@ -565,7 +575,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date,
-        status: In([BookingStatus.CONFIRMED, BookingStatus.PENDING]),
+        status: BookingStatus.CONFIRMED,
       },
       relations: {
         service: true,
