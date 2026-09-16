@@ -165,7 +165,7 @@ export default function Explore() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7FCFB] text-right selection:bg-[#E6F9F6] selection:text-[#0D9488]">
+    <div className="min-h-screen text-right">
       <div className="max-w-md mx-auto px-4 pt-3 space-y-4">
         {/* ================= REUSABLE PAGE HEADER ================= */}
         <PageHeader title="جستجوی آرایشگر" backHref="/home" />
@@ -201,7 +201,7 @@ export default function Explore() {
             <button
               type="button"
               onClick={() => setShowLocationModal(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#0D9488] text-white px-3.5 py-2 rounded-lg shadow-2xs hover:bg-[#0f766e] active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 text-xs font-bold bg-primary text-white px-3.5 py-2 rounded-lg shadow-2xs hover:bg-primary active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0"
             >
               <MapPin size={14} />
               <span>شهر: {effectiveCityName}</span>
@@ -223,13 +223,13 @@ export default function Explore() {
               className={cn(
                 'inline-flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-lg shadow-2xs active:scale-95 transition-all cursor-pointer whitespace-nowrap',
                 isPriceActive
-                  ? 'bg-[#E6F9F6] text-[#0D9488] border border-[#14B8A6]/40 font-bold'
+                  ? 'bg-gray-100 text-primary border border-primary/40 font-bold'
                   : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 font-semibold',
               )}
             >
               <CircleDollarSign
                 size={14}
-                className={isPriceActive ? 'text-[#0D9488]' : 'text-gray-500'}
+                className={isPriceActive ? 'text-primary' : 'text-gray-500'}
               />
               <span>{pricePillLabel}</span>
             </button>
@@ -257,7 +257,7 @@ export default function Explore() {
           <button
             type="button"
             onClick={() => setShowSortModal(true)}
-            className="flex items-center gap-1.5 text-xs font-bold text-[#0D9488] hover:text-[#0f766e] transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary transition-colors cursor-pointer"
           >
             <SlidersHorizontal size={14} />
             <span>مرتب‌سازی</span>
@@ -287,8 +287,8 @@ export default function Explore() {
             </div>
           ) : barbers.length === 0 ? (
             // وضعیت واقعی خالی بودن نتایج (بدون دیتای فیک)
-            <div className="bg-white rounded-xl border border-[#14B8A6]/20 p-8 text-center space-y-3 shadow-2xs">
-              <div className="w-12 h-12 bg-[#E6F9F6] text-[#0D9488] rounded-xl mx-auto flex items-center justify-center">
+            <div className="bg-white rounded-xl border border-primary/20 p-8 text-center space-y-3 shadow-2xs">
+              <div className="w-12 h-12 bg-gray-100 text-primary rounded-xl mx-auto flex items-center justify-center">
                 <Search size={22} />
               </div>
               <p className="text-sm font-bold text-gray-800">
@@ -348,7 +348,7 @@ export default function Explore() {
         <DialogContent className="max-w-xs sm:max-w-sm rounded-3xl p-5 text-right">
           <DialogHeader className="text-right pb-2 border-b border-gray-100">
             <DialogTitle className="text-base font-black text-gray-900 flex items-center gap-2">
-              <SlidersHorizontal size={17} className="text-[#0D9488]" />
+              <SlidersHorizontal size={17} className="text-primary" />
               مرتب‌سازی بر اساس
             </DialogTitle>
           </DialogHeader>
@@ -367,12 +367,12 @@ export default function Explore() {
                   className={cn(
                     'w-full flex items-center justify-between p-3 rounded-2xl text-xs font-bold transition-all cursor-pointer',
                     isSelected
-                      ? 'bg-[#E6F9F6] text-[#0D9488] border border-[#14B8A6]/30'
+                      ? 'bg-gray-100 text-primary border border-primary/30'
                       : 'text-gray-700 hover:bg-gray-50 border border-transparent',
                   )}
                 >
                   <span>{opt.label}</span>
-                  {isSelected && <Check size={16} className="text-[#0D9488]" />}
+                  {isSelected && <Check size={16} className="text-primary" />}
                 </button>
               );
             })}
@@ -385,7 +385,7 @@ export default function Explore() {
         <DialogContent className="max-w-xs sm:max-w-sm rounded-xl p-5 text-right">
           <DialogHeader className="text-right pb-2 border-b border-gray-100">
             <DialogTitle className="text-base font-black text-gray-900 flex items-center gap-2">
-              <CircleDollarSign size={17} className="text-[#0D9488]" />
+              <CircleDollarSign size={17} className="text-primary" />
               محدوده قیمت (تومان)
             </DialogTitle>
           </DialogHeader>
@@ -467,7 +467,7 @@ export default function Explore() {
                       className={cn(
                         'py-2 px-2 text-center rounded-lg text-[11px] font-bold border transition-all cursor-pointer',
                         isSelected
-                          ? 'bg-[#E6F9F6] text-[#0D9488] border-[#14B8A6]/40'
+                          ? 'bg-gray-100 text-primary border-primary/40'
                           : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50',
                       )}
                     >
@@ -479,7 +479,7 @@ export default function Explore() {
             </div>
 
             {/* دکمه‌های اعمال و پاکسازی */}
-            <div className="pt-3 border-t border-gray-100 flex items-center gap-2">
+            <div className="pt-3 border-t grid grid-cols-2 border-gray-100 gap-2">
               <Button
                 type="button"
                 onClick={handleApplyPriceFilter}
@@ -488,15 +488,13 @@ export default function Explore() {
                 اعمال فیلتر قیمت
               </Button>
 
-              {(tempMinPrice || tempMaxPrice || minPrice || maxPrice) && (
-                <button
-                  type="button"
-                  onClick={handleClearPriceFilter}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold px-3 py-2.5 rounded-xl transition-colors cursor-pointer"
-                >
-                  حذف
-                </button>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClearPriceFilter}
+              >
+                حذف
+              </Button>
             </div>
           </div>
         </DialogContent>
