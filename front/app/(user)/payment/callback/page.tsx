@@ -83,14 +83,14 @@ function PaymentCallbackContent() {
   const destination = getDestinationLink();
 
   return (
-    <div className="min-h-screen bg-[#F7FCFB] flex items-center justify-center p-4 selection:bg-[#E6F9F6] selection:text-[#0D9488]">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-[#14B8A6]/30 shadow-xl p-6 sm:p-8 space-y-6 text-right">
+    <div className="min-h-screen  flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl border border-primary/30 shadow-xl p-6 sm:p-8 space-y-6 text-right">
         {/* Status Header */}
         <div className="text-center space-y-3">
           <div
             className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center transition-all ${
               isSuccess
-                ? 'bg-[#E6F9F6] text-[#0D9488] ring-8 ring-[#14B8A6]/10'
+                ? 'bg-gray-200 text-primary ring-8 ring-primary/10'
                 : 'bg-rose-50 text-rose-500 ring-8 ring-rose-500/10'
             }`}
           >
@@ -116,10 +116,10 @@ function PaymentCallbackContent() {
 
         {/* Receipt Details Box */}
         {isSuccess ? (
-          <div className="bg-[#F7FCFB] rounded-2xl border border-[#14B8A6]/20 p-4 space-y-3 text-xs">
-            <div className="flex items-center justify-between py-1.5 border-b border-[#14B8A6]/10">
+          <div className="bg-white rounded-2xl border border-primary/20 p-4 space-y-3 text-xs">
+            <div className="flex items-center justify-between py-1.5 border-b border-primary/10">
               <span className="text-gray-500 flex items-center gap-1.5 font-medium">
-                <Sparkles size={14} className="text-[#0D9488]" />
+                <Sparkles size={14} className="text-primary" />
                 بابت:
               </span>
               <span className="font-bold text-gray-900">
@@ -128,21 +128,21 @@ function PaymentCallbackContent() {
             </div>
 
             {amount && (
-              <div className="flex items-center justify-between py-1.5 border-b border-[#14B8A6]/10">
+              <div className="flex items-center justify-between py-1.5 border-b border-primary/10">
                 <span className="text-gray-500 flex items-center gap-1.5 font-medium">
-                  <CreditCard size={14} className="text-[#0D9488]" />
+                  <CreditCard size={14} className="text-primary" />
                   مبلغ پرداخت شده:
                 </span>
-                <span className="font-black text-sm text-[#0D9488]">
+                <span className="font-black text-sm text-primary">
                   {toPersianDigits(formatPrice(amount))} تومان
                 </span>
               </div>
             )}
 
             {trackId && (
-              <div className="flex items-center justify-between py-1.5 border-b border-[#14B8A6]/10">
+              <div className="flex items-center justify-between py-1.5 border-b border-primary/10">
                 <span className="text-gray-500 flex items-center gap-1.5 font-medium">
-                  <Hash size={14} className="text-[#0D9488]" />
+                  <Hash size={14} className="text-primary" />
                   شناسه رهگیری درگاه زیبال:
                 </span>
                 <span className="font-mono font-bold text-gray-900 dir-ltr">
@@ -152,9 +152,9 @@ function PaymentCallbackContent() {
             )}
 
             {refNumber && (
-              <div className="flex items-center justify-between py-1.5 border-b border-[#14B8A6]/10">
+              <div className="flex items-center justify-between py-1.5 border-b border-primary/10">
                 <span className="text-gray-500 flex items-center gap-1.5 font-medium">
-                  <Hash size={14} className="text-[#0D9488]" />
+                  <Hash size={14} className="text-primary" />
                   شماره مرجع شاپرک:
                 </span>
                 <span className="font-mono font-bold text-gray-900 dir-ltr">
@@ -165,7 +165,7 @@ function PaymentCallbackContent() {
 
             <div className="flex items-center justify-between py-1.5">
               <span className="text-gray-500 flex items-center gap-1.5 font-medium">
-                <Calendar size={14} className="text-[#0D9488]" />
+                <Calendar size={14} className="text-primary" />
                 تاریخ و زمان:
               </span>
               <span className="text-gray-700 font-medium">{nowFormatted}</span>
@@ -183,16 +183,13 @@ function PaymentCallbackContent() {
           {isSuccess ? (
             <>
               <Link href={destination.href} className="w-full block">
-                <Button className="w-full bg-[#0D9488] hover:bg-[#0f766e] text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-xs cursor-pointer">
+                <Button className="w-full">
                   <span>{destination.label}</span>
                   <ChevronLeft size={16} />
                 </Button>
               </Link>
               <Link href="/home" className="w-full block">
-                <Button
-                  variant="outline"
-                  className="w-full border-[#14B8A6]/30 text-gray-700 hover:bg-[#E6F9F6] py-3 rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer"
-                >
+                <Button variant="outline" className="w-full">
                   <Home size={16} />
                   <span>صفحه اصلی منشیم</span>
                 </Button>
@@ -201,19 +198,20 @@ function PaymentCallbackContent() {
           ) : (
             <>
               <Link href="/home" className="w-full block">
-                <Button className="w-full bg-[#0D9488] hover:bg-[#0f766e] text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer">
+                <Button className="w-full">
                   <Home size={16} />
                   <span>بازگشت به خانه</span>
                 </Button>
               </Link>
-              <button
+              <Button
+                className="w-full"
+                variant="outline"
                 type="button"
                 onClick={() => window.history.back()}
-                className="w-full border border-gray-200 text-gray-700 hover:bg-gray-50 py-3 rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <RotateCcw size={14} />
                 <span>تلاش مجدد</span>
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -226,7 +224,7 @@ export default function PaymentCallbackPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#F7FCFB] flex items-center justify-center">
+        <div className="min-h-screen bg-white flex items-center justify-center">
           <div className="text-gray-500 text-xs">
             در حال پردازش نتیجه پرداخت...
           </div>
