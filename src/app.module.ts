@@ -23,6 +23,7 @@ import { TicketModule } from './ticket/ticket.module';
 import { UsersModule } from './users/users.module';
 import { WalletModule } from './wallet/wallet.module';
 import { ClubModule } from './club/club.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { ClubModule } from './club/club.module';
     SubscriptionModule,
     TicketModule,
     ClubModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [
