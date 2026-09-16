@@ -30,13 +30,9 @@ export class RegisterBarberDto extends CreateUserDto {
   @IsNotEmpty()
   salonName: string;
 
-  @IsNumber()
-  @IsNotEmpty()
-  provinceId: number;
+  declare provinceId: number;
 
-  @IsNumber()
-  @IsNotEmpty()
-  cityId: number;
+  declare cityId: number;
 
   @IsString()
   @IsNotEmpty()

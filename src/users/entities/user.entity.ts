@@ -1,9 +1,13 @@
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Role } from 'src/common/enum/role.enum';
+import { City } from 'src/locations/entities/city.entity';
+import { Province } from 'src/locations/entities/province.entity';
 import { Service } from 'src/services/entities/service.entity';
 import {
   Column,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
@@ -32,6 +36,26 @@ export class User {
     nullable: true,
   })
   birthDate: Date | null;
+
+  @Column({
+    name: 'province_id',
+    nullable: true,
+  })
+  provinceId?: number | null;
+
+  @Column({
+    name: 'city_id',
+    nullable: true,
+  })
+  cityId?: number | null;
+
+  @ManyToOne(() => Province, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'province_id' })
+  province?: Province | null;
+
+  @ManyToOne(() => City, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'city_id' })
+  city?: City | null;
 
   @Column({
     type: 'simple-array',

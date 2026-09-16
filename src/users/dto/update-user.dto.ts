@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsEmail,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
@@ -25,4 +26,16 @@ export class UpdateUserDto {
   @IsDateString()
   @Type(() => Date)
   birthDate?: Date;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  provinceId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  cityId?: number;
 }
