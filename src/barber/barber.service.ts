@@ -111,6 +111,10 @@ export class BarberService {
     query: QueryDto,
     filters?: {
       cityId?: number;
+      provinceId?: number;
+      minPrice?: number;
+      maxPrice?: number;
+      minRating?: number;
     },
     notApproved?: boolean,
   ) {
@@ -123,7 +127,8 @@ export class BarberService {
     // JOIN با پروفایل، شهر و استان
     qb.leftJoinAndSelect('user.barberProfile', 'profile')
       .leftJoinAndSelect('profile.city', 'city')
-      .leftJoinAndSelect('profile.province', 'province');
+      .leftJoinAndSelect('profile.province', 'province')
+      .leftJoinAndSelect('user.services', 'services');
 
     if (notApproved) {
       qb.andWhere('profile.isApproved != :isApproved', {
@@ -139,28 +144,22 @@ export class BarberService {
       qb.andWhere('profile.cityId = :cityId', { cityId: filters.cityId });
     }
 
+    if (filters?.provinceId) {
+      qb.andWhere('profile.provinceId = :provinceId', {
+        provinceId: filters.provinceId,
+      });
+    }
+
     if (query.search) {
-      qb.leftJoin('user.services', 'service');
       qb.andWhere(
         new Brackets(qb => {
           qb.where('user.fullName LIKE :search')
             .orWhere('profile.salonName LIKE :search')
-            .orWhere('service.name LIKE :search');
+            .orWhere('services.name LIKE :search');
         }),
         { search: `%${query.search}%` },
       );
     }
-
-    // (اختیاری) انتخاب فقط فیلدهای مورد نیاز برای کاهش حجم
-    qb.select([
-      'user.id',
-      'user.fullName',
-      'profile.id',
-      'profile.salonName',
-      'profile.profileImage',
-      'city.name',
-      'province.name',
-    ]);
 
     // مرتب‌سازی
     if (query.sort) {
@@ -173,12 +172,17 @@ export class BarberService {
         case 'salonName':
           qb.orderBy('profile.salonName', direction);
           break;
+        case 'rating':
+          qb.orderBy('profile.rating', direction);
+          break;
         case 'createdAt':
           qb.orderBy('user.createdAt', direction);
           break;
         default:
           qb.orderBy('user.id', direction);
       }
+    } else {
+      qb.orderBy('user.id', 'DESC');
     }
 
     const { skip, take } = getPagination(page, limit);
@@ -186,15 +190,46 @@ export class BarberService {
 
     const [rawData, total] = await qb.getManyAndCount();
 
-    // نگاشت به فرمت دلخواه
-    const data = rawData.map((user: any) => ({
-      id: user.id,
-      fullName: user.fullName,
-      salonName: user.barberProfile?.salonName || '',
-      profileImage: user.barberProfile?.profileImage || null,
-      cityName: user.barberProfile?.city?.name || null,
-      provinceName: user.barberProfile?.province?.name || null,
-    }));
+    // نگاشت به فرمت دلخواه همراه با محاسبه قیمت شروع
+    let data = rawData.map((user: any) => {
+      const services = user.services || [];
+      const prices = services
+        .map((s: any) => Number(s.price))
+        .filter((p: number) => !isNaN(p) && p > 0);
+      const minPrice = prices.length > 0 ? Math.min(...prices) : 150000;
+
+      return {
+        id: user.id,
+        fullName: user.fullName,
+        salonName: user.barberProfile?.salonName || '',
+        profileImage: user.barberProfile?.profileImage || null,
+        cityName: user.barberProfile?.city?.name || null,
+        provinceName: user.barberProfile?.province?.name || null,
+        minPrice,
+        rating: Number(user.barberProfile?.rating || 4.8),
+      };
+    });
+
+    // مرتب‌سازی بر اساس قیمت در صورت نیاز
+    if (query.sort?.startsWith('price:')) {
+      const direction = query.sort.split(':')[1]?.toLowerCase();
+      data.sort((a, b) =>
+        direction === 'desc'
+          ? b.minPrice - a.minPrice
+          : a.minPrice - b.minPrice,
+      );
+    }
+
+    // فیلتر بر اساس حداقل یا حداکثر قیمت
+    if (filters?.minPrice !== undefined) {
+      data = data.filter(d => d.minPrice >= filters.minPrice!);
+    }
+    if (filters?.maxPrice !== undefined) {
+      data = data.filter(d => d.minPrice <= filters.maxPrice!);
+    }
+    if (filters?.minRating !== undefined) {
+      data = data.filter(d => d.rating >= filters.minRating!);
+    }
 
     return {
       data,

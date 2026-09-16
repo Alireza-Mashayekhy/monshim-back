@@ -41,8 +41,21 @@ export class BarberController {
 
   // ---- مسیرهای عمومی ----
   @Get()
-  findAll(@Query() query: QueryDto, @Query('cityId') cityId?: number) {
-    return this.barberService.findAll(query, { cityId: cityId || undefined });
+  findAll(
+    @Query() query: QueryDto,
+    @Query('cityId') cityId?: number,
+    @Query('provinceId') provinceId?: number,
+    @Query('minPrice') minPrice?: number,
+    @Query('maxPrice') maxPrice?: number,
+    @Query('minRating') minRating?: number,
+  ) {
+    return this.barberService.findAll(query, {
+      cityId: cityId || query.cityId || undefined,
+      provinceId: provinceId || undefined,
+      minPrice: minPrice !== undefined ? Number(minPrice) : undefined,
+      maxPrice: maxPrice !== undefined ? Number(maxPrice) : undefined,
+      minRating: minRating !== undefined ? Number(minRating) : undefined,
+    });
   }
 
   @Get(':id')
