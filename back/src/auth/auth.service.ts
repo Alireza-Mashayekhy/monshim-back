@@ -323,6 +323,8 @@ export class AuthService {
         email: user.email,
         roles: normalizeRoles(user.roles),
         isActive: user.isActive,
+        provinceId: user.provinceId,
+        cityId: user.cityId,
       },
       {
         secret: getAccessTokenSecret(),

@@ -5,6 +5,17 @@ export interface UserResponse {
   roles: string[];
   birthDate: string;
   isActive: boolean;
+  provinceId?: number | null;
+  cityId?: number | null;
+  province?: {
+    id: number;
+    name: string;
+  } | null;
+  city?: {
+    id: number;
+    name: string;
+    provinceId: number;
+  } | null;
 }
 
 export interface UsersListResponse {

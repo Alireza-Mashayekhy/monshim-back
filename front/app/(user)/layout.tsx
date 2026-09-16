@@ -31,8 +31,8 @@ export default function UserLayout({
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex justify-center w-full">
-      <div className="w-full bg-white shadow-xl min-h-screen relative flex flex-col">
+    <div className="min-h-screen flex justify-center w-full">
+      <div className="w-full shadow-xl min-h-screen relative flex flex-col">
         {/* Main Content */}
         <div className={`flex-1 overflow-y-auto ${showNav ? 'pb-20' : ''}`}>
           {children}
@@ -42,7 +42,7 @@ export default function UserLayout({
         {showNav && !isActive('/support') && (
           <Link href="/support">
             <button
-              className="fixed bottom-20 right-4 z-40 bg-white text-primary-600 p-3 rounded-full shadow-lg border border-primary-100 active:scale-95 transition-transform"
+              className="fixed bottom-24 right-4 z-40 bg-white text-primary-600 p-3 rounded-xl shadow-lg border border-primary-100 active:scale-95 transition-transform"
               title="پشتیبانی آنلاین"
             >
               <Headphones size={24} />
@@ -52,59 +52,94 @@ export default function UserLayout({
 
         {/* Bottom Navigation */}
         {showNav && (
-          <div className="fixed bottom-0 w-full bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-50">
+          <div className="fixed bottom-4 w-[calc(100vw-32px)] left-4 right-4 max-w-lg bg-white border border-border rounded-xl p-2 flex justify-between items-center z-50">
             <Link
               href="/home"
-              className={`flex flex-col items-center gap-1 ${
-                isActive('/home') ? 'text-primary-600' : 'text-gray-400'
+              className={`flex flex-col items-center gap-1 transition-all w-16.75 ${
+                isActive('/home')
+                  ? 'bg-[#E6F9F6] text-[#0D9488] px-4 pb-1 pt-2 rounded-lg font-bold'
+                  : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
             >
-              <Home size={24} />
-              <span className="text-xs">خانه</span>
+              <Home
+                size={20}
+                className={
+                  isActive('/home') ? 'text-[#0D9488]' : 'text-gray-400'
+                }
+              />
+              <span className="text-[11px]">خانه</span>
             </Link>
 
             <Link
               href="/explore"
-              className={`flex flex-col items-center gap-1 ${
-                isActive('/explore') ? 'text-primary-600' : 'text-gray-400'
+              className={`flex flex-col items-center gap-1 transition-all w-16.75 ${
+                isActive('/explore')
+                  ? 'bg-[#E6F9F6] text-[#0D9488] px-4 pb-1 pt-2 rounded-lg font-bold'
+                  : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
             >
-              <Search size={24} />
-              <span className="text-xs">جستجو</span>
+              <Search
+                size={20}
+                className={
+                  isActive('/explore') ? 'text-[#0D9488]' : 'text-gray-400'
+                }
+              />
+              <span className="text-[11px]">جستجو</span>
             </Link>
 
             <Link
               href="/appointments"
-              className={`flex flex-col items-center gap-1 ${
-                isActive('/appointments') ? 'text-primary-600' : 'text-gray-400'
+              className={`flex flex-col items-center gap-1 transition-all w-16.75 ${
+                isActive('/appointments')
+                  ? 'bg-[#E6F9F6] text-[#0D9488] px-4 pb-1 pt-2 rounded-lg font-bold'
+                  : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
             >
-              <Calendar size={24} />
-              <span className="text-xs">نوبت‌های من</span>
+              <Calendar
+                size={20}
+                className={
+                  isActive('/appointments') ? 'text-[#0D9488]' : 'text-gray-400'
+                }
+              />
+              <span className="text-[11px]">رزروهای من</span>
             </Link>
 
             {isBarber && (
               <Link
                 href="/dashboard"
-                className={`flex flex-col items-center gap-1 ${
+                className={`flex flex-col items-center gap-1 transition-all w-16.75 ${
                   pathname.startsWith('/dashboard')
-                    ? 'text-primary-600'
-                    : 'text-gray-400'
+                    ? 'bg-[#E6F9F6] text-[#0D9488] px-4 pb-1 pt-2 rounded-lg font-bold'
+                    : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
                 }`}
               >
-                <LayoutDashboard size={24} />
-                <span className="text-xs">داشبورد</span>
+                <LayoutDashboard
+                  size={20}
+                  className={
+                    pathname.startsWith('/dashboard')
+                      ? 'text-[#0D9488]'
+                      : 'text-gray-400'
+                  }
+                />
+                <span className="text-[11px]">داشبورد</span>
               </Link>
             )}
 
             <Link
               href="/profile"
-              className={`flex flex-col items-center gap-1 ${
-                isActive('/profile') ? 'text-primary-600' : 'text-gray-400'
+              className={`flex flex-col items-center gap-1 transition-all w-16.75 ${
+                isActive('/profile')
+                  ? 'bg-[#E6F9F6] text-[#0D9488] px-4 pb-1 pt-2 rounded-lg font-bold'
+                  : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
             >
-              <User size={24} />
-              <span className="text-xs">پروفایل</span>
+              <User
+                size={20}
+                className={
+                  isActive('/profile') ? 'text-[#0D9488]' : 'text-gray-400'
+                }
+              />
+              <span className="text-[11px]">پروفایل</span>
             </Link>
           </div>
         )}

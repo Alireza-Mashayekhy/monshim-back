@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
@@ -36,4 +37,16 @@ export class CreateUserDto {
   @IsOptional({ message: 'optional' })
   @Type(() => Date)
   birthDate?: Date;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  provinceId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  cityId?: number;
 }

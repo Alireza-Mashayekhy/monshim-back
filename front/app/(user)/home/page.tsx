@@ -1,112 +1,345 @@
 'use client';
-import { ChevronDown, Navigation } from 'lucide-react';
+import { CalendarCheck2, MapPin, Scissors } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-import { LocationPickerModal } from '@/components/pages/home/LocationPickerModal';
-import BarberCard, {
-  BarberCardSkeleton,
-} from '@/components/shared/barber-card';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { isoToJalali } from '@/lib/date-utils';
+import { useCurrentUser } from '@/services/features/auth/hooks';
 import { useHomeBarberList } from '@/services/features/barber/hooks';
+import {
+  useCancelBooking,
+  useMyBookings,
+} from '@/services/features/booking/hooks';
 import { useLocationStore } from '@/store/useLocationStore';
 
 export default function Home() {
-  const { provinceName, cityName, cityId } = useLocationStore();
-  const [showLocationModal, setShowLocationModal] = useState(false);
+  const { user } = useCurrentUser();
+  const locationStore = useLocationStore();
 
-  const {
-    data: barbers,
-    isLoading,
-    isError,
-    error,
-  } = useHomeBarberList({
-    cityId: cityId || undefined,
-    limit: 10,
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  useEffect(() => {
+    if (user?.cityId && user?.provinceId) {
+      if (locationStore.cityId !== user.cityId) {
+        locationStore.setLocation(
+          user.provinceId,
+          user.province?.name || '',
+          user.cityId,
+          user.city?.name || '',
+        );
+      }
+    }
+  }, [user?.cityId, user?.provinceId, user?.city?.name, user?.province?.name]);
+
+  const effectiveCityId =
+    user?.cityId ?? user?.city?.id ?? locationStore.cityId ?? undefined;
+  const effectiveCityName = user?.city?.name || locationStore.cityName || '';
+
+  // دریافت لیست نوبت‌های کاربر از دیتابیس
+  const { data: myBookingsData, isLoading: bookingsLoading } = useMyBookings({
+    limit: 5,
   });
 
-  const bannerImages = [
-    'https://images.unsplash.com/photo-1503951914875-befbb7135952?w=800&q=80',
-    'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800&q=80',
-  ];
+  const { data: barbersData, isLoading: barbersLoading } = useHomeBarberList({
+    cityId: effectiveCityId ? Number(effectiveCityId) : undefined,
+    limit: 6,
+  });
 
-  const locationDisplayName = cityName
-    ? `${cityName}، ${provinceName}`
-    : 'انتخاب شهر';
+  const cancelMutation = useCancelBooking();
+
+  // پیدا کردن اولین نوبت فعال (تأیید شده یا در انتظار)
+  const activeBooking = myBookingsData?.data?.find(
+    b => b.status === 'confirmed' || b.status === 'pending',
+  );
+
+  const handleConfirmCancel = async () => {
+    if (!activeBooking?.id) return;
+    try {
+      await cancelMutation.mutateAsync(activeBooking.id);
+      setShowCancelDialog(false);
+    } catch {
+      // خطا در هوک با toast مدیریت می‌شود
+    }
+  };
+
+  const displayName = user?.fullName
+    ? user.fullName.split(' ')[0]
+    : 'کاربر گرامی';
 
   return (
-    <div>
-      {/* Header */}
-      <div className="px-5 py-2 bg-white sticky top-0 z-10 shadow-sm border-b border-gray-100">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center justify-between w-full">
-            <span className="text-gray-500 text-xs">موقعیت مکانی شما</span>
-            <button
-              onClick={() => setShowLocationModal(true)}
-              className="flex items-center gap-1 text-gray-900 font-bold text-sm cursor-pointer hover:bg-gray-50 rounded p-1 -mr-1 transition-colors"
-            >
-              <Navigation
-                size={14}
-                className="text-primary-600 fill-primary-600"
-              />
-              <span>{locationDisplayName}</span>
-              <ChevronDown size={14} className="text-gray-400" />
-            </button>
+    <div className="min-h-screen pb-10 text-right">
+      <div className="max-w-md mx-auto px-4 pt-5 space-y-5">
+        {/* ================= HEADER SECTION ================= */}
+        <header className="flex items-center justify-between">
+          {/* User profile & greeting */}
+          <div className="flex items-center gap-3">
+            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-primary/20 bg-primary-2 flex items-center justify-center text-primary font-bold text-base">
+              {displayName.charAt(0)}
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500 font-medium">
+                  سلام، {displayName}
+                </span>
+                {effectiveCityName && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-primary bg-primary-2 px-1.5 py-0.5 rounded-md border border-primary/20 hover:bg-primary/20 transition-colors">
+                    <MapPin size={10} />
+                    <span>{effectiveCityName}</span>
+                  </span>
+                )}
+              </div>
+              <h1 className="text-sm sm:text-base font-black text-gray-900 tracking-tight">
+                روز خوبی داشته باشید
+              </h1>
+            </div>
           </div>
-        </div>
-      </div>
+        </header>
+        {/* ================= PROMO / HERO BANNER ================= */}
+        <section
+          aria-label="آشنایی با سیستم مدیریت سالن منشیم"
+          className="relative bg-white rounded-2xl border border-primary/30 shadow-xs overflow-hidden"
+        >
+          {/* Left illustration */}
+          <Image
+            src="/home/banner.jpg"
+            alt="مدیریت سالن منشیم"
+            width={1000}
+            height={400}
+            className="object-contain"
+            priority
+          />
+        </section>
 
-      {/* Banner Slider */}
-      <div className="px-5 mt-4">
-        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 no-scrollbar rounded-3xl">
-          {bannerImages.map((img, index) => (
-            <div
-              key={index}
-              className="min-w-full snap-center relative aspect-21/9 rounded-3xl overflow-hidden shadow-lg"
+        {/* ================= NEXT APPOINTMENT CARD ================= */}
+        {bookingsLoading ? (
+          <div className="bg-white rounded-2xl border border-primary/20 p-5 animate-pulse space-y-3">
+            <div className="h-5 bg-gray-200 rounded w-28" />
+            <div className="h-12 bg-gray-100 rounded-xl" />
+            <div className="h-9 bg-gray-200 rounded-xl" />
+          </div>
+        ) : activeBooking ? (
+          <section
+            aria-label="نوبت بعدی من"
+            className="bg-white rounded-2xl border border-primary/30 shadow-xs p-4 sm:p-5 space-y-4"
+          >
+            {/* Card Top Row: Badge & Scissors Icon */}
+            <div className="flex items-center justify-between">
+              <span className="bg-primary-2 text-primary text-xs font-black px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1">
+                نوبت بعدی من
+              </span>
+              <div className="w-9 h-9 rounded-lg bg-primary-2 text-primary flex items-center justify-center">
+                <Scissors size={18} />
+              </div>
+            </div>
+
+            {/* Appointment Info Row */}
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-3">
+                <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-primary-2 shrink-0 border border-gray-100 flex items-center justify-center text-primary">
+                  {activeBooking?.barber?.profileImage && (
+                    <Image
+                      src={
+                        process.env.NEXT_PUBLIC_IMAGE_URL +
+                        activeBooking?.barber?.profileImage
+                      }
+                      fill
+                      alt={activeBooking.barber?.salonName || 'سالن زیبایی'}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-black text-gray-900">
+                    {activeBooking.barber?.salonName || 'سالن زیبایی'}
+                  </h3>
+                  <span className="text-xs text-gray-400 mt-1 font-medium">
+                    {activeBooking.service?.name || 'خدمات رزرو شده'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Date & Time */}
+              <div className="text-left flex flex-col items-end">
+                <span className="text-xs text-gray-500 font-medium">
+                  {isoToJalali(activeBooking.date) || 'نوبت ثبت‌شده'}
+                </span>
+                <span className="text-sm font-black text-gray-900 mt-0.5 dir-ltr">
+                  {activeBooking.time.split(':')[0]}:
+                  {activeBooking.time.split(':')[1]}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons: مشاهده جزئیات & لغو */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <Link href="/appointments">
+                <Button className="w-full">مشاهده جزئیات</Button>
+              </Link>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCancelDialog(true)}
+              >
+                لغو
+              </Button>
+            </div>
+          </section>
+        ) : (
+          /* وضعیت واقعی در صورت نبود نوبت فعال (بدون دیتای فیک) */
+          <section
+            aria-label="نوبت بعدی من"
+            className="bg-white rounded-2xl border border-primary/30 shadow-xs p-5 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="bg-primary-2 text-primary text-xs font-black px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1">
+                نوبت بعدی من
+              </span>
+              <div className="w-9 h-9 rounded-lg bg-primary-2 text-primary flex items-center justify-center">
+                <CalendarCheck2 size={18} />
+              </div>
+            </div>
+
+            <div className="py-2 text-center space-y-1">
+              <p className="text-sm font-bold text-gray-800">
+                در حال حاضر نوبت فعالی ندارید
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                می‌توانید از بین سالن‌های زیبایی، نوبت جدید خود را رزرو کنید.
+              </p>
+            </div>
+
+            <Link href="/explore">
+              <Button className="w-full">رزرو نوبت جدید</Button>
+            </Link>
+          </section>
+        )}
+
+        {/* ================= NEARBY BARBERS SECTION ================= */}
+        <section aria-label="آرایشگاه‌های شهر شما" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm sm:text-base font-black text-gray-900">
+                آرایشگاه‌های شهر شما
+              </h2>
+              {effectiveCityName && (
+                <span className="text-[11px] font-bold text-primary bg-primary-2 px-2 py-0.5 rounded-lg border border-primary/20">
+                  {effectiveCityName}
+                </span>
+              )}
+            </div>
+            <Link
+              href="/explore"
+              className="text-xs font-bold text-primary hover:underline transition-all"
             >
-              <Image
-                src={img}
-                alt={`Banner ${index}`}
-                className="w-full h-full object-cover"
-                fill
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent"></div>
-            </div>
-          ))}
-        </div>
+              مشاهده همه
+            </Link>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {barbersLoading
+              ? // بارگذاری اسکلتون
+                Array.from({ length: 2 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl border border-primary/20 p-2.5 animate-pulse space-y-2"
+                  >
+                    <div className="aspect-4/3 bg-gray-200 rounded-xl" />
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-3 bg-gray-100 rounded w-1/2" />
+                  </div>
+                ))
+              : barbersData?.data &&
+                barbersData.data.length > 0 &&
+                // داده‌های واقعی از دیتابیس
+                barbersData.data.slice(0, 4).map(barber => {
+                  const imgUrl = barber.profileImage
+                    ? barber.profileImage.startsWith('http')
+                      ? barber.profileImage
+                      : `${process.env.NEXT_PUBLIC_IMAGE_URL || ''}${barber.profileImage}`
+                    : null;
+
+                  return (
+                    <Link
+                      key={barber.id}
+                      href={`/barber/${barber.id}`}
+                      className="group bg-white rounded-xl border border-primary/30 p-2 sm:p-2.5 shadow-2xs hover:shadow-md transition-all flex flex-col"
+                    >
+                      <div className="relative aspect-4/3 rounded-lg overflow-hidden bg-primary-2 flex items-center justify-center">
+                        {imgUrl ? (
+                          <Image
+                            src={imgUrl}
+                            alt={barber.salonName}
+                            fill
+                            sizes="(max-width: 640px) 50vw, 200px"
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <Scissors size={28} className="text-primary/60" />
+                        )}
+                      </div>
+                      <div className="mt-2 space-y-0.5">
+                        <h3 className="text-xs sm:text-sm font-black text-gray-900 truncate">
+                          {barber.salonName}
+                        </h3>
+                        <p className="text-[10px] sm:text-xs text-gray-500 truncate">
+                          مدیریت: {barber.fullName}
+                        </p>
+                        {barber.cityName && (
+                          <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                            <MapPin size={10} />
+                            <span>{barber.cityName}</span>
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+          </div>
+        </section>
       </div>
 
-      {/* Recommended Barbers */}
-      <div className="px-5 mt-6 mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-bold text-gray-800">پیشنهادها</h3>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-x-auto no-scrollbar pb-4 -mx-5 px-5">
-          {isLoading ? (
-            // نمایش اسکلتون‌ها هنگام لودینگ
-            Array.from({ length: 4 }).map((_, index) => (
-              <BarberCardSkeleton key={index} />
-            ))
-          ) : isError ? (
-            <div className="w-full text-center text-red-500 text-sm py-8">
-              خطا در بارگذاری: {error?.message || 'لطفاً مجدداً تلاش کنید'}
-            </div>
-          ) : barbers?.data?.length === 0 ? (
-            <div className="w-full text-center text-gray-400 text-sm py-8 bg-gray-50 rounded-2xl mx-5">
-              آرایشگری در این شهر یافت نشد.
-            </div>
-          ) : (
-            barbers?.data?.map(barber => (
-              <BarberCard key={barber.id} barber={barber} />
-            ))
-          )}
-        </div>
-      </div>
-
-      <LocationPickerModal
-        open={showLocationModal}
-        onOpenChange={setShowLocationModal}
-      />
+      {/* لغو نوبت Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="max-w-xs sm:max-w-sm rounded-2xl p-6 text-right">
+          <DialogHeader className="text-right space-y-2">
+            <DialogTitle className="text-base font-black text-gray-900">
+              لغو نوبت رزرو شده
+            </DialogTitle>
+            <DialogDescription className="text-xs text-gray-500 leading-relaxed">
+              آیا از لغو نوبت {activeBooking?.barber?.salonName} در تاریخ{' '}
+              {activeBooking?.date} ساعت {activeBooking?.time} اطمینان دارید؟
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="grid grid-cols-2 gap-2 mt-4 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowCancelDialog(false)}
+            >
+              انصراف
+            </Button>
+            <Button
+              type="button"
+              disabled={cancelMutation.isPending}
+              variant="destructive"
+              onClick={handleConfirmCancel}
+            >
+              {cancelMutation.isPending ? 'در حال لغو...' : 'تأیید و لغو'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

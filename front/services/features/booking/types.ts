@@ -1,10 +1,6 @@
 // types/booking.types.ts
 export type BookingStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'completed'
-  | 'canceled'
-  | 'rejected';
+  'pending' | 'confirmed' | 'completed' | 'canceled' | 'rejected';
 
 export interface Booking {
   id: string;
@@ -76,6 +72,7 @@ export interface MyBooking {
     salonName?: string;
     address?: string;
     phone?: string;
+    profileImage: string;
   };
   service?: {
     id?: string;

@@ -70,7 +70,7 @@ export default async function RootLayout({
       dir="rtl"
       className={cn('h-full', 'antialiased', 'font-sans', iranSans.className)}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-primary-3">
         <Providers dehydratedState={buildDehydratedState(user, known)}>
           <AuthProvider>{children}</AuthProvider>
         </Providers>

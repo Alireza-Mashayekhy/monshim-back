@@ -54,6 +54,7 @@ export class UsersService {
   async findWithPhone(phone: string) {
     return await this.usersRepository.findOne({
       where: { phone },
+      relations: { city: true, province: true },
     });
   }
 
@@ -88,6 +89,7 @@ export class UsersService {
   async findOne(id: number) {
     const payload = await this.usersRepository.findOne({
       where: { id },
+      relations: { city: true, province: true },
     });
     return payload;
   }

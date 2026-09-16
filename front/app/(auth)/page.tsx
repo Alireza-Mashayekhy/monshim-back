@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useRef, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
 
@@ -20,6 +20,7 @@ import FormProvider from '@/components/form/form-provider';
 import { PersianDatePicker } from '@/components/form/persian-date-picker';
 import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
+import RHFSelect from '@/components/form/rhf-select';
 import { Button } from '@/components/ui/button';
 import {
   InputOTP,
@@ -36,6 +37,7 @@ import {
   useVerifyOtp,
 } from '@/services/features/auth/hooks';
 import { sendOtpDto } from '@/services/features/auth/types';
+import { useCityList, useProvinceList } from '@/services/features/locations/hooks';
 
 export default function Login() {
   const [step, setStep] = useState<number>(1);
@@ -69,15 +71,49 @@ export default function Login() {
   const schemaInfo = z.object({
     fullName: z.string().trim().nonempty('نام و نام خانوادگی اجباری است.'),
     birthDate: z.string().optional(),
+    provinceId: z.string().trim().nonempty('انتخاب استان اجباری است.'),
+    cityId: z.string().trim().nonempty('انتخاب شهر اجباری است.'),
   });
 
   const methodsInfo = useForm({
     defaultValues: {
       fullName: '',
       birthDate: '',
+      provinceId: '',
+      cityId: '',
     },
     resolver: zodResolver(schemaInfo),
   });
+
+  const selectedProvinceId = useWatch({
+    control: methodsInfo.control,
+    name: 'provinceId',
+  });
+
+  const { data: provinces } = useProvinceList();
+  const { data: cities } = useCityList(
+    selectedProvinceId ? parseInt(selectedProvinceId, 10) : null,
+  );
+
+  const previousProvince = useRef(selectedProvinceId);
+  useEffect(() => {
+    if (previousProvince.current !== selectedProvinceId) {
+      methodsInfo.setValue('cityId', '', { shouldValidate: true });
+      previousProvince.current = selectedProvinceId;
+    }
+  }, [selectedProvinceId, methodsInfo]);
+
+  const provinceOptions =
+    provinces?.data?.map((p: any) => ({
+      value: p.id.toString(),
+      text: p.name,
+    })) || [];
+
+  const cityOptions =
+    cities?.data?.map((c: any) => ({
+      value: c.id.toString(),
+      text: c.name,
+    })) || [];
 
   const onSubmit = async (data: sendOtpDto) => {
     if (submitting.current) return;
@@ -153,8 +189,9 @@ export default function Login() {
 
   const onSubmitSignUp = async (data: {
     fullName: string;
-    birthDate: string;
-  }) => {
+    birthDate?: string;
+    provinceId: string;
+    cityId: string;  }) => {
     if (submitting.current) return;
     if (!/^\d{4}$/.test(code) || !otpPhone) {
       setStep(1);
@@ -172,12 +209,33 @@ export default function Login() {
     }
     submitting.current = true;
     try {
+      const pId = Number(data.provinceId);
+      const cId = Number(data.cityId);
+      const province = provinces?.data?.find(
+        (p: any) => String(p.id) === String(data.provinceId),
+      );
+      const city = cities?.data?.find(
+        (c: any) => String(c.id) === String(data.cityId),
+      );
+
       await signUpMutation.mutateAsync({
         phone: otpPhone,
         code,
         fullName: data.fullName,
         birthDate: jalaliToIso(data.birthDate) || undefined,
+        provinceId: pId,
+        cityId: cId,
       });
+      
+      if (province && city) {
+        useLocationStore.getState().setLocation(
+          pId,
+          province.name,
+          cId,
+          city.name,
+        );
+      }
+      
       toast.success('ثبت‌نام شما با موفقیت انجام شد!');
       router.replace('/home');
       router.refresh();
@@ -338,34 +396,56 @@ export default function Login() {
             <FormProvider
               methods={methodsInfo}
               onSubmit={onSubmitSignUp}
-              className="space-y-6 animate-fade-in"
+              className="space-y-4 animate-fade-in"
             >
               <div className="text-center">
-                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 text-green-600 pb-1 pl-1.5">
-                  <UserPlus size={32} />
+              <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3 text-green-600 pb-1 pl-1.5">
+              <UserPlus size={32} />
                 </div>
                 <h2 className="text-xl font-bold text-gray-800">
                   تکمیل اطلاعات
                 </h2>
-                <p className="text-gray-500 text-xs mt-2">
+                <p className="text-gray-500 text-xs mt-1">
                   لطفا اطلاعات خود را تکمیل کنید.
                 </p>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                disabled={signUpMutation.isPending}
-                onClick={() => setStep(2)}
-                className="mx-auto"
-              >
-                اصلاح کد تأیید / شماره موبایل
-              </Button>
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={signUpMutation.isPending}
+                  onClick={() => setStep(2)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  اصلاح کد تأیید / شماره موبایل
+                </Button>
+              </div>
+
               <RHFInput
                 type="text"
                 name="fullName"
                 label="نام و نام خانوادگی"
               />
+
+<div className="grid grid-cols-2 gap-3">
+                <RHFSelect
+                  name="provinceId"
+                  label="استان"
+                  placeholder="انتخاب استان..."
+                  items={provinceOptions}
+                />
+                <RHFSelect
+                  name="cityId"
+                  label="شهر"
+                  placeholder={
+                    selectedProvinceId ? 'انتخاب شهر...' : 'ابتدا استان'
+                  }
+                  items={cityOptions}
+                  disabled={!selectedProvinceId}
+                />
+              </div>
 
               <PersianDatePicker
                 name="birthDate"
@@ -377,7 +457,7 @@ export default function Login() {
                 type="submit"
                 loading={signUpMutation.isPending}
                 size="lg"
-                className="w-full"
+                className="w-full mt-2"
               >
                 ثبت نام و ورود
               </Button>
