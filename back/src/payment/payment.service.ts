@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
+import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BookingsService } from 'src/booking/booking.service';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { Service } from 'src/services/entities/service.entity';
@@ -39,6 +40,9 @@ export class PaymentService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
 
+    @InjectRepository(BarberProfile)
+    private readonly barberProfileRepo: Repository<BarberProfile>,
+
     @InjectRepository(SubscriptionPlan)
     private readonly planRepo: Repository<SubscriptionPlan>,
 
@@ -61,6 +65,12 @@ export class PaymentService {
   }
 
   private getAppUrl(): string {
+    return (
+      this.configService.get<string>('APP_URL') || 'http://localhost:4000'
+    ).replace(/\/+$/, '');
+  }
+
+  private getFrontUrl(): string {
     return (
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000'
     ).replace(/\/+$/, '');
@@ -248,6 +258,29 @@ export class PaymentService {
       throw new NotFoundException('کاربر یافت نشد');
     }
 
+    const barberIdNum = Number(dto.barberId);
+    let barber: BarberProfile | null = null;
+    if (Number.isInteger(barberIdNum)) {
+      barber = await this.barberProfileRepo.findOne({
+        where: [
+          { userId: barberIdNum, isApproved: true },
+          { id: String(dto.barberId), isApproved: true },
+        ],
+        relations: { user: true },
+      });
+    } else {
+      barber = await this.barberProfileRepo.findOne({
+        where: { id: String(dto.barberId), isApproved: true },
+        relations: { user: true },
+      });
+    }
+
+    if (!barber) {
+      throw new NotFoundException(
+        'آرایشگر مورد نظر یافت نشد یا تایید نشده است',
+      );
+    }
+
     const service = await this.serviceRepo.findOne({
       where: { id: dto.serviceId, isActive: true },
     });
@@ -255,16 +288,39 @@ export class PaymentService {
       throw new NotFoundException('سرویس یافت نشد');
     }
 
-    // ایجاد نوبت در حالت PENDING
-    const booking = await this.bookingsService.create(customerId, {
-      barberId: Number(dto.barberId),
-      serviceId: dto.serviceId,
-      date: dto.date,
-      time: dto.time,
-      note: dto.note,
+    // بررسی تداخل با رزروهای قطعی قبلی
+    const existingConfirmed = await this.bookingRepo.find({
+      where: {
+        barberId: barber.id,
+        date: dto.date,
+        status: BookingStatus.CONFIRMED,
+      },
+      relations: { service: true },
     });
 
-    // مبلغ پرداختی: در صورت وجود بیعانه، مبلغ بیعانه دریافت می‌شود در غیر این صورت کل مبلغ سرویس
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+
+    const bookingStart = toMinutes(dto.time);
+    const bookingEnd = bookingStart + service.durationMinutes;
+
+    const hasConflict = existingConfirmed.some(booking => {
+      const existingStart = toMinutes(booking.time);
+      const existingDuration =
+        booking.service?.durationMinutes ?? service.durationMinutes;
+      const existingEnd = existingStart + existingDuration;
+      return bookingStart < existingEnd && bookingEnd > existingStart;
+    });
+
+    if (hasConflict) {
+      throw new BadRequestException(
+        'این زمان قبلاً توسط شخص دیگری رزرو شده است',
+      );
+    }
+
+    // مبلغ پرداختی: در صورت وجود بیعانه، بیعانه دریافت می‌شود، در غیر این صورت کل مبلغ
     const amountToPay = service.depositPrice
       ? Number(service.depositPrice)
       : Number(service.price);
@@ -281,14 +337,29 @@ export class PaymentService {
       mobile: user.phone,
     });
 
-    // ثبت پرداخت
+    // مهم: در این مرحله هیچ رکوردی در جدول bookings درج نمی‌شود!
+    // اطلاعات رزرو تنها در metadata رکورد پرداخت نگهداری می‌شود
+    // تا زمانی که پرداخت موفق نباشد، زمان به هیچ وجه رزرو نمی‌شود.
+    const bookingMetadata = {
+      customerId,
+      barberUserId: barber.userId,
+      barberProfileId: barber.id,
+      serviceId: service.id,
+      date: dto.date,
+      time: dto.time,
+      price: service.price,
+      depositPrice: service.depositPrice ?? null,
+      note: dto.note ?? '',
+    };
+
     const payment = this.paymentRepo.create({
       userId: customerId,
       amount: amountToPay,
       trackId,
       orderId,
       purpose: PaymentPurpose.BOOKING,
-      purposeId: booking.id,
+      purposeId: null, // هنوز رزروی ایجاد نشده است
+      metadata: JSON.stringify(bookingMetadata),
       status: PaymentStatus.PENDING,
       description: `رزرو نوبت ${service.name}`,
     });
@@ -299,7 +370,6 @@ export class PaymentService {
       trackId,
       paymentUrl,
       orderId,
-      bookingId: booking.id,
       amount: amountToPay,
     };
   }
@@ -355,7 +425,7 @@ export class PaymentService {
     status?: string | number;
     orderId?: string;
   }): Promise<string> {
-    const appUrl = this.getAppUrl();
+    const frontUrl = this.getFrontUrl();
     const trackIdNum = params.trackId ? Number(params.trackId) : null;
     const isSuccess =
       String(params.success) === '1' || String(params.status) === '2';
@@ -374,19 +444,19 @@ export class PaymentService {
     }
 
     if (!payment) {
-      return `${appUrl}/payment/callback?status=failed&message=${encodeURIComponent('رکورد تراکنش یافت نشد')}`;
+      return `${frontUrl}/payment/callback?status=failed&message=${encodeURIComponent('رکورد تراکنش یافت نشد')}`;
     }
 
     // اگر کاربر در درگاه انصراف داده بود یا ناموفق بود
     if (!isSuccess) {
       payment.status = PaymentStatus.CANCELED;
       await this.paymentRepo.save(payment);
-      return `${appUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید')}`;
+      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید')}`;
     }
 
     // اگر قبلاً پرداخت تایید شده بود
     if (payment.status === PaymentStatus.PAID) {
-      return `${appUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+      return `${frontUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
     }
 
     // تایید تراکنش در زیبال
@@ -397,7 +467,7 @@ export class PaymentService {
     if (!verifyResult.success) {
       payment.status = PaymentStatus.FAILED;
       await this.paymentRepo.save(payment);
-      return `${appUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
+      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
     }
 
     // تراکنش با موفقیت تایید شد
@@ -417,11 +487,8 @@ export class PaymentService {
           payment.userId,
           payment.purposeId,
         );
-      } else if (
-        payment.purpose === PaymentPurpose.BOOKING &&
-        payment.purposeId
-      ) {
-        await this.confirmBookingAfterPayment(payment.purposeId);
+      } else if (payment.purpose === PaymentPurpose.BOOKING) {
+        await this.confirmBookingAfterPayment(payment);
       } else if (payment.purpose === PaymentPurpose.WALLET) {
         await this.walletService.deposit(
           payment.userId,
@@ -434,7 +501,7 @@ export class PaymentService {
       this.logger.error(`Error fulfilling payment purpose: ${e.message}`);
     }
 
-    return `${appUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+    return `${frontUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
   }
 
   // فعال‌سازی اشتراک پس از تایید پرداخت
@@ -470,15 +537,25 @@ export class PaymentService {
     await this.userSubscriptionRepo.save(userSubscription);
   }
 
-  // تایید رزرو نوبت پس از پرداخت بیعانه/مبلغ نوبت
-  private async confirmBookingAfterPayment(bookingId: string) {
-    const booking = await this.bookingRepo.findOne({
-      where: { id: bookingId },
-    });
-    if (!booking) return;
+  // ایجاد و ثبت قطعی رزرو نوبت فقط و فقط پس از تایید پرداخت درگاه
+  private async confirmBookingAfterPayment(payment: Payment) {
+    if (!payment.metadata) return;
+    const meta = JSON.parse(payment.metadata);
 
-    booking.status = BookingStatus.CONFIRMED;
-    await this.bookingRepo.save(booking);
+    const booking = this.bookingRepo.create({
+      customerId: meta.customerId,
+      barberId: meta.barberProfileId,
+      serviceId: meta.serviceId,
+      date: meta.date,
+      time: meta.time,
+      price: meta.price,
+      note: meta.note || '',
+      status: BookingStatus.CONFIRMED,
+    });
+
+    const saved = await this.bookingRepo.save(booking);
+    payment.purposeId = saved.id;
+    await this.paymentRepo.save(payment);
   }
 
   // استعلام وضعیت پرداخت

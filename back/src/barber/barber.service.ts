@@ -247,7 +247,10 @@ export class BarberService {
     const qb = this.userRepo.createQueryBuilder('user');
 
     qb.where('user.id = :id', { id })
-      .andWhere('user.roles LIKE :role', { role: '%Barber%' })
+      .andWhere('(user.roles LIKE :roleLower OR user.roles LIKE :roleUpper)', {
+        roleLower: '%barber%',
+        roleUpper: '%Barber%',
+      })
       .leftJoinAndSelect('user.barberProfile', 'profile')
       .leftJoinAndSelect('profile.city', 'city')
       .leftJoinAndSelect('profile.province', 'province')
@@ -271,6 +274,8 @@ export class BarberService {
     return {
       ...user,
       ...profile,
+      id: user.id,
+      barberProfileId: profile.id,
     };
   }
 
