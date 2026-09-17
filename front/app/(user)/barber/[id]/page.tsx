@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { LightboxModal } from '@/components/pages/barber/lightboxModal';
@@ -83,14 +83,6 @@ export default function BookingWizard() {
       </div>
     );
   }
-
-  const selectedServices = useMemo(
-    () =>
-      (barber.data?.services || []).filter(s =>
-        selectedServiceIds.includes(s.id),
-      ),
-    [barber.data?.services, selectedServiceIds],
-  );
 
   return (
     <div className="min-h-screen">

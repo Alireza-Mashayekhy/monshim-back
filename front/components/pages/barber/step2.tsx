@@ -64,7 +64,10 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
     [barber.services, selectedServiceIds],
   );
 
-  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalPrice = selectedServices.reduce(
+    (sum, s) => Number(sum) + Number(s.price),
+    0,
+  );
   const totalDuration = selectedServices.reduce(
     (sum, s) => sum + s.durationMinutes,
     0,
