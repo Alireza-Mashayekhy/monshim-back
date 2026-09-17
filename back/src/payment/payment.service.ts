@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
+import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { BookingsService } from 'src/booking/booking.service';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { Service } from 'src/services/entities/service.entity';
@@ -54,6 +55,9 @@ export class PaymentService {
 
     @InjectRepository(Booking)
     private readonly bookingRepo: Repository<Booking>,
+
+    @InjectRepository(BarberWorkHours)
+    private readonly workHoursRepo: Repository<BarberWorkHours>,
 
     private readonly bookingsService: BookingsService,
     private readonly walletService: WalletService,
@@ -281,11 +285,51 @@ export class PaymentService {
       );
     }
 
-    const service = await this.serviceRepo.findOne({
-      where: { id: dto.serviceId, isActive: true },
+    const serviceIds =
+      dto.serviceIds && dto.serviceIds.length > 0
+        ? dto.serviceIds
+        : dto.serviceId
+          ? [dto.serviceId]
+          : [];
+    if (serviceIds.length === 0) {
+      throw new BadRequestException('حداقل یک سرویس باید انتخاب شود');
+    }
+
+    // Load all services
+    const services = await this.serviceRepo.find({
+      where: serviceIds.map(id => ({ id, isActive: true })),
     });
-    if (!service) {
-      throw new NotFoundException('سرویس یافت نشد');
+    if (services.length !== serviceIds.length) {
+      throw new NotFoundException('یک یا چند سرویس معتبر نیستند');
+    }
+
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    const toTimeStr = (m: number) =>
+      `${Math.floor(m / 60)
+        .toString()
+        .padStart(2, '0')}:${(m % 60).toString().padStart(2, '0')}`;
+
+    const totalDuration = services.reduce((s, sv) => s + sv.durationMinutes, 0);
+    const firstStart = toMinutes(dto.time);
+
+    // Check work-hours for the entire combined block
+    const jsDay = new Date(dto.date).getDay();
+    const dayOfWeek = (jsDay + 1) % 7;
+    const workHours = await this.workHoursRepo.find({
+      where: { barberId: barber.id, dayOfWeek },
+    });
+    const fitsInWorkHours = workHours.some(wh => {
+      const ws = toMinutes(wh.startTime);
+      const we = toMinutes(wh.endTime);
+      return firstStart >= ws && firstStart + totalDuration <= we;
+    });
+    if (!fitsInWorkHours) {
+      throw new BadRequestException(
+        'مجموع زمان سرویس‌ها در ساعت کاری آرایشگر نمی‌گنجد',
+      );
     }
 
     // بررسی تداخل با رزروهای قطعی قبلی
@@ -298,32 +342,25 @@ export class PaymentService {
       relations: { service: true },
     });
 
-    const toMinutes = (time: string) => {
-      const [hours, minutes] = time.split(':').map(Number);
-      return hours * 60 + minutes;
-    };
-
-    const bookingStart = toMinutes(dto.time);
-    const bookingEnd = bookingStart + service.durationMinutes;
+    const blockEnd = firstStart + totalDuration;
 
     const hasConflict = existingConfirmed.some(booking => {
-      const existingStart = toMinutes(booking.time);
-      const existingDuration =
-        booking.service?.durationMinutes ?? service.durationMinutes;
-      const existingEnd = existingStart + existingDuration;
-      return bookingStart < existingEnd && bookingEnd > existingStart;
+      const s = toMinutes(booking.time);
+      const dur = booking.service?.durationMinutes ?? 30;
+      const e = s + dur;
+      return firstStart < e && blockEnd > s;
     });
 
     if (hasConflict) {
-      throw new BadRequestException(
-        'این زمان قبلاً توسط شخص دیگری رزرو شده است',
-      );
+      throw new BadRequestException('این زمان با رزروهای قطعی تداخل دارد');
     }
 
-    // مبلغ پرداختی: در صورت وجود بیعانه، بیعانه دریافت می‌شود، در غیر این صورت کل مبلغ
-    const amountToPay = service.depositPrice
-      ? Number(service.depositPrice)
-      : Number(service.price);
+    const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
+    const totalDeposit = services.reduce(
+      (sum, s) => sum + (s.depositPrice ? Number(s.depositPrice) : 0),
+      0,
+    );
+    const amountToPay = totalDeposit > 0 ? totalDeposit : totalPrice;
 
     const orderId = `BOOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const appUrl = this.getAppUrl();
@@ -332,25 +369,24 @@ export class PaymentService {
     const { trackId, paymentUrl } = await this.requestZibalPayment({
       amountTomans: amountToPay,
       callbackUrl,
-      description: `رزرو نوبت ${service.name} در منشیم`,
+      description: `رزرو ${services.length} سرویس در ${barber.salonName || 'آرایشگاه'} - منشیم`,
       orderId,
       mobile: user.phone,
     });
 
-    // مهم: در این مرحله هیچ رکوردی در جدول bookings درج نمی‌شود!
-    // اطلاعات رزرو تنها در metadata رکورد پرداخت نگهداری می‌شود
-    // تا زمانی که پرداخت موفق نباشد، زمان به هیچ وجه رزرو نمی‌شود.
-    const bookingMetadata = {
-      customerId,
-      barberUserId: barber.userId,
-      barberProfileId: barber.id,
-      serviceId: service.id,
-      date: dto.date,
-      time: dto.time,
-      price: service.price,
-      depositPrice: service.depositPrice ?? null,
-      note: dto.note ?? '',
-    };
+    // We store metadata as an array of individual bookings that should be created after payment
+    let cursor = firstStart;
+    const bookingItems = services.map(sv => {
+      const start = cursor;
+      cursor += sv.durationMinutes;
+      return {
+        serviceId: sv.id,
+        time: toTimeStr(start),
+        durationMinutes: sv.durationMinutes,
+        price: Number(sv.price),
+        depositPrice: sv.depositPrice ?? null,
+      };
+    });
 
     const payment = this.paymentRepo.create({
       userId: customerId,
@@ -358,10 +394,18 @@ export class PaymentService {
       trackId,
       orderId,
       purpose: PaymentPurpose.BOOKING,
-      purposeId: null, // هنوز رزروی ایجاد نشده است
-      metadata: JSON.stringify(bookingMetadata),
+      purposeId: null,
+      metadata: JSON.stringify({
+        customerId,
+        barberUserId: barber.userId,
+        barberProfileId: barber.id,
+        date: dto.date,
+        note: dto.note ?? '',
+        items: bookingItems,
+        totalPrice,
+      }),
       status: PaymentStatus.PENDING,
-      description: `رزرو نوبت ${service.name}`,
+      description: `رزرو ${services.length} سرویس`,
     });
 
     await this.paymentRepo.save(payment);
@@ -542,19 +586,40 @@ export class PaymentService {
     if (!payment.metadata) return;
     const meta = JSON.parse(payment.metadata);
 
-    const booking = this.bookingRepo.create({
-      customerId: meta.customerId,
-      barberId: meta.barberProfileId,
-      serviceId: meta.serviceId,
-      date: meta.date,
-      time: meta.time,
-      price: meta.price,
-      note: meta.note || '',
-      status: BookingStatus.CONFIRMED,
-    });
+    if (meta.serviceId && !meta.items) {
+      const booking = this.bookingRepo.create({
+        customerId: meta.customerId,
+        barberId: meta.barberProfileId,
+        serviceId: meta.serviceId,
+        date: meta.date,
+        time: meta.time,
+        price: meta.price,
+        note: meta.note || '',
+        status: BookingStatus.CONFIRMED,
+      });
+      const saved = await this.bookingRepo.save(booking);
+      payment.purposeId = saved.id;
+      await this.paymentRepo.save(payment);
+      return;
+    }
 
-    const saved = await this.bookingRepo.save(booking);
-    payment.purposeId = saved.id;
+    // Multi-item shape: create one booking per service (back-to-back)
+    const createdIds: string[] = [];
+    for (const item of meta.items || []) {
+      const booking = this.bookingRepo.create({
+        customerId: meta.customerId,
+        barberId: meta.barberProfileId,
+        serviceId: item.serviceId,
+        date: meta.date,
+        time: item.time,
+        price: item.price,
+        note: meta.note || '',
+        status: BookingStatus.CONFIRMED,
+      });
+      const saved = await this.bookingRepo.save(booking);
+      createdIds.push(saved.id);
+    }
+    payment.purposeId = createdIds[0] ?? null;
     await this.paymentRepo.save(payment);
   }
 

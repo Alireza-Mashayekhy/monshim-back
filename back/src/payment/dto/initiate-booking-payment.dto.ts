@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsArray,
   IsDateString,
   IsNotEmpty,
   IsOptional,
@@ -11,10 +12,23 @@ export class InitiateBookingPaymentDto {
   @IsNotEmpty()
   barberId: number | string;
 
-  @ApiProperty({ description: 'شناسه سرویس' })
+  @ApiProperty({
+    description: 'لیست شناسه سرویس‌ها (برای چند-سرویس)',
+    type: [String],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  serviceIds?: string[];
+
+  @ApiProperty({
+    description: 'شناسه سرویس (تک‌سرویس، سازگاری قبلی)',
+    required: false,
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  serviceId: string;
+  serviceId?: string;
 
   @ApiProperty({ description: 'تاریخ نوبت' })
   @IsDateString()
