@@ -23,7 +23,7 @@ export interface Service {
 export interface Barber {
   id: number;
   name: string;
-  shopName: string;
+  salonName: string;
   image: string | null;
   address: string;
   bio: string;
@@ -31,8 +31,8 @@ export interface Barber {
   reviewCount: number;
   services: Service[];
   portfolio: string[];
-  city: string | null;
-  province: string | null;
+  city: CityResponse;
+  province: ProvinceResponse;
   userId: number;
 }
 

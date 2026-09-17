@@ -1,15 +1,13 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { LightboxModal } from '@/components/pages/barber/lightboxModal';
-import { ShareModal } from '@/components/pages/barber/shareModal';
 import { Step1Profile } from '@/components/pages/barber/step1';
-import { Step2Services } from '@/components/pages/barber/step2';
-import { Step3DateTime } from '@/components/pages/barber/step3';
-import { Step4Payment } from '@/components/pages/barber/step4';
+import { Step2BookConfirm } from '@/components/pages/barber/step2';
+import { Button } from '@/components/ui/button';
 import { useBarber } from '@/services/features/barber/hooks';
 import {
   useAvailableSlots,
@@ -23,17 +21,10 @@ export default function BookingWizard() {
 
   // State
   const [step, setStep] = useState(1);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
-    null,
-  );
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'WALLET'>(
-    'ONLINE',
-  );
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareLink, setShareLink] = useState('');
 
   // Queries & Mutations
   const {
@@ -42,138 +33,92 @@ export default function BookingWizard() {
     error: barberError,
   } = useBarber(Number(id));
 
+  const barberUserId = barber?.data?.userId?.toString() || '';
   const { data: availableTimes, isLoading: timesLoading } = useAvailableSlots(
-    barber?.data?.userId?.toString() || '',
+    barberUserId,
     selectedDate,
-    selectedServiceId, // ← اضافه شد
+    selectedServiceIds,
   );
 
   const createBookingMutation = useCreateBooking();
   const payBookingMutation = usePayBooking();
 
-  // Handlers
-  const handleConfirmService = () => {
-    if (!selectedServiceId) return;
-    setStep(3);
-  };
-
-  const handleConfirmDateTime = () => {
-    if (selectedDate && selectedTime) {
-      setStep(4);
-    }
+  const toggleService = (sid: string) => {
+    setSelectedServiceIds(prev =>
+      prev.includes(sid) ? prev.filter(x => x !== sid) : [...prev, sid],
+    );
   };
 
   const handlePayment = async () => {
-    if (!selectedServiceId || !selectedDate || !selectedTime) return;
-    const service = barber?.data?.services?.find(
-      s => s.id === selectedServiceId,
-    );
-    if (!service) return;
-
-    if (paymentMethod === 'ONLINE') {
-      try {
-        await payBookingMutation.mutateAsync({
-          barberId: Number(id),
-          serviceId: selectedServiceId,
-          date: selectedDate,
-          time: selectedTime,
-          note: '',
-        });
-      } catch (error: any) {
-        toast.error(
-          error.response?.data?.message || 'خطا در اتصال به درگاه پرداخت زیبال',
-        );
-      }
+    if (!selectedDate || !selectedTime || selectedServiceIds.length === 0)
       return;
-    }
-
     try {
-      await createBookingMutation.mutateAsync({
+      await payBookingMutation.mutateAsync({
         barberId: Number(id),
-        serviceId: selectedServiceId,
+        serviceIds: selectedServiceIds,
         date: selectedDate,
         time: selectedTime,
         note: '',
       });
-      toast.success('رزرو با موفقیت انجام شد!');
-      router.push('/appointments');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'خطا در ثبت رزرو');
+      toast.error(
+        error.response?.data?.message || 'خطا در اتصال به درگاه پرداخت',
+      );
     }
   };
 
   // Loading & Error
   if (barberLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-500">در حال بارگذاری...</div>
       </div>
     );
   }
   if (barberError || !barber) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-xl font-bold text-gray-800">آرایشگر یافت نشد</h2>
-        <button
-          onClick={() => router.push('/')}
-          className="mt-4 bg-primary-600 text-white px-6 py-2 rounded-xl"
-        >
-          بازگشت به خانه
-        </button>
+        <Button onClick={() => router.push('/')}>بازگشت به خانه</Button>
       </div>
     );
   }
 
-  const selectedService = barber.data?.services?.find(
-    s => s.id === selectedServiceId,
+  const selectedServices = useMemo(
+    () =>
+      (barber.data?.services || []).filter(s =>
+        selectedServiceIds.includes(s.id),
+      ),
+    [barber.data?.services, selectedServiceIds],
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans" dir="rtl">
+    <div className="min-h-screen">
       {step === 1 && (
         <Step1Profile
-          barber={barber?.data}
-          onStartBooking={() => setStep(2)}
-          onShare={() => {
-            setShareLink(window.location.href);
-            setShowShareModal(true);
-          }}
+          barber={barber.data}
+          selectedServiceIds={selectedServiceIds}
+          onToggleService={toggleService}
+          onContinue={() => setStep(2)}
           onImageClick={setSelectedImage}
           onBack={() => router.back()}
         />
       )}
       {step === 2 && (
-        <Step2Services
-          services={barber.data?.services || []}
-          selectedServiceId={selectedServiceId}
-          onSelectService={setSelectedServiceId}
-          onConfirm={handleConfirmService}
-          onBack={() => setStep(1)}
-        />
-      )}
-      {step === 3 && (
-        <Step3DateTime
-          selectedDate={selectedDate}
-          selectedTime={selectedTime}
-          availableTimes={availableTimes?.data?.slots || []} // ← آرایه
+        <Step2BookConfirm
+          barber={barber.data}
+          selectedServiceIds={selectedServiceIds}
+          availableTimes={availableTimes?.data?.slots || []}
           timesLoading={timesLoading}
-          onSelectDate={setSelectedDate}
+          selectedDateISO={selectedDate}
+          selectedTime={selectedTime}
+          onSelectDateISO={d => {
+            setSelectedDate(d);
+            setSelectedTime(null);
+          }}
           onSelectTime={setSelectedTime}
-          onConfirm={handleConfirmDateTime}
-          onBack={() => setStep(2)}
-          serviceName={selectedService?.name || ''}
-        />
-      )}
-      {step === 4 && selectedService && (
-        <Step4Payment
-          barber={barber?.data}
-          service={selectedService}
-          selectedDate={selectedDate!}
-          selectedTime={selectedTime!}
-          paymentMethod={paymentMethod}
-          onPaymentMethodChange={setPaymentMethod}
-          onPay={handlePayment}
-          onBack={() => setStep(3)}
+          onConfirm={handlePayment}
+          onBack={() => setStep(1)}
           isSubmitting={
             createBookingMutation.isPending || payBookingMutation.isPending
           }
@@ -183,12 +128,6 @@ export default function BookingWizard() {
       <LightboxModal
         image={selectedImage}
         onClose={() => setSelectedImage(null)}
-      />
-      <ShareModal
-        open={showShareModal}
-        onClose={() => setShowShareModal(false)}
-        link={shareLink}
-        shopName={barber.data?.shopName}
       />
     </div>
   );

@@ -164,7 +164,7 @@ export function AppointmentBookingDialog({
   const { data: slotsResponse, isLoading: slotsLoading } = useAvailableSlots(
     barberId,
     isoDate,
-    serviceId,
+    serviceId ? [serviceId] : [],
   );
   const slots = slotsResponse?.data?.slots ?? [];
 

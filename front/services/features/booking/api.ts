@@ -18,6 +18,7 @@ import {
 export interface CreateBookingDto {
   barberId: number;
   serviceId: string;
+  serviceIds?: string[];
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   note?: string;
@@ -33,13 +34,18 @@ export const createBooking = async (
 export const getAvailableSlots = async (
   barberId: string,
   date: string | null,
-  serviceId: string | null,
+  serviceIds: string[],
 ) => {
+  const params: any = { barberId, date };
+  if (serviceIds.length === 1) {
+    params.serviceId = serviceIds[0];
+  } else if (serviceIds.length > 1) {
+    params.serviceIds = serviceIds.join(',');
+  }
+
   const { data } = await api.get<ApiSingleResponse<AvailableSlotsResponse>>(
     endpoints.booking.availableTimes,
-    {
-      params: { barberId, date, serviceId },
-    },
+    { params },
   );
   return data;
 };

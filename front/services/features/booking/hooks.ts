@@ -17,14 +17,14 @@ import { Booking, BookingQueryParams, MyBookingsQuery } from './types';
 export const useAvailableSlots = (
   barberId: string,
   date: string | null,
-  serviceId: string | null,
+  serviceIds: string[],
 ) => {
   return useQuery({
-    queryKey: ['available-slots', barberId, date, serviceId],
+    queryKey: ['available-slots', barberId, date, [...serviceIds].sort()],
 
-    queryFn: () => getAvailableSlots(barberId, date!, serviceId!),
+    queryFn: () => getAvailableSlots(barberId, date!, serviceIds),
 
-    enabled: !!barberId && !!date && !!serviceId,
+    enabled: !!barberId && !!date && serviceIds.length > 0,
 
     staleTime: 2 * 60 * 1000,
   });

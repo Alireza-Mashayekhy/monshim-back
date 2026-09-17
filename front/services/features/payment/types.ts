@@ -13,7 +13,8 @@ export interface InitiateSubscriptionPaymentDto {
 
 export interface InitiateBookingPaymentDto {
   barberId: number | string;
-  serviceId: string;
+  serviceId?: string;
+  serviceIds?: string[];
   date: string;
   time: string;
   note?: string;
