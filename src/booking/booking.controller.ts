@@ -102,17 +102,22 @@ export class BookingsController {
   async getAvailableSlots(
     @Query('barberId') barberId: string,
     @Query('date') date: string,
-    @Query('serviceId') serviceId: string,
+    @Query('serviceId') serviceId?: string,
+    @Query('serviceIds') serviceIdsRaw?: string,
   ) {
-    if (!barberId || !date || !serviceId) {
-      throw new BadRequestException(
-        'باربرآیدی، تاریخ و شناسه سرویس الزامی هستند',
-      );
+    if (!barberId || !date) {
+      throw new BadRequestException('باربرآیدی و تاریخ الزامی هستند');
     }
+    const serviceIds =
+      serviceIdsRaw
+        ?.split(',')
+        .map(s => s.trim())
+        .filter(Boolean) ?? (serviceId ? [serviceId] : []);
+
     const slots = await this.bookingsService.getAvailableSlots(
       barberId,
       date,
-      serviceId,
+      serviceIds,
     );
     return { slots };
   }

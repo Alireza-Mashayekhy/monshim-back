@@ -497,7 +497,7 @@ export class BookingsService {
   async getAvailableSlots(
     userId: string,
     date: string,
-    serviceId: string,
+    serviceIds: string[],
   ): Promise<string[]> {
     const barberUserId = Number(userId);
 
@@ -520,36 +520,21 @@ export class BookingsService {
     }
 
     // سرویس
-    const service = await this.serviceRepo.findOne({
-      where: {
-        id: serviceId,
-        isActive: true,
-      },
-    });
-
-    if (!service) {
-      throw new NotFoundException('سرویس مورد نظر یافت نشد');
+    let serviceDuration = 0;
+    let services: Service[] = [];
+    if (serviceIds.length > 0) {
+      services = await this.serviceRepo.find({
+        where: serviceIds.map(id => ({ id, isActive: true })),
+      });
+      if (services.length !== serviceIds.length) {
+        throw new NotFoundException('یک یا چند سرویس معتبر نیستند');
+      }
+      serviceDuration = services.reduce((sum, s) => sum + s.durationMinutes, 0);
     }
 
-    const serviceDuration = service.durationMinutes;
-
-    // JS:
-    // 0 Sunday
-    // 1 Monday
-    // 2 Tuesday
-    // 3 Wednesday
-    // 4 Thursday
-    // 5 Friday
-    // 6 Saturday
-    //
-    // DB:
-    // 0 Saturday
-    // 1 Sunday
-    // 2 Monday
-    // 3 Tuesday
-    // 4 Wednesday
-    // 5 Thursday
-    // 6 Friday
+    if (serviceDuration <= 0) {
+      serviceDuration = 30; // پیش‌فرض ۳۰ دقیقه وقتی هیچ سرویسی انتخاب نشده
+    }
 
     const jsDay = new Date(date).getDay();
 
@@ -600,10 +585,7 @@ export class BookingsService {
 
       const end = toMinutes(workHour.endTime);
 
-      // بازه نامعتبر
-      if (start >= end) {
-        continue;
-      }
+      if (start >= end) continue;
 
       let currentStart = start;
 
@@ -613,8 +595,7 @@ export class BookingsService {
         const isBooked = bookings.some(booking => {
           const bookingStart = toMinutes(booking.time);
 
-          const bookingDuration =
-            booking.service?.durationMinutes ?? serviceDuration;
+          const bookingDuration = booking.service?.durationMinutes ?? 30;
 
           const bookingEnd = bookingStart + bookingDuration;
 
