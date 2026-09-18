@@ -12,6 +12,8 @@ export type RHFPhoneInputProps = Omit<
   name: string;
   label?: string;
   isRequired?: boolean;
+  startIcon?: React.ReactNode;
+  endIcon?: React.ReactNode;
 };
 
 /**
@@ -19,7 +21,11 @@ export type RHFPhoneInputProps = Omit<
  * هنگام تایپ، ارقام فارسی/عربی را به انگلیسی تبدیل می‌کند،
  * جداکننده‌ها را حذف می‌کند و طول را به ۱۱ رقم محدود می‌کند.
  */
-export default function RHFPhoneInput({ ...other }: RHFPhoneInputProps) {
+export default function RHFPhoneInput({
+  startIcon,
+  endIcon,
+  ...other
+}: RHFPhoneInputProps) {
   const { control } = useFormContext();
 
   return (
@@ -29,6 +35,8 @@ export default function RHFPhoneInput({ ...other }: RHFPhoneInputProps) {
       render={({ field }) => (
         <RHFInput
           {...other}
+          startIcon={startIcon}
+          endIcon={endIcon}
           type="tel"
           inputMode="tel"
           autoComplete="tel-national"

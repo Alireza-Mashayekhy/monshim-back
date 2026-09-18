@@ -70,7 +70,7 @@ export function PersianDatePicker({
         placeholder={placeholder}
         className="w-full"
         inputClass={cn(
-          'w-full h-8 px-3 border border-gray-300 rounded-none text-right outline-none bg-transparent transition',
+          'w-full h-12 px-3 border border-gray-300 rounded-none text-right outline-none bg-transparent transition',
           'hover:border-gray-400',
         )}
         style={{ width: '100%' }}
@@ -86,7 +86,7 @@ function CustomInput({ value, placeholder, openCalendar }: any) {
   return (
     <button
       type="button"
-      className="w-full h-8 border border-input px-2.5 py-1 text-sm rounded-lg text-right outline-none bg-transparent transition hover:border-gray-400 flex items-center gap-2"
+      className="w-full h-12 border border-input px-2.5 py-1 text-sm rounded-lg text-right outline-none bg-transparent transition hover:border-gray-400 flex items-center gap-2"
       onClick={openCalendar}
     >
       <CalendarIcon className="w-4 h-4 mb-0.5 text-gray-400" />

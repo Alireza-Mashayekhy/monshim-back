@@ -31,7 +31,7 @@ export async function proxy(request: NextRequest) {
   // client decides whether to redirect; a refresh cookie is NOT authentication.
   if (isPublicAuthPath(pathname)) return next();
   if (!token && !refreshToken)
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/login', request.url));
   if (user && !canAccessPath(pathname, user)) {
     return NextResponse.redirect(new URL('/home', request.url));
   }

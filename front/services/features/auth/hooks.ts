@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/auth.store';
 import {
   fetchMe,
   login,
+  loginWithPassword,
   logout,
   refreshSession,
   registerBarber,
@@ -70,6 +71,11 @@ function useSyncSession() {
 export function useLogin() {
   const sync = useSyncSession();
   return useMutation({ mutationFn: login, onSuccess: sync });
+}
+
+export function useLoginWithPassword() {
+  const sync = useSyncSession();
+  return useMutation({ mutationFn: loginWithPassword, onSuccess: sync });
 }
 
 export function useSendOtp() {

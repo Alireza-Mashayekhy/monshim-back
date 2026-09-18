@@ -22,7 +22,7 @@ export default function BarberSignup() {
 
   const handleBack = () => {
     if (step === 1) {
-      router.push('/');
+      router.push('/login');
     } else {
       prevStep();
     }

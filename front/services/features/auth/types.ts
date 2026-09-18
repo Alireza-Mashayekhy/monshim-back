@@ -17,10 +17,19 @@ export interface LoginDto {
   code: string;
 }
 
+export interface LoginWithPasswordDto {
+  phone: string;
+  password: string;
+}
+
 export interface SignUpDto {
   phone: string;
   code: string;
   fullName: string;
+  firstName?: string;
+  lastName?: string;
+  gender?: string;
+  password?: string;
   birthDate?: string;
   provinceId?: number;
   cityId?: number;

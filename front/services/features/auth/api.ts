@@ -11,6 +11,7 @@ import { ApiSingleResponse } from '@/services/api/types';
 import {
   LoginDto,
   LoginResponse,
+  LoginWithPasswordDto,
   sendOtpDto,
   sendOtpResponse,
   SignUpDto,
@@ -22,6 +23,16 @@ export async function login(dto: LoginDto) {
   await waitForSessionRefresh();
   const { data } = await api.post<ApiSingleResponse<LoginResponse>>(
     endpoints.auth.login,
+    dto,
+  );
+
+  return data;
+}
+
+export async function loginWithPassword(dto: LoginWithPasswordDto) {
+  await waitForSessionRefresh();
+  const { data } = await api.post<ApiSingleResponse<LoginResponse>>(
+    endpoints.auth.loginWithPassword,
     dto,
   );
 

@@ -9,6 +9,7 @@ export const api = axios.create({
 
 const noRefreshPaths = new Set([
   '/auth/login',
+  '/auth/login-with-password',
   '/auth/send-otp',
   '/auth/sign-up',
   '/auth/register-barber',
@@ -47,8 +48,7 @@ api.interceptors.response.use(
   async (error: unknown) => {
     if (!axios.isAxiosError(error)) return Promise.reject(error);
     const original = error.config as
-      | (InternalAxiosRequestConfig & { _retry?: boolean })
-      | undefined;
+      (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
     const path = original?.url?.split('?')[0].replace(/\/+$/, '');
     if (
       !original ||

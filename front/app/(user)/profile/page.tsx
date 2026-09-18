@@ -24,7 +24,7 @@ export default function ProfilePage() {
     if (logoutMutation.isPending) return;
     try {
       await logoutMutation.mutateAsync();
-      router.replace('/');
+      router.replace('/login');
       router.refresh();
     } catch (error) {
       toast.error(

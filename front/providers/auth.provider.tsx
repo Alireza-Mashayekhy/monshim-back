@@ -29,13 +29,19 @@ export default function AuthProvider({
   const user = data?.data ?? null;
   const isPublic = isPublicAuthPath(pathname);
   const denied = user && !canAccessPath(pathname, user);
+  const isAuthPage =
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/login-otp' ||
+    pathname === '/register';
+
   const destination =
     !isPending && !isFetching && !isError
       ? !user && !isPublic
-        ? '/'
+        ? '/login'
         : denied
           ? '/home'
-          : user && pathname === '/'
+          : user && isAuthPage
             ? '/home'
             : user && isBarber(user) && pathname === '/barbaer-signup'
               ? '/dashboard/profile'

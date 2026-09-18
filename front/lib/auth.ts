@@ -8,7 +8,13 @@ export function isPathWithin(pathname: string, path: string) {
 }
 
 export function isPublicAuthPath(pathname: string) {
-  return pathname === '/' || isPathWithin(pathname, '/barbaer-signup');
+  return (
+    pathname === '/' ||
+    isPathWithin(pathname, '/login') ||
+    isPathWithin(pathname, '/login-otp') ||
+    isPathWithin(pathname, '/register') ||
+    isPathWithin(pathname, '/barbaer-signup')
+  );
 }
 
 export function canAccessPath(pathname: string, user: unknown) {
