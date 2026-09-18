@@ -38,6 +38,19 @@ export class User {
   birthDate: Date | null;
 
   @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  password?: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  gender?: string | null;
+
+  @Column({
     name: 'province_id',
     nullable: true,
   })
