@@ -58,6 +58,16 @@ export class UsersService {
     });
   }
 
+  async findWithPhoneWithPassword(phone: string) {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.city', 'city')
+      .leftJoinAndSelect('user.province', 'province')
+      .where('user.phone = :phone', { phone })
+      .addSelect('user.password')
+      .getOne();
+  }
+
   async findAll(query: QueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;

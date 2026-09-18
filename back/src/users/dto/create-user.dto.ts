@@ -40,6 +40,17 @@ export class CreateUserDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(6, { message: 'رمز عبور باید حداقل ۶ کاراکتر باشد' })
+  password?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsNumber()
   @Type(() => Number)
   provinceId?: number;

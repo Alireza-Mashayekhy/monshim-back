@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
 import { BarberService } from 'src/barber/barber.service';
 import {
@@ -31,6 +32,7 @@ import { User } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { DataSource } from 'typeorm';
 
+import { LoginWithPasswordDto } from './dto/login-with-password.dto';
 import { RegisterBarberDto } from './dto/register-barber.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { SendVerifyOtp } from './dto/verify-otp.dto';
@@ -110,6 +112,29 @@ export class AuthService {
           'این شماره هنوز ثبت‌نام نشده است. لطفاً برای تکمیل ثبت‌نام نام و تاریخ تولد را وارد کنید',
         data: { newUser: true, phone: sendVerifyOtp.phone },
       };
+    }
+
+    if (!user.isActive) {
+      throw new ForbiddenException(
+        'حساب کاربری شما غیرفعال است. با پشتیبانی تماس بگیرید',
+      );
+    }
+
+    await this.issueTokens(user, response);
+
+    return { message: 'ورود با موفقیت انجام شد', data: { newUser: false } };
+  }
+
+  async loginWithPassword(dto: LoginWithPasswordDto, response: Response) {
+    const user = await this.usersService.findWithPhoneWithPassword(dto.phone);
+
+    if (!user || !user.password) {
+      throw new UnauthorizedException('شماره تلفن یا رمز عبور اشتباه است');
+    }
+
+    const isMatch = await bcrypt.compare(dto.password, user.password);
+    if (!isMatch) {
+      throw new UnauthorizedException('شماره تلفن یا رمز عبور اشتباه است');
     }
 
     if (!user.isActive) {
@@ -230,11 +255,14 @@ export class AuthService {
       throw new ConflictException(PHONE_ALREADY_REGISTERED_MESSAGE);
     }
 
-    await this.otpService.verifyOtp(createUserDto.phone, createUserDto.code);
+    const payload = { ...createUserDto };
+    if (payload.password) {
+      payload.password = await bcrypt.hash(payload.password, 10);
+    }
 
     let newUser: User;
     try {
-      newUser = await this.usersService.create(createUserDto);
+      newUser = await this.usersService.create(payload);
     } catch (error) {
       if (isDuplicateEntryError(error)) {
         throw new ConflictException(PHONE_ALREADY_REGISTERED_MESSAGE);
