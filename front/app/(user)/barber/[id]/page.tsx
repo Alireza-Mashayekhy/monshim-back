@@ -93,7 +93,6 @@ export default function BookingWizard() {
           onToggleService={toggleService}
           onContinue={() => setStep(2)}
           onImageClick={setSelectedImage}
-          onBack={() => router.back()}
         />
       )}
       {step === 2 && (

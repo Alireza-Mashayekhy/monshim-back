@@ -1,13 +1,8 @@
 // components/booking/Step2Services.tsx
-import {
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Lock,
-} from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { BackButton } from '@/components/shared/back-button';
 import { Button } from '@/components/ui/button';
 import {
   FA_MONTHS,
@@ -101,23 +96,18 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
   return (
     <div className="min-h-screen flex flex-col">
       <div className="p-5 border-b sticky top-0 z-10 flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="p-2 -mr-2 text-gray-600 rounded-full hover:bg-gray-50"
-        >
-          <ArrowRight />
-        </button>
-        <div className="flex-1 text-center -mr-11">
-          <h2 className="text-2xl font-black text-gray-900">انتخاب زمان</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            {barber.salonName} • {servicesLabel || 'انتخاب خدمات'}
-          </p>
+        <div className="absolute">
+          <BackButton func={onBack} />
         </div>
+
+        <h2 className="text-2xl font-black text-gray-900 text-center w-full">
+          انتخاب زمان
+        </h2>
       </div>
 
       <div className="p-5 space-y-5">
         {/* Calendar */}
-        <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-white max-w-lg mx-auto rounded-3xl p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-5">
             <button
               onClick={goPrevMonth}
@@ -220,72 +210,51 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
         {/* Summary Card */}
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 overflow-hidden flex items-center justify-center shrink-0">
-                {barber.image ? (
-                  <img
-                    src={
-                      (process.env.NEXT_PUBLIC_IMAGE_URL || '') + barber.image
-                    }
-                    className="w-full h-full object-cover"
-                    alt={barber.shopName}
-                  />
-                ) : (
-                  <Clock size={20} className="text-primary" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">{barber.shopName}</p>
-                <p className="text-xs text-gray-400">
-                  {toFa(totalDuration)} دقیقه
-                </p>
-              </div>
-            </div>
             <h3 className="text-xl font-black text-gray-900">خلاصه رزرو</h3>
+            <div>
+              <p className="text-xs text-gray-400">
+                {toFa(totalDuration)} دقیقه
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3 border-t border-gray-100 pt-4">
             {selectedServices.map(s => (
               <div key={s.id} className="flex items-center justify-between">
-                <span className="font-bold text-primary text-base">
-                  {toFa(formatPrice(s.price))} ت
-                </span>
                 <span className="text-gray-700 font-semibold">{s.name}</span>
+                <span className="font-bold text-primary text-base">
+                  {toFa(formatPrice(s.price))} تومان
+                </span>
               </div>
             ))}
 
             <div className="flex items-center justify-between">
-              <span className="font-bold text-gray-900 text-base">
-                {selectedTime
-                  ? `${formattedDate}، ${selectedTime}`
-                  : 'تاریخ و ساعت'}
-              </span>
               <span className="text-gray-500">تاریخ و ساعت</span>
+              <span className="font-bold text-gray-900 text-base">
+                {selectedTime ? `${formattedDate}، ${selectedTime}` : '- ، -'}
+              </span>
             </div>
 
             <div className="flex items-center justify-between border-t border-dashed border-gray-200 pt-3 mt-3">
-              <span className="font-black text-primary text-xl">
-                {toFa(formatPrice(totalPrice))} تومان
-              </span>
               <span className="font-bold text-gray-900 text-lg">
                 مبلغ قابل پرداخت
+              </span>
+              <span className="font-black text-primary text-xl">
+                {toFa(formatPrice(totalPrice))} تومان
               </span>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-xl border-t border-gray-100 z-50">
         <Button
           onClick={onConfirm}
           disabled={!selectedTime || !selectedDate || isSubmitting}
           className="w-full h-14 rounded-2xl text-base font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 disabled:shadow-none flex items-center justify-center gap-2"
           size="lg"
         >
-          <ArrowRight size={20} className="rotate-180" />
           {isSubmitting
             ? 'در حال پردازش...'
             : `تأیید و پرداخت ${toFa(formatPrice(totalPrice))} تومان`}{' '}
+          <ArrowRight size={20} className="rotate-180" />
         </Button>
       </div>
     </div>

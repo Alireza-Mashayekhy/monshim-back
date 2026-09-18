@@ -1,8 +1,9 @@
 // components/booking/Step1Profile.tsx
-import { ArrowRight, Check, Clock, Heart, MapPin, Star } from 'lucide-react';
+import { Check, Clock, Heart, MapPin, Star } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 
+import { BackButton } from '@/components/shared/back-button';
 import { Button } from '@/components/ui/button';
 import { formatPrice } from '@/lib/utils';
 import { Barber, Service } from '@/services/features/barber/types';
@@ -13,7 +14,6 @@ interface Step1ProfileProps {
   onToggleService: (id: string) => void;
   onContinue: () => void;
   onImageClick: (img: string) => void;
-  onBack: () => void;
 }
 
 type Tab = 'services' | 'about' | 'reviews';
@@ -31,7 +31,6 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
   onToggleService,
   onContinue,
   onImageClick,
-  onBack,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('services');
   const [favorited, setFavorited] = useState(false);
@@ -61,15 +60,7 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
         />
         {/* Top action buttons */}
         <div className="absolute top-4 left-0 right-0 px-5 flex justify-between items-center z-20">
-          <Button
-            onClick={onBack}
-            size="icon"
-            aria-label="بازگشت"
-            variant="outline"
-            className="bg-white"
-          >
-            <ArrowRight size={22} />
-          </Button>
+          <BackButton />
           <Button
             onClick={() => setFavorited(v => !v)}
             aria-label="علاقه‌مندی"
@@ -88,7 +79,7 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
       </div>
 
       {/* Curved white sheet */}
-      <div className="relative mt-[330px] bg-[#F7FCFB] rounded-t-[32px] px-5 pt-6 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.15)]">
+      <div className="relative mt-[320px] bg-primary-3 rounded-t-[32px] px-5 pt-6 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.15)]">
         {/* Header row: badge + shop name */}
         <div className="flex justify-between items-center">
           <div className="flex items-start justify-between mb-2">

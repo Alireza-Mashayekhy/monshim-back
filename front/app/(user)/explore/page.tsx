@@ -166,7 +166,7 @@ export default function Explore() {
 
   return (
     <div className="min-h-screen text-right">
-      <div className="max-w-md mx-auto px-4 pt-3 space-y-4">
+      <div className="mx-auto px-4 pt-3 space-y-4">
         {/* ================= REUSABLE PAGE HEADER ================= */}
         <PageHeader title="جستجوی آرایشگر" backHref="/home" />
 

@@ -83,7 +83,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen pb-10 text-right">
-      <div className="max-w-md mx-auto px-4 pt-5 space-y-5">
+      <div className="mx-auto px-4 pt-5 space-y-5">
         {/* ================= HEADER SECTION ================= */}
         <header className="flex items-center justify-between">
           {/* User profile & greeting */}
@@ -251,7 +251,7 @@ export default function Home() {
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {barbersLoading
               ? // بارگذاری اسکلتون
                 Array.from({ length: 2 }).map((_, i) => (

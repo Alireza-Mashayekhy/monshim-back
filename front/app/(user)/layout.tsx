@@ -52,7 +52,7 @@ export default function UserLayout({
 
         {/* Bottom Navigation */}
         {showNav && (
-          <div className="fixed bottom-4 w-[calc(100vw-32px)] left-4 right-4 max-w-lg bg-white border border-border rounded-xl p-2 flex justify-between items-center z-50">
+          <div className="fixed bottom-4 w-[calc(100vw-32px)] left-4 right-4 bg-white border border-border rounded-xl p-2 flex justify-between items-center z-50">
             <Link
               href="/home"
               className={`flex flex-col items-center gap-1 transition-all w-17.5 ${

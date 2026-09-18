@@ -84,7 +84,7 @@ function PaymentCallbackContent() {
 
   return (
     <div className="min-h-screen  flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-primary/30 shadow-xl p-6 sm:p-8 space-y-6 text-right">
+      <div className="w-full bg-white rounded-3xl border border-primary/30 shadow-xl p-6 sm:p-8 space-y-6 text-right">
         {/* Status Header */}
         <div className="text-center space-y-3">
           <div
