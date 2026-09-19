@@ -38,6 +38,14 @@ export class BarberProfile {
   salonName: string;
 
   @Column({
+    name: 'activity_type',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  activityType: string | null;
+
+  @Column({
     name: 'province_id',
     nullable: true,
   })
