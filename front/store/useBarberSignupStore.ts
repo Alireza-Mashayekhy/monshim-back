@@ -21,6 +21,7 @@ interface BarberSignupState {
   provinceName: string;
   cityName: string;
   address: string;
+  activityType: string;
   latitude: number | null;
   longitude: number | null;
   bio: string;
@@ -54,6 +55,7 @@ const initialState = {
   provinceName: '',
   cityName: '',
   address: '',
+  activityType: '',
   latitude: null,
   longitude: null,
   bio: '',

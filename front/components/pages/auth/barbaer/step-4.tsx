@@ -5,11 +5,45 @@ import { Plus, Scissors, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import FormattedNumberInput from '@/components/form/formatted-number-input';
+import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import type { ServiceInput } from '@/store/useBarberSignupStore';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
+const MIN_DEPOSIT = 100_000;
+
+const DEPOSIT_MAX_RATIO = 0.3;
+
+function parseAmount(value: string): number | null {
+  const num = Number(String(value ?? '').replace(/,/g, ''));
+  return Number.isFinite(num) ? num : null;
+}
+
+function getDepositError(service: ServiceInput): string | null {
+  const raw = (service.depositPrice ?? '').trim();
+  if (!raw) return null;
+
+  const deposit = parseAmount(raw);
+  if (deposit === null || deposit <= 0) {
+    return 'مبلغ بیعانه را به‌درستی وارد کنید.';
+  }
+  if (deposit < MIN_DEPOSIT) {
+    return 'حداقل مبلغ بیعانه ۱۰۰ هزار تومان است.';
+  }
+
+  const price = parseAmount(service.price);
+  if (price === null || price <= 0) {
+    return 'برای بررسی بیعانه، ابتدا مبلغ کل را وارد کنید.';
+  }
+  if (deposit > price * DEPOSIT_MAX_RATIO) {
+    return 'بیعانه نمی‌تواند بیشتر از ۳۰٪ مبلغ کل باشد.';
+  }
+  return null;
+}
+
 interface Step4Props {
-  onSubmit: (data: any) => void;
+  onSubmit: (data: Record<string, unknown>) => void;
 }
 
 export default function BarbaerStep4({ onSubmit }: Step4Props) {
@@ -28,6 +62,13 @@ export default function BarbaerStep4({ onSubmit }: Step4Props) {
       s.id === id ? { ...s, [field]: value } : s,
     );
     updateData({ services: newServices });
+  };
+
+  const depositImpossible = (service: ServiceInput): boolean => {
+    const price = parseAmount(service.price);
+    return (
+      price !== null && price > 0 && price * DEPOSIT_MAX_RATIO < MIN_DEPOSIT
+    );
   };
 
   // افزودن سرویس جدید
@@ -56,20 +97,11 @@ export default function BarbaerStep4({ onSubmit }: Step4Props) {
       // مبلغ کل
       if (!service.price.trim()) return true;
 
-      const price = parseFloat(String(service.price).replace(/,/g, ''));
-
-      if (!Number.isFinite(price) || price <= 0) return true;
+      const price = parseAmount(service.price);
+      if (price === null || price <= 0) return true;
 
       // اگر بیعانه وارد شده اعتبارسنجی کن
-      if (service.depositPrice?.trim()) {
-        const deposit = parseFloat(
-          String(service.depositPrice).replace(/,/g, ''),
-        );
-
-        if (!Number.isFinite(deposit) || deposit < 0) return true;
-
-        if (deposit > price) return true;
-      }
+      if (getDepositError(service)) return true;
 
       // مدت زمان
       if (
@@ -83,14 +115,11 @@ export default function BarbaerStep4({ onSubmit }: Step4Props) {
 
     if (invalidServices.length > 0) {
       const hasInvalidDeposit = invalidServices.some(
-        s =>
-          s.depositPrice?.trim() &&
-          parseFloat(String(s.depositPrice).replace(/,/g, '')) >
-            parseFloat(String(s.price).replace(/,/g, '')),
+        s => getDepositError(s) !== null,
       );
 
       if (hasInvalidDeposit) {
-        toast.error('مبلغ بیعانه نمی‌تواند بیشتر از مبلغ کل باشد.');
+        toast.error('مبلغ بیعانه باید بین ۱۰۰ هزار تومان تا ۳۰٪ مبلغ کل باشد.');
       } else {
         toast.error(
           'لطفاً نام، مبلغ کل و مدت زمان همه خدمات را به درستی وارد کنید.',
@@ -107,84 +136,111 @@ export default function BarbaerStep4({ onSubmit }: Step4Props) {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3 text-green-600 border border-green-100 shadow-sm">
-          <Scissors size={28} />
-        </div>
-        <h2 className="text-lg font-bold text-gray-800">خدمات و قیمت‌ها</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          حداقل یک خدمت اضافه کنید (حداکثر ۱۰)
-        </p>
-        <p className="text-xs text-gray-400 mt-2">
-          تعداد خدمات: {services.length}
+    <div className="space-y-5 animate-fade-in">
+      <div className="flex items-center gap-2.5 bg-amber-50/70 border border-amber-200/60 rounded-2xl px-4 py-3">
+        <Scissors className="w-4 h-4 text-amber-600 shrink-0" />
+        <p className="text-[11px] leading-relaxed text-amber-800 font-medium">
+          بیعانه اختیاری است؛ در صورت ثبت، حداقل ۱۰۰ هزار تومان و حداکثر ۳۰٪
+          مبلغ کل هر خدمت قابل قبول است.
         </p>
       </div>
 
       <div className="space-y-4">
-        {services.map((service, index) => (
-          <div
-            key={service.id}
-            className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group hover:border-primary-200 transition-colors"
-          >
-            <button
-              onClick={e => {
-                e.stopPropagation();
-                removeService(service.id);
-              }}
-              className="absolute top-3 left-3 text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 rounded-lg transition-colors z-10"
-            >
-              <Trash2 size={16} />
-            </button>
-            <h4 className="text-xs font-bold text-gray-500 mb-3 flex items-center gap-2">
-              <span className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center text-[10px]">
-                {index + 1}
-              </span>
-              مشخصات خدمت
-            </h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <input
-                  placeholder="نام خدمت (مثلاً اصلاح مو)"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:bg-white focus:border-primary-500 outline-none transition-colors"
-                  value={service.name}
-                  onChange={e =>
-                    updateService(service.id, 'name', e.target.value)
-                  }
-                />
-              </div>
-              <FormattedNumberInput
-                placeholder="مبلغ کل (تومان)"
-                value={service.price}
-                onChange={val => updateService(service.id, 'price', val)}
-              />
+        {services.map((service, index) => {
+          const depositError = getDepositError(service);
+          const impossible = depositImpossible(service);
 
-              <FormattedNumberInput
-                placeholder="بیعانه (اختیاری)"
-                value={service.depositPrice || ''}
-                onChange={val => updateService(service.id, 'depositPrice', val)}
-              />
-              <select
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 text-sm text-gray-900 focus:bg-white focus:border-primary-500 outline-none transition-colors"
-                value={service.duration}
-                onChange={e =>
-                  updateService(service.id, 'duration', e.target.value)
-                }
+          return (
+            <div
+              key={service.id}
+              className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200 shadow-sm relative group hover:border-primary-200 transition-colors"
+            >
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  removeService(service.id);
+                }}
+                className="absolute top-3 left-3 text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 rounded-lg transition-colors z-10 cursor-pointer"
               >
-                <option value="15">۱۵ دقیقه</option>
-                <option value="30">۳۰ دقیقه</option>
-                <option value="45">۴۵ دقیقه</option>
-                <option value="60">۱ ساعت</option>
-                <option value="90">۱.۵ ساعت</option>
-                <option value="120">۲ ساعت</option>
-              </select>
+                <Trash2 size={16} />
+              </button>
+              <h4 className="text-xs font-bold text-gray-500 mb-3 flex items-center gap-2">
+                <span className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center text-[10px]">
+                  {index + 1}
+                </span>
+                مشخصات خدمت
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <input
+                    placeholder="نام خدمت (مثلاً اصلاح مو)"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:bg-white focus:border-primary-500 outline-none transition-colors"
+                    value={service.name}
+                    onChange={e =>
+                      updateService(service.id, 'name', e.target.value)
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <FormattedNumberInput
+                    placeholder="مبلغ کل (تومان)"
+                    value={service.price}
+                    onChange={val => updateService(service.id, 'price', val)}
+                    className="rounded-xl px-3 py-2.5 text-sm bg-white border-gray-200"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <FormattedNumberInput
+                    placeholder="بیعانه (اختیاری)"
+                    value={service.depositPrice || ''}
+                    onChange={val =>
+                      updateService(service.id, 'depositPrice', val)
+                    }
+                    className={cn(
+                      'rounded-xl px-3 py-2.5 text-sm bg-white border-gray-200',
+                      depositError && 'border-red-400',
+                    )}
+                  />
+                  {depositError ? (
+                    <p className="text-[10px] text-red-500 font-medium">
+                      {depositError}
+                    </p>
+                  ) : impossible ? (
+                    <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
+                      با این مبلغ کل امکان ثبت بیعانه نیست (بین ۱۰۰ هزار تومان
+                      تا ۳۰٪ مبلغ کل).
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      بین ۱۰۰ هزار تومان تا ۳۰٪ مبلغ کل
+                    </p>
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <select
+                    className="w-full bg-white border border-gray-200 rounded-xl px-2 py-2.5 text-sm text-gray-900 focus:bg-white focus:border-primary-500 outline-none transition-colors"
+                    value={service.duration}
+                    onChange={e =>
+                      updateService(service.id, 'duration', e.target.value)
+                    }
+                  >
+                    <option value="15">۱۵ دقیقه</option>
+                    <option value="30">۳۰ دقیقه</option>
+                    <option value="45">۴۵ دقیقه</option>
+                    <option value="60">۱ ساعت</option>
+                    <option value="90">۱.۵ ساعت</option>
+                    <option value="120">۲ ساعت</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <button
           onClick={handleServiceAdd}
-          className="w-full py-3 border-2 border-dashed border-primary-200 text-primary-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-primary-50 hover:border-primary-300 transition-all text-sm active:scale-95"
+          className="w-full py-3 border-2 border-dashed border-primary-200 text-primary-600 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary-3 hover:border-primary-300 transition-all text-sm active:scale-95 cursor-pointer"
         >
           <Plus size={18} />
           افزودن خدمت جدید
@@ -192,16 +248,18 @@ export default function BarbaerStep4({ onSubmit }: Step4Props) {
       </div>
 
       {/* دکمه‌های پایین */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 z-50">
-        <div className="max-w-lg mx-auto flex justify-between">
-          <Button type="button" variant="outline" onClick={prevStep}>
-            مرحله قبل
-          </Button>
-          <Button type="button" onClick={handleNext}>
+      <StepFooter
+        onBack={prevStep}
+        primary={
+          <Button
+            type="button"
+            onClick={handleNext}
+            className="flex-1 h-12 text-base font-bold shadow-md shadow-primary/20 cursor-pointer"
+          >
             مرحله بعد
           </Button>
-        </div>
-      </div>
+        }
+      />
     </div>
   );
 }

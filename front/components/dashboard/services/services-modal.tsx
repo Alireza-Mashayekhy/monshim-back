@@ -92,13 +92,24 @@ export function ServiceModal({
       ? unformatNumberInput(data.depositPrice)
       : null;
 
-    if (depositPrice !== null && depositPrice > price) {
-      methods.setError('depositPrice', {
-        type: 'manual',
-        message: 'بیعانه نمی‌تواند بیشتر از مبلغ کل باشد.',
-      });
+    if (depositPrice !== null) {
+      if (depositPrice < 100_000) {
+        methods.setError('depositPrice', {
+          type: 'manual',
+          message: 'حداقل مبلغ بیعانه ۱۰۰ هزار تومان است.',
+        });
 
-      return;
+        return;
+      }
+
+      if (depositPrice > price * 0.3) {
+        methods.setError('depositPrice', {
+          type: 'manual',
+          message: 'بیعانه نمی‌تواند بیشتر از ۳۰٪ مبلغ کل باشد.',
+        });
+
+        return;
+      }
     }
 
     const dto = {
@@ -156,7 +167,7 @@ export function ServiceModal({
             name="depositPrice"
             label="بیعانه (اختیاری)"
             outputType="string"
-            placeholder="مثلاً ۱۵۰۰۰۰"
+            placeholder="بین ۱۰۰ هزار تومان تا ۳۰٪ مبلغ کل"
             allowDecimal={false}
             max={9999999999}
           />

@@ -1,17 +1,11 @@
 'use client';
 
-import {
-  CheckCircle,
-  ImageIcon,
-  Loader2,
-  Scissors,
-  Store,
-  User,
-} from 'lucide-react';
+import { ImageIcon, Loader2, Scissors, Store, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,10 +23,16 @@ import { useVisualViewport } from '@/hooks/use-visual-viewport';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/api-error';
 import { jalaliToIso } from '@/lib/date-utils';
 import { getImageUploadError } from '@/lib/image-upload';
+import { toFa } from '@/lib/jalali';
 import { isValidPhone, normalizePhone, onlyDigits } from '@/lib/phone';
 import { formatPrice } from '@/lib/utils';
 import { useRegisterBarber, useSendOtp } from '@/services/features/auth/hooks';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
+
+import { getActivityTypeLabel } from './step-2';
+
+const MIN_DEPOSIT = 100_000;
+const DEPOSIT_MAX_RATIO = 0.3;
 
 const base64ToBlob = (base64: string): Blob => {
   const parts = base64.split(',');
@@ -74,6 +74,7 @@ export default function BarbaerStep5() {
     provinceName,
     cityName,
     address,
+    activityType,
     bio,
     portfolio,
     services,
@@ -95,22 +96,40 @@ export default function BarbaerStep5() {
       toast.error('اطلاعات فردی و سالن را در مراحل قبل تکمیل کنید.');
       return false;
     }
+    if (!activityType) {
+      toast.error('نوع فعالیت سالن را در مرحله قبل انتخاب کنید.');
+      return false;
+    }
     if (
       !services.length ||
       services.length > 10 ||
       services.some(service => {
         const price = Number(service.price.replace(/,/g, ''));
         const duration = Number(service.duration);
+        const depositRaw = (service.depositPrice ?? '').trim();
+
+        let depositOk = true;
+        if (depositRaw) {
+          const deposit = Number(depositRaw.replace(/,/g, ''));
+          depositOk =
+            Number.isFinite(deposit) &&
+            deposit >= MIN_DEPOSIT &&
+            deposit <= price * DEPOSIT_MAX_RATIO;
+        }
+
         return (
           !service.name.trim() ||
           !Number.isFinite(price) ||
           price <= 0 ||
           !Number.isInteger(duration) ||
-          duration <= 0
+          duration <= 0 ||
+          !depositOk
         );
       })
     ) {
-      toast.error('نام، قیمت و مدت زمان خدمات را در مرحله قبل اصلاح کنید.');
+      toast.error(
+        'نام، قیمت، بیعانه و مدت زمان خدمات را در مرحله قبل اصلاح کنید.',
+      );
       return false;
     }
     if (portfolio.length > 5) {
@@ -163,14 +182,22 @@ export default function BarbaerStep5() {
         provinceId,
         cityId,
         address,
+        activityType,
         bio: bio || '',
         code: otpCode,
         birthDate: jalaliToIso(birthDate) || undefined,
-        services: services.map(s => ({
-          name: s.name,
-          price: Number(s.price.replace(/,/g, '')),
-          durationMinutes: parseInt(s.duration, 10),
-        })),
+        services: services.map(s => {
+          const depositRaw = (s.depositPrice ?? '').trim();
+          const deposit = depositRaw
+            ? Number(depositRaw.replace(/,/g, ''))
+            : undefined;
+          return {
+            name: s.name,
+            price: Number(s.price.replace(/,/g, '')),
+            durationMinutes: parseInt(s.duration, 10),
+            ...(deposit ? { depositPrice: deposit } : {}),
+          };
+        }),
       };
 
       // اضافه کردن کد معرف (در صورت وجود)
@@ -222,21 +249,11 @@ export default function BarbaerStep5() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-3 text-primary-600 border border-primary-100 shadow-sm">
-          <CheckCircle size={28} />
-        </div>
-        <h2 className="text-lg font-bold text-gray-800">تایید و ثبت نهایی</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          لطفاً اطلاعات زیر را بررسی کنید و در صورت صحت، ثبت نام را نهایی کنید.
-        </p>
-      </div>
-
+    <div className="space-y-5 animate-fade-in">
       {/* کارت‌های پیش‌نمایش */}
       <div className="space-y-4">
         {/* اطلاعات فردی */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200">
           <div className="flex items-center gap-2 text-gray-700 mb-3">
             <User size={16} className="text-primary-600" />
             <h3 className="font-bold text-sm">اطلاعات فردی</h3>
@@ -272,7 +289,7 @@ export default function BarbaerStep5() {
         </div>
 
         {/* اطلاعات سالن */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200">
           <div className="flex items-center gap-2 text-gray-700 mb-3">
             <Store size={16} className="text-primary-600" />
             <h3 className="font-bold text-sm">اطلاعات سالن</h3>
@@ -281,6 +298,12 @@ export default function BarbaerStep5() {
             <div className="flex justify-between items-start gap-2">
               <span className="text-gray-500 shrink-0">نام آرایشگاه</span>
               <span className="font-medium text-left">{shopName || '—'}</span>
+            </div>
+            <div className="flex justify-between items-start gap-2">
+              <span className="text-gray-500 shrink-0">نوع فعالیت</span>
+              <span className="font-medium text-left">
+                {getActivityTypeLabel(activityType)}
+              </span>
             </div>
             <div className="flex justify-between items-start gap-2">
               <span className="text-gray-500 shrink-0">استان</span>
@@ -302,7 +325,7 @@ export default function BarbaerStep5() {
         </div>
 
         {/* نمونه کارها */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200">
           <div className="flex items-center gap-2 text-gray-700 mb-2">
             <ImageIcon size={16} className="text-primary-600" />
             <h3 className="font-bold text-sm">نمونه کارها</h3>
@@ -314,12 +337,12 @@ export default function BarbaerStep5() {
                   key={idx}
                   src={img}
                   alt={`نمونه کار ${idx + 1}`}
-                  className="w-full aspect-square object-cover rounded-lg border"
+                  className="w-full aspect-square object-cover rounded-xl border"
                 />
               ))}
               {portfolio.length > 4 && (
-                <div className="flex items-center justify-center w-full aspect-square bg-gray-100 rounded-lg text-xs text-gray-500 border">
-                  +{portfolio.length - 4} بیشتر
+                <div className="flex items-center justify-center w-full aspect-square bg-gray-100 rounded-xl text-xs text-gray-500 border">
+                  +{toFa(portfolio.length - 4)} بیشتر
                 </div>
               )}
             </div>
@@ -331,26 +354,38 @@ export default function BarbaerStep5() {
         </div>
 
         {/* خدمات */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200">
           <div className="flex items-center gap-2 text-gray-700 mb-2">
             <Scissors size={16} className="text-primary-600" />
             <h3 className="font-bold text-sm">خدمات</h3>
           </div>
           {services.length > 0 ? (
-            <div className="space-y-1">
-              {services.map(s => (
-                <div
-                  key={s.id}
-                  className="flex justify-between text-sm border-b border-gray-50 py-1 last:border-0"
-                >
-                  <span className="font-medium">{s.name || 'بدون نام'}</span>
-                  <span className="text-gray-600">
-                    {s.price ? `${formatPrice(s.price)} تومان` : '—'}
-                    {' / '}
-                    {s.duration ? `${s.duration} دقیقه` : '—'}
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-2">
+              {services.map(s => {
+                const deposit = Number(
+                  (s.depositPrice ?? '').replace(/,/g, ''),
+                );
+                return (
+                  <div
+                    key={s.id}
+                    className="rounded-xl border border-gray-100 bg-white px-3 py-2"
+                  >
+                    <div className="flex justify-between items-center gap-2 text-sm">
+                      <span className="font-bold">{s.name || 'بدون نام'}</span>
+                      <span className="text-gray-600 font-medium">
+                        {s.price ? toFa(formatPrice(s.price)) : '—'}
+                        {' تومان / '}
+                        {s.duration ? `${toFa(s.duration)} دقیقه` : '—'}
+                      </span>
+                    </div>
+                    {deposit > 0 && (
+                      <p className="text-[11px] text-primary-600 font-medium mt-1">
+                        بیعانه: {toFa(formatPrice(deposit))} تومان
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-sm text-gray-400">هیچ خدمتی ثبت نشده است.</p>
@@ -359,7 +394,7 @@ export default function BarbaerStep5() {
       </div>
 
       {/* کد معرف (اختیاری) */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+      <div className="bg-gray-50/70 p-4 rounded-2xl border border-gray-200">
         <div className="flex items-center gap-2 text-gray-700 mb-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -386,7 +421,7 @@ export default function BarbaerStep5() {
         <input
           type="text"
           placeholder="کد معرف ۸ کاراکتری"
-          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:bg-white focus:border-primary-500 outline-none transition-colors dir-ltr text-center font-mono tracking-wider"
+          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:bg-white focus:border-primary-500 outline-none transition-colors dir-ltr text-center font-mono tracking-wider"
           value={referralCode}
           onChange={e =>
             updateData({ referralCode: e.target.value.toUpperCase() })
@@ -395,34 +430,26 @@ export default function BarbaerStep5() {
         />
       </div>
 
-      {/* دکمه‌های پایین */}
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 z-50">
-        <div className="max-w-lg mx-auto flex justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={store.prevStep}
-            disabled={registerMutation.isPending || isSendingOtp}
-          >
-            مرحله قبل
-          </Button>
+      <StepFooter
+        onBack={store.prevStep}
+        primary={
           <Button
             type="button"
             onClick={handleSendOtp}
             disabled={registerMutation.isPending || isSendingOtp}
-            className="min-w-[120px]"
+            className="flex-1 h-12 text-base font-bold shadow-md shadow-primary/20 gap-2 cursor-pointer"
           >
             {isSendingOtp ? (
               <>
-                <Loader2 size={18} className="animate-spin ml-2" />
+                <Loader2 size={18} className="animate-spin" />
                 ارسال کد...
               </>
             ) : (
               'ثبت نهایی'
             )}
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* مودال ورود کد */}
       <Dialog
@@ -463,22 +490,22 @@ export default function BarbaerStep5() {
               id="input-otp-ltr"
               autoFocus
             >
-              <InputOTPGroup className="w-full gap-2 flex-row-reverse">
+              <InputOTPGroup className="w-full gap-2 flex-row-reverse justify-center">
                 <InputOTPSlot
                   index={0}
-                  className="w-full h-11 border rounded-md"
+                  className="h-12 w-12 border rounded-md"
                 />
                 <InputOTPSlot
                   index={1}
-                  className="w-full h-11 border rounded-md"
+                  className="h-12 w-12 border rounded-md"
                 />
                 <InputOTPSlot
                   index={2}
-                  className="w-full h-11 border rounded-md"
+                  className="h-12 w-12 border rounded-md"
                 />
                 <InputOTPSlot
                   index={3}
-                  className="w-full h-11 border rounded-md"
+                  className="h-12 w-12 border rounded-md"
                 />
               </InputOTPGroup>
             </InputOTP>

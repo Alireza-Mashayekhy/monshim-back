@@ -2,9 +2,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MapPin } from 'lucide-react';
+import { MapPin, Mars, Venus, VenusAndMars } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
 
@@ -12,31 +12,56 @@ import FormProvider from '@/components/form/form-provider';
 import RHFInput from '@/components/form/rhf-input';
 import RHFSelect from '@/components/form/rhf-select';
 import RHFTextArea from '@/components/form/rhf-textarea';
+import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   useCityList,
   useProvinceList,
 } from '@/services/features/locations/hooks';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
+export const ACTIVITY_TYPES = [
+  { value: 'women', label: 'بانوان', icon: Venus },
+  { value: 'men', label: 'آقایان', icon: Mars },
+  { value: 'both', label: 'هردو', icon: VenusAndMars },
+] as const;
+
+export type ActivityType = (typeof ACTIVITY_TYPES)[number]['value'];
+
+export function getActivityTypeLabel(value: string): string {
+  return ACTIVITY_TYPES.find(t => t.value === value)?.label ?? '—';
+}
+
 interface Step2Props {
-  onSubmit: (data: any) => void;
+  onSubmit: (data: Record<string, unknown>) => void;
 }
 
 export default function BarbaerStep2({ onSubmit }: Step2Props) {
-  const { shopName, provinceId, cityId, address, prevStep } =
+  const { shopName, activityType, provinceId, cityId, address, prevStep } =
     useBarberSignupStore();
 
   const schema = z.object({
     shopName: z.string().trim().nonempty('نام آرایشگاه اجباری است'),
+    activityType: z.enum(['women', 'men', 'both'], {
+      message: 'لطفاً نوع فعالیت سالن را انتخاب کنید.',
+    }),
     provinceId: z.string().trim().nonempty('انتخاب استان اجباری است'), // قبول کردن null
     cityId: z.string().trim().nonempty('انتخاب شهر اجباری است'),
     address: z.string().trim().nonempty('آدرس اجباری است'),
   });
 
-  const methods = useForm({
+  type Step2FormValues = z.infer<typeof schema>;
+
+  // مقدار ذخیره‌شده در استور فقط می‌تواند یکی از گزینه‌های مجاز باشد
+  const initialActivityType = ACTIVITY_TYPES.some(t => t.value === activityType)
+    ? (activityType as Step2FormValues['activityType'])
+    : undefined;
+
+  const methods = useForm<Step2FormValues>({
     defaultValues: {
       shopName: shopName || '',
+      activityType: initialActivityType,
       provinceId: provinceId || '',
       cityId: cityId || '',
       address: address || '',
@@ -79,6 +104,7 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
 
     onSubmit({
       shopName: data.shopName,
+      activityType: data.activityType,
       provinceId: data.provinceId,
       provinceName: province?.name || '',
       cityId: data.cityId,
@@ -100,21 +126,55 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
   }));
 
   return (
-    <FormProvider
-      methods={methods}
-      onSubmit={onFormSubmit}
-      className="space-y-6 animate-fade-in"
-    >
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-3 text-orange-600 border border-orange-100 shadow-sm">
-          <MapPin size={28} />
-        </div>
-        <h2 className="text-lg font-bold text-gray-800">اطلاعات سالن</h2>
-        <p className="text-xs text-gray-500 mt-1">موقعیت و مشخصات محل کار</p>
-      </div>
+    <FormProvider methods={methods} onSubmit={onFormSubmit}>
+      <div className="space-y-5 animate-fade-in">
+        <RHFInput
+          name="shopName"
+          label="نام آرایشگاه (تابلو)"
+          isRequired
+          startIcon={<MapPin className="w-4 h-4" />}
+        />
 
-      <div className="space-y-4">
-        <RHFInput name="shopName" label="نام آرایشگاه (تابلو)" />
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-700">
+            نوع فعالیت <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="activityType"
+            control={methods.control}
+            render={({ field, fieldState }) => (
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-3 gap-2.5">
+                  {ACTIVITY_TYPES.map(type => {
+                    const Icon = type.icon;
+                    const selected = field.value === type.value;
+                    return (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => field.onChange(type.value)}
+                        className={cn(
+                          'flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl border-2 transition-all cursor-pointer text-xs font-bold',
+                          selected
+                            ? 'border-primary bg-primary/5 text-primary shadow-xs'
+                            : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-gray-50/50',
+                        )}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{type.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {fieldState.error && (
+                  <p className="text-xs text-red-500">
+                    {fieldState.error.message}
+                  </p>
+                )}
+              </div>
+            )}
+          />
+        </div>
 
         <RHFSelect
           name="provinceId"
@@ -138,15 +198,18 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
           label="آدرس دقیق"
           placeholder="خیابان، کوچه، پلاک..."
         />
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 z-50">
-        <div className="max-w-lg mx-auto flex justify-between">
-          <Button type="button" variant="outline" onClick={prevStep}>
-            مرحله قبل
-          </Button>
-          <Button type="submit">مرحله بعد</Button>
-        </div>
+        <StepFooter
+          onBack={prevStep}
+          primary={
+            <Button
+              type="submit"
+              loading={methods.formState.isSubmitting}
+              className="flex-1 h-12 text-base font-bold shadow-md shadow-primary/20 cursor-pointer"
+            >
+              مرحله بعد
+            </Button>
+          }
+        />
       </div>
     </FormProvider>
   );

@@ -2,6 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Smartphone, User } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -12,13 +13,14 @@ import { PersianDatePicker } from '@/components/form/persian-date-picker';
 import { RHFImageUploader } from '@/components/form/rhf-image-uploader';
 import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
+import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
-import { getImageUploadError } from '@/lib/image-upload';
+import { getImageUploadError, IMAGE_SIZE_ERROR } from '@/lib/image-upload';
 import { normalizePhone, phoneSchema } from '@/lib/phone';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
 interface Step1Props {
-  onSubmit: (data: any) => void;
+  onSubmit: (data: Record<string, unknown>) => void;
 }
 
 export default function BarbaerStep1({ onSubmit }: Step1Props) {
@@ -94,39 +96,52 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
   };
 
   return (
-    <FormProvider
-      methods={methods}
-      onSubmit={onFormSubmit}
-      className="space-y-6 animate-fade-in"
-    >
-      <div className="flex flex-col items-center text-center mb-6">
-        <RHFImageUploader
-          name="image"
-          setValue={setValue}
-          error={errors.image}
-          aspectRatio={1}
-          defaultValue={storedImage || undefined}
-        />
-        <h2 className="text-lg font-bold text-gray-800 mt-4">اطلاعات فردی</h2>
-        <p className="text-xs text-gray-500 mt-1">
-          مشخصات مدیر سالن یا آرایشگر
-        </p>
-      </div>
+    <FormProvider methods={methods} onSubmit={onFormSubmit}>
+      <div className="space-y-5 animate-fade-in">
+        <div className="flex flex-col items-center">
+          <RHFImageUploader
+            name="image"
+            setValue={setValue}
+            error={errors.image}
+            aspectRatio={1}
+            defaultValue={storedImage || undefined}
+          />
+          <p className="text-[11px] text-gray-400 font-medium mt-2">
+            {IMAGE_SIZE_ERROR} فرمت: JPEG، PNG، GIF و WebP
+          </p>
+        </div>
 
-      <div className="space-y-4">
-        <RHFInput label="نام و نام خانوادگی" name="fullName" />
-        <RHFPhoneInput label="شماره موبایل" name="phone" />
-        <PersianDatePicker
-          name="birthDate"
-          label="تاریخ تولد"
-          placeholder="انتخاب تاریخ تولد"
-        />
-      </div>
+        <div className="space-y-4">
+          <RHFInput
+            label="نام و نام خانوادگی"
+            name="fullName"
+            isRequired
+            startIcon={<User className="w-4 h-4" />}
+          />
+          <RHFPhoneInput
+            label="شماره موبایل"
+            name="phone"
+            isRequired
+            startIcon={<Smartphone className="w-4 h-4" />}
+          />
+          <PersianDatePicker
+            name="birthDate"
+            label="تاریخ تولد"
+            placeholder="انتخاب تاریخ تولد"
+          />
+        </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 z-50">
-        <Button type="submit" loading={methods.formState.isSubmitting}>
-          مرحله بعد
-        </Button>
+        <StepFooter
+          primary={
+            <Button
+              type="submit"
+              loading={methods.formState.isSubmitting}
+              className="flex-1 h-12 text-base font-bold shadow-md shadow-primary/20 cursor-pointer"
+            >
+              مرحله بعد
+            </Button>
+          }
+        />
       </div>
     </FormProvider>
   );
