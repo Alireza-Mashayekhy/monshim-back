@@ -9,7 +9,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { EntityManager, Repository } from 'typeorm';
 
-import { CreateServiceDto } from './dto/create-service.dto';
+import {
+  CreateServiceDto,
+  DEPOSIT_MAX_RATIO,
+  MIN_DEPOSIT_PRICE,
+} from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { Service } from './entities/service.entity';
 
@@ -20,19 +24,32 @@ export class ServicesService {
     private serviceRepository: Repository<Service>,
   ) {}
 
+  private validateDeposit(
+    price: number,
+    depositPrice: number | null | undefined,
+  ) {
+    if (depositPrice == null) return;
+
+    const deposit = Number(depositPrice);
+    if (!Number.isFinite(deposit) || deposit < MIN_DEPOSIT_PRICE) {
+      throw new BadRequestException('حداقل مبلغ بیعانه ۱۰۰ هزار تومان است.');
+    }
+    if (deposit > Number(price) * DEPOSIT_MAX_RATIO) {
+      throw new BadRequestException(
+        'مبلغ بیعانه نمی‌تواند بیشتر از ۳۰٪ مبلغ کل باشد.',
+      );
+    }
+  }
+
   // ایجاد سرویس جدید
   async create(
     createServiceDto: CreateServiceDto,
     manager?: EntityManager,
   ): Promise<Service> {
-    if (
-      createServiceDto.depositPrice != null &&
-      Number(createServiceDto.depositPrice) > Number(createServiceDto.price)
-    ) {
-      throw new BadRequestException(
-        'مبلغ بیعانه نمی‌تواند بیشتر از مبلغ کل باشد.',
-      );
-    }
+    this.validateDeposit(
+      Number(createServiceDto.price),
+      createServiceDto.depositPrice,
+    );
 
     const repository = manager
       ? manager.getRepository(Service)
@@ -76,11 +93,7 @@ export class ServicesService {
 
     const depositPrice = updateServiceDto.depositPrice ?? service.depositPrice;
 
-    if (depositPrice != null && Number(depositPrice) > Number(price)) {
-      throw new BadRequestException(
-        'مبلغ بیعانه نمی‌تواند بیشتر از مبلغ کل باشد.',
-      );
-    }
+    this.validateDeposit(Number(price), depositPrice);
 
     Object.assign(service, updateServiceDto);
 

@@ -28,6 +28,7 @@ export class BarberService {
     data: {
       userId: number;
       salonName: string;
+      activityType?: string;
       provinceId: number;
       cityId: number;
       address: string;

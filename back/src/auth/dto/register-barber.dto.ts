@@ -2,13 +2,19 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
+
+export const ACTIVITY_TYPE_VALUES = ['women', 'men', 'both'] as const;
+
+export const MIN_DEPOSIT_PRICE = 100_000;
 
 class ServiceInputDto {
   @IsString()
@@ -18,6 +24,11 @@ class ServiceInputDto {
   @IsNumber()
   @IsNotEmpty()
   price: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(MIN_DEPOSIT_PRICE, { message: 'حداقل مبلغ بیعانه ۱۰۰ هزار تومان است' })
+  depositPrice?: number;
 
   @IsNumber()
   @IsNotEmpty()
@@ -29,6 +40,10 @@ export class RegisterBarberDto extends CreateUserDto {
   @IsString()
   @IsNotEmpty()
   salonName: string;
+
+  @IsIn(ACTIVITY_TYPE_VALUES, { message: 'نوع فعالیت معتبر نیست' })
+  @IsNotEmpty({ message: 'انتخاب نوع فعالیت سالن اجباری است' })
+  activityType: string;
 
   declare provinceId: number;
 
@@ -57,3 +72,4 @@ export class RegisterBarberDto extends CreateUserDto {
   @IsString()
   referralCode?: string; // کد معرف آرایشگر دعوت کننده
 }
+export class CreateBarberDto {}

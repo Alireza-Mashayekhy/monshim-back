@@ -189,6 +189,7 @@ export class AuthService {
           {
             userId: createdUser.id,
             salonName: dto.salonName,
+            activityType: dto.activityType,
             provinceId: dto.provinceId,
             cityId: dto.cityId,
             address: dto.address,
@@ -207,6 +208,7 @@ export class AuthService {
               {
                 name: svc.name,
                 price: svc.price,
+                depositPrice: svc.depositPrice,
                 durationMinutes: svc.durationMinutes,
                 barberId: createdUser.id,
                 isActive: true,

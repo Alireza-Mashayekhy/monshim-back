@@ -8,6 +8,11 @@ import {
   Min,
 } from 'class-validator';
 
+// حداقل بیعانه: ۱۰۰ هزار تومان
+export const MIN_DEPOSIT_PRICE = 100_000;
+// حداکثر بیعانه: ۳۰٪ مبلغ کل
+export const DEPOSIT_MAX_RATIO = 0.3;
+
 export class CreateServiceDto {
   @IsString()
   @IsNotEmpty()
@@ -19,7 +24,9 @@ export class CreateServiceDto {
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
+  @Min(MIN_DEPOSIT_PRICE, {
+    message: 'حداقل مبلغ بیعانه ۱۰۰ هزار تومان است',
+  })
   depositPrice?: number;
 
   @IsNumber()
