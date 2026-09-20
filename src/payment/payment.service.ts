@@ -30,6 +30,8 @@ import {
   PaymentStatus,
 } from './entities/payment.entity';
 
+const COMMISSION_RATE = 0.1;
+
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
@@ -356,9 +358,11 @@ export class PaymentService {
     }
 
     const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
+    // کمیسیون سایت: ۱۰٪ بیشترین مبلغ خدمات انتخاب‌شده (نه ۱۰٪ جمع کل مبالغ)
     const maxServicePrice = Math.max(...services.map(s => Number(s.price)));
-    const depositAmount = Math.round(maxServicePrice * 0.1);
-    const amountToPay = depositAmount;
+    const commissionAmount = Math.round(maxServicePrice * COMMISSION_RATE);
+    // مبلغ قابل پرداخت از کاربر = کل خدمات + کمیسیون سایت
+    const amountToPay = totalPrice + commissionAmount;
 
     const orderId = `BOOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const appUrl = this.getAppUrl();
@@ -401,10 +405,10 @@ export class PaymentService {
         note: dto.note ?? '',
         items: bookingItems,
         totalPrice,
-        depositAmount,
+        commissionAmount,
       }),
       status: PaymentStatus.PENDING,
-      description: `بیعانه رزرو ${services.length} سرویس`,
+      description: `رزرو ${services.length} سرویس + کمیسیون سایت`,
     });
 
     await this.paymentRepo.save(payment);
@@ -599,6 +603,8 @@ export class PaymentService {
       const saved = await this.bookingRepo.save(booking);
       payment.purposeId = saved.id;
       await this.paymentRepo.save(payment);
+
+      await this.creditBarberWallet(meta.barberUserId, meta.price, payment);
       return;
     }
 
@@ -620,6 +626,30 @@ export class PaymentService {
     }
     payment.purposeId = createdIds[0] ?? null;
     await this.paymentRepo.save(payment);
+
+    await this.creditBarberWallet(meta.barberUserId, meta.totalPrice, payment);
+  }
+
+  private async creditBarberWallet(
+    barberUserId: number | undefined,
+    amount: number | undefined,
+    payment: Payment,
+  ): Promise<void> {
+    const amountNum = Number(amount);
+    if (!barberUserId || !amountNum || amountNum <= 0) return;
+
+    try {
+      await this.walletService.deposit(
+        Number(barberUserId),
+        amountNum,
+        `درآمد رزرو نوبت ${payment.orderId} - منشیم`,
+        payment.refNumber || payment.id,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to credit barber wallet (${barberUserId}) for payment ${payment.id}: ${error?.message}`,
+      );
+    }
   }
 
   // استعلام وضعیت پرداخت
