@@ -13,10 +13,10 @@ interface Props {
 }
 
 const mobileRoutes = [
-  dashboardRoutes[0], // داشبورد
-  dashboardRoutes[1], // نوبت‌ها
-  dashboardRoutes[2], // خدمات
-  dashboardRoutes[4], // پروفایل
+  dashboardRoutes[0],
+  dashboardRoutes[1],
+  dashboardRoutes[5],
+  dashboardRoutes[7],
 ];
 
 export default function BottomNavigation({ onMoreClick }: Props) {

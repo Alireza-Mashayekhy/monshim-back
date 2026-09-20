@@ -39,7 +39,7 @@ export const dashboardRoutes = [
   { icon: Gem, title: 'اشتراک', href: '/dashboard/subscription' },
   {
     icon: Users,
-    title: 'باشگاه مشتریان',
+    title: 'مشتریان',
     href: '/dashboard/club',
   },
 ];

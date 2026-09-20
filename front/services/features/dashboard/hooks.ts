@@ -34,9 +34,12 @@ export const useDashboardStats = () => {
       bookings.map((booking: any) => booking.customerId).filter(Boolean),
     );
 
+    const recentBookings = bookings.slice(0, 5);
+
     return {
       todayAppointments: todayBookings.length,
       customers: uniqueCustomers.size,
+      recentBookings,
 
       // فعلاً تا endpoint درآمد نداشته باشیم
       // از داده ساختگی استفاده نمی‌کنیم.
