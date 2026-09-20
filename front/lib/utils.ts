@@ -5,9 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const getFullImageUrl = (
+  path: string | null | undefined,
+): string | null => {
+  if (!path) return null;
+  return path.startsWith('http')
+    ? path
+    : `${process.env.NEXT_PUBLIC_IMAGE_URL || ''}${path}`;
+};
+
 export const formatPrice = (value: number | string): string => {
   if (value === null || value === undefined || value === '') return '۰';
-  const strValue = typeof value === 'string' ? value.replace(/,/g, '') : String(value);
+  const strValue =
+    typeof value === 'string' ? value.replace(/,/g, '') : String(value);
   const num = parseFloat(strValue);
   if (isNaN(num)) return '۰';
   return Math.floor(num).toLocaleString('en-US');

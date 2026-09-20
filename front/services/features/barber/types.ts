@@ -8,6 +8,7 @@ export interface BarberResponse {
   fullName: string;
   profileImage: string | null;
   salonName: string;
+  activityType?: string | null;
   minPrice?: number | null;
   rating?: number | null;
 }

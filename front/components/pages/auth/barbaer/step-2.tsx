@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MapPin, Mars, Venus, VenusAndMars } from 'lucide-react';
+import { LucideIcon, MapPin, Mars, Venus, VenusAndMars } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import RHFSelect from '@/components/form/rhf-select';
 import RHFTextArea from '@/components/form/rhf-textarea';
 import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
+import { ACTIVITY_TYPES, ActivityTypeValue } from '@/constants/activity-types';
 import { cn } from '@/lib/utils';
 import {
   useCityList,
@@ -21,17 +22,11 @@ import {
 } from '@/services/features/locations/hooks';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
-export const ACTIVITY_TYPES = [
-  { value: 'women', label: 'بانوان', icon: Venus },
-  { value: 'men', label: 'آقایان', icon: Mars },
-  { value: 'both', label: 'هردو', icon: VenusAndMars },
-] as const;
-
-export type ActivityType = (typeof ACTIVITY_TYPES)[number]['value'];
-
-export function getActivityTypeLabel(value: string): string {
-  return ACTIVITY_TYPES.find(t => t.value === value)?.label ?? '—';
-}
+const ACTIVITY_ICONS: Record<ActivityTypeValue, LucideIcon> = {
+  women: Venus,
+  men: Mars,
+  both: VenusAndMars,
+};
 
 interface Step2Props {
   onSubmit: (data: Record<string, unknown>) => void;
@@ -53,7 +48,6 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
 
   type Step2FormValues = z.infer<typeof schema>;
 
-  // مقدار ذخیره‌شده در استور فقط می‌تواند یکی از گزینه‌های مجاز باشد
   const initialActivityType = ACTIVITY_TYPES.some(t => t.value === activityType)
     ? (activityType as Step2FormValues['activityType'])
     : undefined;
@@ -146,7 +140,7 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
               <div className="space-y-1.5">
                 <div className="grid grid-cols-3 gap-2.5">
                   {ACTIVITY_TYPES.map(type => {
-                    const Icon = type.icon;
+                    const Icon = ACTIVITY_ICONS[type.value];
                     const selected = field.value === type.value;
                     return (
                       <button

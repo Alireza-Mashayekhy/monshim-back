@@ -79,6 +79,7 @@ export interface MyBooking {
     name?: string;
     durationMinutes?: number;
     price?: number;
+    depositPrice?: number | null;
   };
   customer?: {
     id?: number;

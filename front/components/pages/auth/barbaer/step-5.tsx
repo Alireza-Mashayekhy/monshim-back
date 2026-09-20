@@ -19,6 +19,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from '@/components/ui/input-otp';
+import { getActivityTypeLabel } from '@/constants/activity-types';
 import { useVisualViewport } from '@/hooks/use-visual-viewport';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/api-error';
 import { jalaliToIso } from '@/lib/date-utils';
@@ -28,8 +29,6 @@ import { isValidPhone, normalizePhone, onlyDigits } from '@/lib/phone';
 import { formatPrice } from '@/lib/utils';
 import { useRegisterBarber, useSendOtp } from '@/services/features/auth/hooks';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
-
-import { getActivityTypeLabel } from './step-2';
 
 const MIN_DEPOSIT = 100_000;
 const DEPOSIT_MAX_RATIO = 0.3;
@@ -302,7 +301,7 @@ export default function BarbaerStep5() {
             <div className="flex justify-between items-start gap-2">
               <span className="text-gray-500 shrink-0">نوع فعالیت</span>
               <span className="font-medium text-left">
-                {getActivityTypeLabel(activityType)}
+                {getActivityTypeLabel(activityType) || '—'}
               </span>
             </div>
             <div className="flex justify-between items-start gap-2">

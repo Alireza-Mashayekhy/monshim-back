@@ -55,7 +55,7 @@ export default function UserLayout({
           <div className="fixed bottom-4 w-[calc(100vw-32px)] left-4 right-4 bg-white border border-border rounded-xl p-2 flex justify-between items-center z-50">
             <Link
               href="/home"
-              className={`flex flex-col items-center gap-1 transition-all w-17.5 ${
+              className={`flex flex-col items-center gap-1 transition-all w-17 ${
                 isActive('/home')
                   ? 'bg-[#E6F9F6] text-[#0D9488] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
@@ -72,7 +72,7 @@ export default function UserLayout({
 
             <Link
               href="/explore"
-              className={`flex flex-col items-center gap-1 transition-all w-17.5 ${
+              className={`flex flex-col items-center gap-1 transition-all w-17 ${
                 isActive('/explore')
                   ? 'bg-[#E6F9F6] text-[#0D9488] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
@@ -89,7 +89,7 @@ export default function UserLayout({
 
             <Link
               href="/appointments"
-              className={`flex flex-col items-center gap-1 transition-all w-17.5 ${
+              className={`flex flex-col items-center gap-1 transition-all w-17 ${
                 isActive('/appointments')
                   ? 'bg-[#E6F9F6] text-[#0D9488] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
@@ -101,13 +101,13 @@ export default function UserLayout({
                   isActive('/appointments') ? 'text-[#0D9488]' : 'text-gray-400'
                 }
               />
-              <span className="text-[11px]">رزروهای من</span>
+              <span className="text-[11px]">نوبت‌ها</span>
             </Link>
 
             {isBarber && (
               <Link
                 href="/dashboard"
-                className={`flex flex-col items-center gap-1 transition-all w-17.5 ${
+                className={`flex flex-col items-center gap-1 transition-all w-17 ${
                   pathname.startsWith('/dashboard')
                     ? 'bg-[#E6F9F6] text-[#0D9488] px-2 pb-1 pt-2 rounded-lg font-bold'
                     : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
@@ -127,7 +127,7 @@ export default function UserLayout({
 
             <Link
               href="/profile"
-              className={`flex flex-col items-center gap-1 transition-all w-17.5 ${
+              className={`flex flex-col items-center gap-1 transition-all w-17 ${
                 isActive('/profile')
                   ? 'bg-[#E6F9F6] text-[#0D9488] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
