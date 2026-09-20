@@ -9,6 +9,7 @@ export const endpoints = {
     me: '/auth/me',
     logout: '/auth/logout',
     refresh: '/auth/refresh',
+    changePassword: '/auth/change-password',
   },
 
   users: {

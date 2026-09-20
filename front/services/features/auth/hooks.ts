@@ -7,6 +7,7 @@ import { clearSessionCache } from '@/lib/session-cache';
 import { useAuthStore } from '@/store/auth.store';
 
 import {
+  changePassword,
   fetchMe,
   login,
   loginWithPassword,
@@ -118,4 +119,8 @@ export function useLogout() {
       useAuthStore.getState().clearUser();
     },
   });
+}
+
+export function useChangePassword() {
+  return useMutation({ mutationFn: changePassword });
 }

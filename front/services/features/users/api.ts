@@ -15,7 +15,12 @@ export async function usersList(query: { page: number; search: string }) {
   return data;
 }
 
-export async function editUser(dto: { fullName: string; birthDate?: string | null }) {
+export async function editUser(dto: {
+  fullName?: string;
+  birthDate?: string | null;
+  provinceId?: number;
+  cityId?: number;
+}) {
   const { data } = await api.patch(endpoints.users.edit, dto);
 
   return data;
