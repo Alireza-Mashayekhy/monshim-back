@@ -42,6 +42,7 @@ export class BarberController {
   // ---- مسیرهای عمومی ----
   @Get()
   findAll(
+    @Req() req: any,
     @Query() query: QueryDto,
     @Query('cityId') cityId?: number,
     @Query('provinceId') provinceId?: number,
@@ -55,6 +56,7 @@ export class BarberController {
       minPrice: minPrice !== undefined ? Number(minPrice) : undefined,
       maxPrice: maxPrice !== undefined ? Number(maxPrice) : undefined,
       minRating: minRating !== undefined ? Number(minRating) : undefined,
+      gender: req.user?.gender ?? null,
     });
   }
 

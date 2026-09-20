@@ -116,6 +116,7 @@ export class BarberService {
       minPrice?: number;
       maxPrice?: number;
       minRating?: number;
+      gender?: string | null;
     },
     notApproved?: boolean,
   ) {
@@ -148,6 +149,16 @@ export class BarberService {
     if (filters?.provinceId) {
       qb.andWhere('profile.provinceId = :provinceId', {
         provinceId: filters.provinceId,
+      });
+    }
+
+    if (filters?.gender === 'male') {
+      qb.andWhere('profile.activityType IN (:...activityTypes)', {
+        activityTypes: ['men', 'both'],
+      });
+    } else if (filters?.gender === 'female') {
+      qb.andWhere('profile.activityType IN (:...activityTypes)', {
+        activityTypes: ['women', 'both'],
       });
     }
 
