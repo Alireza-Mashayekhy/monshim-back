@@ -6,6 +6,7 @@ interface LocationState {
   provinceName: string | null;
   cityId: number | null;
   cityName: string | null;
+  defaultDismissed: boolean;
   setLocation: (
     provinceId: number,
     provinceName: string,
@@ -22,14 +23,22 @@ export const useLocationStore = create<LocationState>()(
       provinceName: null,
       cityId: null,
       cityName: null,
+      defaultDismissed: false,
       setLocation: (provinceId, provinceName, cityId, cityName) =>
-        set({ provinceId, provinceName, cityId, cityName }),
+        set({
+          provinceId,
+          provinceName,
+          cityId,
+          cityName,
+          defaultDismissed: false,
+        }),
       resetLocation: () =>
         set({
           provinceId: null,
           provinceName: null,
           cityId: null,
           cityName: null,
+          defaultDismissed: true,
         }),
     }),
     {

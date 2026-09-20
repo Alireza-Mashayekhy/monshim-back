@@ -2,7 +2,7 @@
 import { CalendarCheck2, MapPin, Scissors } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import BarberCard, {
   BarberCardSkeleton,
@@ -32,19 +32,6 @@ export default function Home() {
   const locationStore = useLocationStore();
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
-
-  useEffect(() => {
-    if (user?.cityId && user?.provinceId) {
-      if (locationStore.cityId !== user.cityId) {
-        locationStore.setLocation(
-          user.provinceId,
-          user.province?.name || '',
-          user.cityId,
-          user.city?.name || '',
-        );
-      }
-    }
-  }, [user?.cityId, user?.provinceId, user?.city?.name, user?.province?.name]);
 
   const effectiveCityId =
     user?.cityId ?? user?.city?.id ?? locationStore.cityId ?? undefined;

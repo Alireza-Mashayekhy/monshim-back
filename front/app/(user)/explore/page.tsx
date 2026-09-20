@@ -27,6 +27,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
 import { cn } from '@/lib/utils';
+import { useCurrentUser } from '@/services/features/auth/hooks';
 import { useBarberList } from '@/services/features/barber/hooks';
 import { useLocationStore } from '@/store/useLocationStore';
 
@@ -60,7 +61,16 @@ const normalizeDigits = (str: string): string => {
 };
 
 export default function Explore() {
-  const { cityName, cityId, resetLocation } = useLocationStore();
+  const { user } = useCurrentUser();
+  const { cityName, cityId, defaultDismissed, resetLocation } =
+    useLocationStore();
+
+  const userCityId = user?.cityId ?? user?.city?.id;
+  const userCityName = user?.city?.name;
+
+  const effectiveCityId = cityId ?? (defaultDismissed ? undefined : userCityId);
+  const effectiveCityName =
+    cityName || (!defaultDismissed && !cityId ? userCityName : null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -88,7 +98,7 @@ export default function Explore() {
     isError,
     refetch,
   } = useBarberList({
-    cityId: cityId || undefined,
+    cityId: effectiveCityId,
     search: debouncedSearch.trim() || undefined,
     sort: selectedSort,
     minPrice: minPrice,
@@ -116,8 +126,6 @@ export default function Explore() {
 
   // تعداد کل نتایج
   const totalResults = data?.pages?.[0]?.pagination?.total ?? barbers.length;
-
-  const effectiveCityName = cityName || (cityId ? 'شهر انتخابی' : null);
 
   const isPriceActive =
     maxPrice !== undefined || selectedSort.startsWith('price:');
