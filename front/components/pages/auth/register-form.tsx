@@ -8,6 +8,7 @@ import {
   EyeOff,
   KeyRound,
   Lock,
+  MapPin,
   RefreshCw,
   ShieldCheck,
   Smartphone,
@@ -18,7 +19,7 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { Suspense, useEffect, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
 
@@ -26,6 +27,7 @@ import FormProvider from '@/components/form/form-provider';
 import { PersianDatePicker } from '@/components/form/persian-date-picker';
 import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
+import RHFSelect from '@/components/form/rhf-select';
 import { Button } from '@/components/ui/button';
 import {
   InputOTP,
@@ -37,6 +39,10 @@ import { jalaliToIso } from '@/lib/date-utils';
 import { normalizePhone, onlyDigits, phoneSchema } from '@/lib/phone';
 import { cn } from '@/lib/utils';
 import { useSendOtp, useSignUp } from '@/services/features/auth/hooks';
+import {
+  useCityList,
+  useProvinceList,
+} from '@/services/features/locations/hooks';
 
 const registerSchema = z
   .object({
@@ -54,6 +60,8 @@ const registerSchema = z
       .min(2, 'نام خانوادگی باید حداقل ۲ کاراکتر باشد.')
       .max(50, 'نام خانوادگی بسیار طولانی است.'),
     phone: phoneSchema,
+    provinceId: z.string().trim().nonempty('انتخاب استان اجباری است.'),
+    cityId: z.string().trim().nonempty('انتخاب شهر اجباری است.'),
     birthDate: z.string().trim().min(1, 'انتخاب تاریخ تولد اجباری است.'),
     password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد.'),
     confirmPassword: z.string().min(1, 'تکرار رمز عبور اجباری است.'),
@@ -70,6 +78,8 @@ const COUNTDOWN_SECONDS = 120;
 function RegisterFormContent() {
   const searchParams = useSearchParams();
   const initialPhone = searchParams.get('phone') || '';
+  const initialProvinceId = searchParams.get('provinceId') || '';
+  const initialCityId = searchParams.get('cityId') || '';
 
   const [step, setStep] = useState<1 | 2>(1);
   const [formData, setFormData] = useState<RegisterFormValues | null>(null);
@@ -91,11 +101,41 @@ function RegisterFormContent() {
       firstName: '',
       lastName: '',
       phone: initialPhone,
+      provinceId: initialProvinceId,
+      cityId: initialCityId,
       birthDate: '',
       password: '',
       confirmPassword: '',
     },
   });
+
+  const selectedProvinceId = useWatch({
+    control: methods.control,
+    name: 'provinceId',
+  });
+
+  // دریافت لیست استان‌ها
+  const { data: provinces } = useProvinceList();
+  // دریافت لیست شهرها بر اساس استان انتخاب‌شده
+  const { data: cities } = useCityList(parseInt(selectedProvinceId));
+
+  const provinceOptions = provinces?.data?.map((p: any) => ({
+    value: p.id.toString(),
+    text: p.name,
+  }));
+
+  const cityOptions = cities?.data?.map((c: any) => ({
+    value: c.id.toString(),
+    text: c.name,
+  }));
+
+  const previousProvince = useRef(selectedProvinceId);
+  useEffect(() => {
+    if (previousProvince.current !== selectedProvinceId) {
+      methods.setValue('cityId', '', { shouldValidate: true });
+      previousProvince.current = selectedProvinceId;
+    }
+  }, [selectedProvinceId, methods]);
 
   // Pre-fill phone from URL param if available
   useEffect(() => {
@@ -167,6 +207,17 @@ function RegisterFormContent() {
     if (!formData || code.length !== 4 || signUpMutation.isPending) return;
 
     try {
+      const province = provinces?.data?.find(
+        (p: any) => String(p.id) === String(formData.provinceId),
+      );
+      const city = cities?.data?.find(
+        (c: any) => String(c.id) === String(formData.cityId),
+      );
+      if (!province || !city) {
+        toast.error('استان و شهر معتبر انتخاب کنید.');
+        return;
+      }
+
       const normalizedPhone = normalizePhone(formData.phone);
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
       const birthDateIso = jalaliToIso(formData.birthDate) || undefined;
@@ -178,6 +229,8 @@ function RegisterFormContent() {
         gender: formData.gender,
         birthDate: birthDateIso,
         password: formData.password,
+        provinceId: Number(formData.provinceId),
+        cityId: Number(formData.cityId),
       });
 
       toast.success('ثبت‌نام شما با موفقیت انجام شد! خوش آمدید.');
@@ -286,6 +339,38 @@ function RegisterFormContent() {
             isRequired
             startIcon={<Smartphone className="w-4 h-4" />}
           />
+
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <MapPin className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold text-gray-700">
+                محل زندگی <span className="text-red-500">*</span>
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <RHFSelect
+                  name="provinceId"
+                  label="استان"
+                  items={provinceOptions}
+                  placeholder="انتخاب استان..."
+                />
+              </div>
+              <div className="space-y-1">
+                <RHFSelect
+                  name="cityId"
+                  label="شهر"
+                  items={cityOptions}
+                  placeholder={
+                    selectedProvinceId
+                      ? 'انتخاب شهر...'
+                      : 'ابتدا استان را انتخاب کنید'
+                  }
+                  disabled={!selectedProvinceId}
+                />
+              </div>
+            </div>
+          </div>
 
           {/* Birth Date */}
           <div className="space-y-1">
