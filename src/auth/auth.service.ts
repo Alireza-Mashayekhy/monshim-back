@@ -32,6 +32,7 @@ import { User } from 'src/users/entities/user.entity';
 import { UsersService } from 'src/users/users.service';
 import { DataSource } from 'typeorm';
 
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginWithPasswordDto } from './dto/login-with-password.dto';
 import { RegisterBarberDto } from './dto/register-barber.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
@@ -123,6 +124,23 @@ export class AuthService {
     await this.issueTokens(user, response);
 
     return { message: 'ورود با موفقیت انجام شد', data: { newUser: false } };
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto) {
+    const user = await this.usersService.findByIdWithPassword(userId);
+    if (!user || !user.password) {
+      throw new BadRequestException('برای این حساب رمز عبور تنظیم نشده است');
+    }
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('رمز عبور فعلی صحیح نیست');
+    }
+
+    const hashed = await bcrypt.hash(dto.newPassword, 10);
+    await this.usersService.updatePassword(userId, hashed);
+
+    return { message: 'رمز عبور با موفقیت تغییر کرد' };
   }
 
   async loginWithPassword(dto: LoginWithPasswordDto, response: Response) {

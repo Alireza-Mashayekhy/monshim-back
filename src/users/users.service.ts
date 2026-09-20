@@ -68,6 +68,17 @@ export class UsersService {
       .getOne();
   }
 
+  async findByIdWithPassword(id: number) {
+    return this.usersRepository.findOne({ where: { id } });
+  }
+
+  async updatePassword(id: number, hashedPassword: string) {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException('کاربر یافت نشد');
+    user.password = hashedPassword;
+    return this.usersRepository.save(user);
+  }
+
   async findAll(query: QueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;

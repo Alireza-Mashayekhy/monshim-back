@@ -20,6 +20,7 @@ import { FilesService } from 'src/files/files.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 import { AuthService } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginWithPasswordDto } from './dto/login-with-password.dto';
 import { RegisterBarberDto } from './dto/register-barber.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
@@ -70,6 +71,15 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     return this.authService.loginWithPassword(dto, response);
+  }
+
+  @Post('/change-password')
+  @UseGuards(AuthGuard)
+  changePassword(
+    @Req() request: Request & { user: { id: number } },
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(request.user.id, dto);
   }
 
   @Post('/sign-up')
