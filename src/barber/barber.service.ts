@@ -204,6 +204,7 @@ export class BarberService {
         fullName: user.fullName,
         salonName: user.barberProfile?.salonName || '',
         profileImage: user.barberProfile?.profileImage || null,
+        activityType: user.barberProfile?.activityType || null,
         cityName: user.barberProfile?.city?.name || null,
         provinceName: user.barberProfile?.province?.name || null,
         minPrice,
