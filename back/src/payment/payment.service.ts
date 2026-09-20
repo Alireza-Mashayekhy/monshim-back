@@ -356,11 +356,9 @@ export class PaymentService {
     }
 
     const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
-    const totalDeposit = services.reduce(
-      (sum, s) => sum + (s.depositPrice ? Number(s.depositPrice) : 0),
-      0,
-    );
-    const amountToPay = totalDeposit > 0 ? totalDeposit : totalPrice;
+    const maxServicePrice = Math.max(...services.map(s => Number(s.price)));
+    const depositAmount = Math.round(maxServicePrice * 0.1);
+    const amountToPay = depositAmount;
 
     const orderId = `BOOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const appUrl = this.getAppUrl();
@@ -403,9 +401,10 @@ export class PaymentService {
         note: dto.note ?? '',
         items: bookingItems,
         totalPrice,
+        depositAmount,
       }),
       status: PaymentStatus.PENDING,
-      description: `رزرو ${services.length} سرویس`,
+      description: `بیعانه رزرو ${services.length} سرویس`,
     });
 
     await this.paymentRepo.save(payment);
