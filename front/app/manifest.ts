@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Mehrzad',
-    short_name: 'Mehrzad',
-    description: 'Mehrzad marketplace',
+    name: 'Monshim',
+    short_name: 'Monshim',
+    description: 'Monshim',
     start_url: '/',
     scope: '/',
     display: 'standalone',
