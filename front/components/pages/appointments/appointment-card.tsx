@@ -83,7 +83,10 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
   const address = booking.barber?.address;
   const serviceName = booking.service?.name;
   const duration = booking.service?.durationMinutes;
-  const deposit = Number(booking.service?.depositPrice) || 0;
+  const commission =
+    booking.service?.price != null
+      ? Math.round(Number(booking.service.price) * 0.1)
+      : 0;
   const cancelable = canCancelBooking(booking.status);
   const salonId = booking.barber?.id;
   const imageUrl = getFullImageUrl(booking.barber?.profileImage);
@@ -173,11 +176,11 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
             </span>
           </div>
 
-          {deposit > 0 && (
+          {commission > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-400">بیعانه</span>
+              <span className="text-[11px] text-gray-400">کمیسیون سایت</span>
               <span className="text-[11px] font-bold text-primary-600">
-                {formatPrice(deposit)} تومان
+                {formatPrice(commission)} تومان
               </span>
             </div>
           )}

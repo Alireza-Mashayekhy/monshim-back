@@ -68,6 +68,15 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
     0,
   );
 
+  // کمیسیون سایت: ۱۰٪ بیشترین مبلغ خدمات انتخاب‌شده (نه ۱۰٪ جمع کل)
+  const maxServicePrice = selectedServices.reduce(
+    (max, s) => Math.max(max, Number(s.price)),
+    0,
+  );
+  const commissionAmount = Math.round(maxServicePrice * 0.1);
+  // مبلغ قابل پرداخت = مجموع خدمات + کمیسیون سایت
+  const totalPayable = totalPrice + commissionAmount;
+
   const goPrevMonth = () => {
     const jm = viewJm === 1 ? 12 : viewJm - 1;
     const jy = viewJm === 1 ? viewJy - 1 : viewJy;
@@ -90,7 +99,6 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
     return !(viewJy === t.jy && viewJm === t.jm);
   }, [viewJy, viewJm, today]);
 
-  const servicesLabel = selectedServices.map(s => s.name).join(' + ');
   const formattedDate = selectedDate ? formatJalaliDate(selectedDate) : 'تاریخ';
 
   return (
@@ -235,12 +243,28 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
               </span>
             </div>
 
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">مجموع خدمات</span>
+              <span className="font-bold text-gray-900 text-base">
+                {toFa(formatPrice(totalPrice))} تومان
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">
+                کمیسیون سایت (۱۰٪ بیشترین خدمت)
+              </span>
+              <span className="font-bold text-primary text-base">
+                {toFa(formatPrice(commissionAmount))} تومان
+              </span>
+            </div>
+
             <div className="flex items-center justify-between border-t border-dashed border-gray-200 pt-3 mt-3">
               <span className="font-bold text-gray-900 text-lg">
-                مبلغ قابل پرداخت
+                مجموع قابل پرداخت
               </span>
               <span className="font-black text-primary text-xl">
-                {toFa(formatPrice(totalPrice))} تومان
+                {toFa(formatPrice(totalPayable))} تومان
               </span>
             </div>
           </div>
@@ -253,7 +277,7 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
         >
           {isSubmitting
             ? 'در حال پردازش...'
-            : `تأیید و پرداخت ${toFa(formatPrice(totalPrice))} تومان`}{' '}
+            : `تأیید و پرداخت ${toFa(formatPrice(totalPayable))} تومان`}{' '}
           <ArrowRight size={20} className="rotate-180" />
         </Button>
       </div>
