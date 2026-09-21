@@ -576,6 +576,8 @@ export class PaymentService {
       userId,
       subscriptionPlanId: plan.id,
       price: plan.price,
+      smsTotal: plan.smsCount,
+      smsUsed: 0,
       status: UserSubscriptionStatus.ACTIVE,
       startDate,
       endDate,

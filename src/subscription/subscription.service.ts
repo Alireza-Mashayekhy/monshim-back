@@ -1,23 +1,71 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
-import { CreateSubscriptionPlanDto } from './dto/create-subscription.dto';
+import { SUBSCRIPTION_PLANS } from './constants';
 import { UpdateSubscriptionPlanDto } from './dto/update-subscription.dto';
 import { SubscriptionPlan } from './entities/subscription-plan.entity';
 
 @Injectable()
-export class SubscriptionService {
+export class SubscriptionService implements OnModuleInit {
   constructor(
     @InjectRepository(SubscriptionPlan)
     private readonly subscriptionPlanRepo: Repository<SubscriptionPlan>,
   ) {}
 
+  async onModuleInit() {
+    await this.seedPlans();
+  }
+
+  async seedPlans() {
+    for (const definition of SUBSCRIPTION_PLANS) {
+      const existing = await this.subscriptionPlanRepo.findOne({
+        where: { planKey: definition.planKey },
+      });
+
+      if (existing) {
+        existing.name = definition.name;
+        existing.description = definition.description;
+        existing.durationDays = definition.durationDays;
+        existing.sortOrder = definition.sortOrder;
+        existing.isActive = true;
+
+        await this.subscriptionPlanRepo.save(existing);
+        continue;
+      }
+
+      const plan = this.subscriptionPlanRepo.create({
+        planKey: definition.planKey,
+        name: definition.name,
+        smsCount: definition.smsCount,
+        price: definition.price,
+        durationDays: definition.durationDays,
+        description: definition.description,
+        isActive: true,
+        sortOrder: definition.sortOrder,
+      });
+
+      await this.subscriptionPlanRepo.save(plan);
+    }
+
+    // غیرفعال کردن پلن‌های قدیمی که هارد‌کد نیستند
+    await this.subscriptionPlanRepo
+      .createQueryBuilder()
+      .update(SubscriptionPlan)
+      .set({ isActive: false })
+      .where('plan_key IS NULL OR plan_key NOT IN (:...keys)', {
+        keys: SUBSCRIPTION_PLANS.map(plan => plan.planKey),
+      })
+      .execute();
+  }
+
   async findAll() {
     return this.subscriptionPlanRepo.find({
+      where: {
+        planKey: In(SUBSCRIPTION_PLANS.map(plan => plan.planKey)),
+      },
       order: {
         sortOrder: 'ASC',
-        createdAt: 'DESC',
       },
     });
   }
@@ -46,45 +94,17 @@ export class SubscriptionService {
     return plan;
   }
 
-  async create(dto: CreateSubscriptionPlanDto) {
-    const plan = this.subscriptionPlanRepo.create({
-      name: dto.name,
-      price: dto.price,
-      durationDays: dto.durationDays,
-      description: dto.description ?? null,
-      isActive: dto.isActive ?? true,
-      sortOrder: dto.sortOrder ?? 0,
-    });
-
-    return this.subscriptionPlanRepo.save(plan);
-  }
-
   async update(id: string, dto: UpdateSubscriptionPlanDto) {
     const plan = await this.findOne(id);
 
-    Object.assign(plan, dto);
+    if (dto.price !== undefined) {
+      plan.price = dto.price;
+    }
+
+    if (dto.smsCount !== undefined) {
+      plan.smsCount = dto.smsCount;
+    }
 
     return this.subscriptionPlanRepo.save(plan);
-  }
-
-  async remove(id: string) {
-    const plan = await this.findOne(id);
-
-    await this.subscriptionPlanRepo.remove(plan);
-
-    return {
-      status: 200,
-      message: 'پلن اشتراک با موفقیت حذف شد',
-    };
-  }
-
-  async toggleActive(id: string) {
-    const plan = await this.findOne(id);
-
-    plan.isActive = !plan.isActive;
-
-    await this.subscriptionPlanRepo.save(plan);
-
-    return plan;
   }
 }

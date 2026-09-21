@@ -39,6 +39,20 @@ export class UserSubscription {
   price: number;
 
   @Column({
+    name: 'sms_total',
+    type: 'int',
+    default: 0,
+  })
+  smsTotal: number;
+
+  @Column({
+    name: 'sms_used',
+    type: 'int',
+    default: 0,
+  })
+  smsUsed: number;
+
+  @Column({
     type: 'enum',
     enum: UserSubscriptionStatus,
     default: UserSubscriptionStatus.ACTIVE,
