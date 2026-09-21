@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
 import { Repository } from 'typeorm';
 
-import { CreateUserSubscriptionDto } from './dto/create-user-subscription.dto';
+import { SmsUsage } from './entities/sms-usage.entity';
 import {
   UserSubscription,
   UserSubscriptionStatus,
@@ -21,16 +21,10 @@ export class UserSubscriptionService {
 
     @InjectRepository(SubscriptionPlan)
     private readonly subscriptionPlanRepo: Repository<SubscriptionPlan>,
-  ) {}
 
-  create(
-    _userId: number,
-    _dto: CreateUserSubscriptionDto,
-  ): Promise<UserSubscription> {
-    throw new BadRequestException(
-      'برای فعال‌سازی اشتراک، پرداخت آنلاین الزامی است. لطفاً از طریق درگاه پرداخت زیبال اقدام نمایید.',
-    );
-  }
+    @InjectRepository(SmsUsage)
+    private readonly smsUsageRepo: Repository<SmsUsage>,
+  ) {}
 
   async getCurrent(userId: number) {
     const userSubscription = await this.userSubscriptionRepo.findOne({
@@ -103,6 +97,60 @@ export class UserSubscriptionService {
         sortOrder: 'ASC',
         price: 'ASC',
       },
+    });
+  }
+
+  async deductSms(
+    userId: number,
+    count = 1,
+    reason = 'ارسال پیامک',
+  ): Promise<UserSubscription> {
+    if (count < 1) {
+      throw new BadRequestException('تعداد پیامک برای کسر باید حداقل ۱ باشد');
+    }
+
+    const subscription = await this.getCurrent(userId);
+
+    if (!subscription) {
+      throw new BadRequestException(
+        'برای ارسال پیامک ابتدا باید یکی از پلن‌های اشتراک را خریداری کنید',
+      );
+    }
+
+    const remaining = subscription.smsTotal - subscription.smsUsed;
+
+    if (remaining < count) {
+      throw new BadRequestException(
+        `اعتبار پیامک کافی نیست (پیامک باقی‌مانده: ${remaining})`,
+      );
+    }
+
+    subscription.smsUsed += count;
+
+    const saved = await this.userSubscriptionRepo.save(subscription);
+
+    // ثبت در دفتر مصرف پیامک
+    await this.smsUsageRepo.save(
+      this.smsUsageRepo.create({
+        userId,
+        userSubscriptionId: subscription.id,
+        count,
+        reason,
+      }),
+    );
+
+    return saved;
+  }
+
+  async getSmsUsageHistory(userId: number) {
+    return this.smsUsageRepo.find({
+      where: {
+        userId,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+      take: 50,
     });
   }
 }
