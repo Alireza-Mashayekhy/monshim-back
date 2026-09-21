@@ -12,12 +12,13 @@ export class SubscriptionPlan {
   id: string;
 
   @Column({
+    type: 'varchar',
     name: 'plan_key',
     length: 50,
     unique: true,
     nullable: true,
   })
-  planKey: string | null;
+  planKey?: string | null;
 
   @Column({
     length: 100,

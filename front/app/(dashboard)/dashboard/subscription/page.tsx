@@ -1,12 +1,26 @@
 'use client';
 
-import { CalendarDays, CheckCircle, Clock, Gem, Loader2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  CalendarDays,
+  Clock,
+  Gem,
+  Info,
+  Loader2,
+  MessageSquare,
+  ShieldCheck,
+} from 'lucide-react';
+import { useMemo, useSyncExternalStore } from 'react';
 
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DEFAULT_PLAN_ICON,
+  SUBSCRIPTION_PLAN_DISPLAY,
+  SUBSCRIPTION_PLAN_ICONS,
+} from '@/constants/subscription-plans';
 import { cn, formatPrice } from '@/lib/utils';
 import { usePaySubscription } from '@/services/features/payment/hooks';
 import {
@@ -14,33 +28,46 @@ import {
   useCurrentUserSubscription,
 } from '@/services/features/subscription/hooks';
 
-type Duration = 30 | 90 | 365;
-
-const durationTabs: {
-  value: Duration;
-  label: string;
-}[] = [
-  {
-    value: 30,
-    label: 'ماهانه',
-  },
-  {
-    value: 90,
-    label: 'سه ماهه',
-  },
-  {
-    value: 365,
-    label: 'سالانه',
-  },
-];
+function toPersianDigits(value: number | string) {
+  return String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
+}
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('fa-IR');
+  return toPersianDigits(new Date(date).toLocaleDateString('fa-IR'));
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const MINUTE_MS = 60 * 1000;
+
+let nowTick = Math.floor(Date.now() / MINUTE_MS);
+
+function subscribeNow(onChange: () => void) {
+  const id = setInterval(() => {
+    nowTick = Math.floor(Date.now() / MINUTE_MS);
+    onChange();
+  }, 30 * 1000);
+
+  return () => clearInterval(id);
+}
+
+function getNowSnapshot() {
+  return nowTick;
+}
+
+function getNowServerSnapshot() {
+  return nowTick;
+}
+
+function useNow() {
+  return useSyncExternalStore(
+    subscribeNow,
+    getNowSnapshot,
+    getNowServerSnapshot,
+  );
 }
 
 export default function SubscriptionPage() {
-  const [selectedDuration, setSelectedDuration] = useState<Duration>(30);
-
   const { data: plans, isLoading: plansLoading } = useActiveSubscriptionPlans();
 
   const { data: currentSubscription, isLoading: currentLoading } =
@@ -48,13 +75,37 @@ export default function SubscriptionPage() {
 
   const paySubscriptionMutation = usePaySubscription();
 
-  const filteredPlans = useMemo(() => {
-    if (!plans) return [];
-
-    return plans?.data?.filter(plan => plan.durationDays === selectedDuration);
-  }, [plans, selectedDuration]);
-
   const currentPlan = currentSubscription?.data?.subscriptionPlan ?? null;
+
+  const displayPlans = useMemo(() => {
+    const list = plans?.data ?? [];
+
+    return list
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(plan => ({
+        plan,
+        display:
+          (plan.planKey && SUBSCRIPTION_PLAN_DISPLAY[plan.planKey]) || null,
+        icon:
+          (plan.planKey && SUBSCRIPTION_PLAN_ICONS[plan.planKey]) ||
+          DEFAULT_PLAN_ICON,
+      }));
+  }, [plans]);
+
+  const smsTotal = currentSubscription?.data?.smsTotal ?? 0;
+  const smsUsed = currentSubscription?.data?.smsUsed ?? 0;
+  const smsRemaining = Math.max(0, smsTotal - smsUsed);
+  const smsUsedPercent =
+    smsTotal > 0 ? Math.min(100, Math.round((smsUsed / smsTotal) * 100)) : 0;
+
+  const now = useNow() * MINUTE_MS;
+
+  const daysLeft = currentSubscription?.data?.endDate
+    ? Math.ceil(
+        (new Date(currentSubscription.data.endDate).getTime() - now) / DAY_MS,
+      )
+    : null;
 
   const handleUpgrade = (planId: string) => {
     if (paySubscriptionMutation.isPending) return;
@@ -75,166 +126,248 @@ export default function SubscriptionPage() {
   return (
     <DashboardShell>
       {/* اشتراک فعلی */}
-      <FadeIn>
-        <AppCard className="text-center">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-linear-to-br from-yellow-100 to-orange-100">
-            <Gem size={32} className="text-orange-500" />
-          </div>
-
+      <FadeIn delay={0.08}>
+        <AppCard className="p-4 sm:p-5">
           {currentSubscription?.data ? (
             <>
-              <h2 className="text-xl font-bold text-gray-800">
-                اشتراک فعلی: {currentPlan?.name}
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-primary-2 text-primary flex items-center justify-center shrink-0">
+                    <Gem size={17} />
+                  </div>
 
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs">
-                <div className="flex items-center gap-1 text-gray-500">
-                  <CalendarDays size={14} />
+                  <div>
+                    <h2 className="text-sm font-black text-gray-900">
+                      اشتراک فعلی: {currentPlan?.name}
+                    </h2>
 
+                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                      اشتراک یک‌ماهه
+                    </p>
+                  </div>
+                </div>
+
+                <Badge className="bg-green-50 text-green-600 border border-green-200 rounded-lg h-7 px-2.5">
+                  فعال
+                </Badge>
+              </div>
+
+              {/* اعتبار پیامک */}
+              <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500">
+                    <MessageSquare size={14} className="text-primary" />
+                    اعتبار پیامک
+                  </div>
+
+                  <p className="text-xs font-bold text-gray-700">
+                    <span className="text-primary text-base font-black">
+                      {toPersianDigits(smsRemaining)}
+                    </span>{' '}
+                    پیامک باقی‌مانده از {toPersianDigits(smsTotal)}
+                  </p>
+                </div>
+
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-gray-200/70">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all',
+                      smsUsedPercent >= 90
+                        ? 'bg-red-400'
+                        : smsUsedPercent >= 70
+                          ? 'bg-orange-400'
+                          : 'bg-primary',
+                    )}
+                    style={{ width: `${Math.max(smsUsedPercent, 2)}%` }}
+                  />
+                </div>
+
+                <p className="mt-2 text-[11px] font-medium text-gray-400">
+                  {toPersianDigits(smsUsed)} پیامک مصرف شده
+                  {' · '}
+                  {toPersianDigits(smsUsedPercent)}٪ از اعتبار استفاده شده است
+                </p>
+              </div>
+
+              <div className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium">
+                <div className="flex items-center gap-1.5 text-gray-500">
+                  <CalendarDays size={14} className="text-primary/70" />
                   <span>
-                    شروع: {formatDate(currentSubscription?.data.startDate)}
+                    شروع: {formatDate(currentSubscription.data.startDate)}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1 text-red-500">
+                <div
+                  className={cn(
+                    'flex items-center gap-1.5',
+                    daysLeft !== null && daysLeft <= 7
+                      ? 'text-red-500 font-bold'
+                      : 'text-gray-500',
+                  )}
+                >
                   <Clock size={14} />
-
                   <span>
-                    انقضا: {formatDate(currentSubscription?.data.endDate)}
+                    انقضا: {formatDate(currentSubscription.data.endDate)}
+                    {daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
+                      ? ` (${toPersianDigits(daysLeft)} روز باقی‌مانده)`
+                      : ''}{' '}
                   </span>
                 </div>
               </div>
-
-              {currentPlan?.description && (
-                <p className="mt-3 text-sm text-gray-500">
-                  {currentPlan.description}
-                </p>
-              )}
             </>
           ) : (
-            <>
-              <h2 className="text-xl font-bold text-gray-800">
-                اشتراک فعالی ندارید
+            <div className="py-4 text-center space-y-1.5">
+              <div className="w-11 h-11 rounded-2xl bg-primary-2/60 text-primary flex items-center justify-center mx-auto">
+                <Gem size={20} />
+              </div>
+
+              <h2 className="text-sm font-black text-gray-900">
+                هنوز اشتراک فعالی ندارید
               </h2>
 
-              <p className="mt-2 text-sm text-gray-500">
-                یکی از پلن‌های زیر را انتخاب کنید.
+              <p className="text-xs text-gray-400">
+                برای فعال‌سازی امکانات پیامکی، یکی از پلن‌های زیر را انتخاب
+                کنید.
               </p>
-            </>
+            </div>
           )}
         </AppCard>
       </FadeIn>
 
-      {/* تب‌ها */}
-      <FadeIn delay={0.1}>
-        <div className="mt-6 flex rounded-xl bg-gray-100 p-1">
-          {durationTabs.map(tab => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setSelectedDuration(tab.value)}
-              className={cn(
-                'flex-1 rounded-lg py-2.5 text-sm font-bold transition-all',
-                selectedDuration === tab.value
-                  ? 'bg-white text-gray-900 shadow'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </FadeIn>
+      <FadeIn delay={0.16}>
+        <div className="mb-3 flex items-end justify-between gap-2">
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-gray-900">
+              پلن‌های اشتراک
+            </h3>
 
-      {/* پلن‌ها */}
-      <FadeIn delay={0.15}>
-        <div className="mb-3 mt-6">
-          <h3 className="text-lg font-bold text-gray-800">پلن‌های اشتراک</h3>
-
-          <p className="mt-1 text-sm text-gray-500">
-            پلن مناسب خود را انتخاب کنید.
-          </p>
-        </div>
-
-        {filteredPlans?.length === 0 ? (
-          <AppCard className="py-10 text-center">
-            <p className="text-sm text-gray-500">
-              برای این مدت اشتراکی وجود ندارد.
+            <p className="mt-1 text-xs text-gray-400 font-medium">
+              همه پلن‌ها یک‌ماهه هستند؛ اعتبار پیامک هر پلن پس از خرید ثبت
+              می‌شود.
             </p>
-          </AppCard>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {filteredPlans?.map(plan => {
-              const isCurrent = currentPlan?.id === plan.id;
+          </div>
+        </div>
 
-              return (
-                <AppCard
-                  key={plan.id}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 lg:gap-4">
+          {displayPlans.map(({ plan, display, icon: Icon }, index) => {
+            const isCurrent = currentPlan?.id === plan.id;
+            const isRecommended = !!display?.recommended;
+            const planName = display?.name ?? plan.name;
+            const bookingsLabel = display?.bookingsLabel;
+            const description = display?.description ?? plan.description;
+
+            return (
+              <FadeIn key={plan.id} delay={0.2 + index * 0.06}>
+                <div
                   className={cn(
-                    'relative border-2 overflow-hidden',
-                    isCurrent ? 'border-primary shadow-lg' : 'border-gray-100',
+                    'relative h-full flex flex-col overflow-hidden rounded-[28px] border bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(13,148,136,0.12)]',
+                    isRecommended
+                      ? 'border-primary/50 ring-1 ring-primary/25'
+                      : 'border-gray-100',
                   )}
                 >
-                  {isCurrent && (
-                    <div className="absolute right-0 top-0 rounded-bl-xl  bg-primary px-3 py-1 text-xs font-bold text-white">
-                      فعال
+                  {isRecommended && (
+                    <div className="absolute left-0 top-0 flex items-center gap-1 rounded-br-2xl bg-primary px-3 py-1.5 text-[10px] font-black text-white">
+                      <ShieldCheck size={12} />
+                      پیشنهاد ما
                     </div>
                   )}
 
-                  <h4 className="mb-2 text-lg font-bold text-gray-800">
-                    {plan.name}
-                  </h4>
+                  {isCurrent && (
+                    <div className="absolute left-0 top-0 rounded-br-2xl bg-green-500 px-3 py-1.5 text-[10px] font-black text-white">
+                      پلن فعلی شما
+                    </div>
+                  )}
 
-                  <div className="mb-1 flex items-end gap-1">
-                    <span className="text-2xl font-black text-gray-900">
-                      {formatPrice(plan.price)}
-                    </span>
-
-                    <span className="mb-1 text-xs text-gray-400">تومان</span>
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className={cn(
+                        'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                        isRecommended
+                          ? 'bg-primary text-white'
+                          : 'bg-primary-2 text-primary',
+                      )}
+                    >
+                      <Icon size={19} />
+                    </div>
+                    <h4 className="text-base font-black text-gray-900">
+                      {planName}
+                    </h4>{' '}
                   </div>
 
-                  <p className="mb-5 text-xs text-gray-400">
-                    {selectedDuration === 30 && 'اشتراک یک ماهه'}
+                  <div className="mt-4 flex items-baseline gap-1.5">
+                    <span className="text-3xl font-black tracking-tight text-gray-900">
+                      {toPersianDigits(plan.smsCount)}
+                    </span>
 
-                    {selectedDuration === 90 && 'اشتراک سه ماهه'}
+                    <span className="text-xs font-bold text-gray-400">
+                      پیامک
+                    </span>
+                  </div>
+                  {bookingsLabel && (
+                    <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-bold text-gray-500">
+                      <CalendarDays size={13} className="text-primary/70" />
+                      {bookingsLabel}
+                    </div>
+                  )}
 
-                    {selectedDuration === 365 && 'اشتراک یک ساله'}
-                  </p>
-
-                  {plan.description && (
-                    <p className="mb-6 whitespace-pre-line text-sm leading-6 text-gray-500">
-                      {plan.description}
+                  {description && (
+                    <p className="mt-1.5 text-xs leading-6 text-gray-400">
+                      {description}
                     </p>
                   )}
 
-                  <div className="mb-6 flex items-center gap-2 text-sm text-gray-600">
-                    <CheckCircle size={15} className="text-green-500" />
+                  <div className="mt-auto pt-5">
+                    <div className="mb-4 flex items-end justify-between rounded-2xl bg-primary-3 border border-primary-2 px-4 py-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-primary">
+                          {toPersianDigits(formatPrice(plan.price))}
+                        </span>
 
-                    <span>اعتبار {plan.durationDays} روز</span>
+                        <span className="text-[11px] font-bold text-gray-400">
+                          تومان
+                        </span>
+                      </div>
+
+                      <span className="text-[11px] font-bold text-gray-400">
+                        / ماهانه
+                      </span>
+                    </div>
+                    <Button
+                      className="w-full"
+                      variant={isRecommended ? 'default' : 'outline'}
+                      disabled={isCurrent || paySubscriptionMutation.isPending}
+                      onClick={() => handleUpgrade(plan.id)}
+                    >
+                      {paySubscriptionMutation.isPending ? (
+                        <>
+                          <Loader2 className="ml-1.5 size-4 animate-spin" />
+                          در حال انتقال به درگاه...
+                        </>
+                      ) : isCurrent ? (
+                        'پلن فعلی شما'
+                      ) : (
+                        'خرید و پرداخت آنلاین'
+                      )}
+                    </Button>{' '}
                   </div>
+                </div>
+              </FadeIn>
+            );
+          })}
+        </div>
+      </FadeIn>
 
-                  <Button
-                    className="w-full"
-                    variant={isCurrent ? 'secondary' : 'default'}
-                    disabled={isCurrent || paySubscriptionMutation.isPending}
-                    onClick={() => handleUpgrade(plan.id)}
-                  >
-                    {paySubscriptionMutation.isPending ? (
-                      <>
-                        <Loader2 className="ml-2 size-4 animate-spin" />
-                        در حال انتقال به زیبال...
-                      </>
-                    ) : isCurrent ? (
-                      'پلن فعلی'
-                    ) : (
-                      'پرداخت با درگاه زیبال'
-                    )}
-                  </Button>
-                </AppCard>
-              );
-            })}
-          </div>
-        )}
+      <FadeIn delay={0.5}>
+        <div className="flex items-start gap-2 rounded-2xl border border-primary-2 bg-primary-3 px-4 py-3">
+          <Info size={15} className="mt-0.5 shrink-0 text-primary" />
+
+          <p className="text-[11px] leading-6 font-medium text-gray-500">
+            پیامک‌های هر پلن پس از خرید به‌عنوان اعتبار ثبت می‌شوند و با استفاده
+            از آپشن‌ها (امکانات پیامکی) از این اعتبار کسر می‌گردد. اعتبار
+            پیامک‌ها تا پایان دوره اشتراک قابل استفاده است.
+          </p>
+        </div>
       </FadeIn>
     </DashboardShell>
   );

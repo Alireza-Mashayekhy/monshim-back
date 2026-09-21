@@ -3,7 +3,7 @@ import { endpoints } from '@/services/api/endpoints';
 import { ApiListResponse, ApiSingleResponse } from '@/services/api/types';
 
 import {
-  CreateSubscriptionPlanDto,
+  SmsUsage,
   SubscriptionPlan,
   UpdateSubscriptionPlanDto,
   UserSubscription,
@@ -18,26 +18,9 @@ export async function getSubscriptionPlans() {
   return data;
 }
 
-export async function getActiveSubscriptionPlans() {
-  const { data } = await api.get<ApiListResponse<SubscriptionPlan>>(
-    endpoints.userSubscription.active,
-  );
-
-  return data;
-}
-
 export async function getSubscriptionPlan(id: string) {
   const { data } = await api.get<ApiSingleResponse<SubscriptionPlan>>(
     endpoints.subscription.detail(id),
-  );
-
-  return data;
-}
-
-export async function createSubscriptionPlan(dto: CreateSubscriptionPlanDto) {
-  const { data } = await api.post<ApiSingleResponse<SubscriptionPlan>>(
-    endpoints.subscription.create,
-    dto,
   );
 
   return data;
@@ -55,21 +38,13 @@ export async function updateSubscriptionPlan(
   return data;
 }
 
-export async function deleteSubscriptionPlan(id: string) {
-  const { data } = await api.delete(endpoints.subscription.delete(id));
-
-  return data;
-}
-
-export async function toggleSubscriptionPlan(id: string) {
-  const { data } = await api.patch<ApiSingleResponse<SubscriptionPlan>>(
-    endpoints.subscription.toggleActive(id),
+export async function getActiveSubscriptionPlans() {
+  const { data } = await api.get<ApiListResponse<SubscriptionPlan>>(
+    endpoints.userSubscription.active,
   );
 
   return data;
 }
-
-// User Subscription
 
 export async function getCurrentUserSubscription() {
   const { data } = await api.get<ApiSingleResponse<UserSubscription | null>>(
@@ -87,12 +62,9 @@ export async function getUserSubscriptions() {
   return data;
 }
 
-export async function createUserSubscription(subscriptionPlanId: string) {
-  const { data } = await api.post<ApiSingleResponse<UserSubscription>>(
-    endpoints.userSubscription.create,
-    {
-      subscriptionPlanId,
-    },
+export async function getSmsUsage() {
+  const { data } = await api.get<ApiListResponse<SmsUsage>>(
+    endpoints.userSubscription.smsUsage,
   );
 
   return data;

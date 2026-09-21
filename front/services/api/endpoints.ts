@@ -70,16 +70,12 @@ export const endpoints = {
 
   subscription: {
     list: '/admin/subscriptions',
-    active: '/admin/subscriptions/active',
-    create: '/admin/subscriptions',
     detail: (id: string) => `/admin/subscriptions/${id}`,
     update: (id: string) => `/admin/subscriptions/${id}`,
-    delete: (id: string) => `/admin/subscriptions/${id}`,
-    toggleActive: (id: string) => `/admin/subscriptions/${id}/toggle`,
   },
 
   userSubscription: {
-    create: '/user-subscriptions',
+    smsUsage: '/user-subscriptions/sms-usage',
     current: '/user-subscriptions/current',
     list: '/user-subscriptions',
     detail: (id: string) => `/user-subscriptions/${id}`,

@@ -2,17 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import {
-  createSubscriptionPlan,
-  createUserSubscription,
-  deleteSubscriptionPlan,
   getActiveSubscriptionPlans,
   getCurrentUserSubscription,
+  getSmsUsage,
   getSubscriptionPlans,
   getUserSubscriptions,
-  toggleSubscriptionPlan,
   updateSubscriptionPlan,
 } from './api';
-import { CreateSubscriptionPlanDto, UpdateSubscriptionPlanDto } from './types';
+import { UpdateSubscriptionPlanDto } from './types';
 
 export const subscriptionKeys = {
   all: ['subscriptions'] as const,
@@ -24,6 +21,7 @@ export const subscriptionKeys = {
   user: () => [...subscriptionKeys.all, 'user'] as const,
   current: () => [...subscriptionKeys.user(), 'current'] as const,
   history: () => [...subscriptionKeys.user(), 'history'] as const,
+  smsUsage: () => [...subscriptionKeys.user(), 'sms-usage'] as const,
 };
 
 // =========================
@@ -35,26 +33,6 @@ export function useSubscriptionPlans() {
     queryKey: subscriptionKeys.adminList(),
     queryFn: getSubscriptionPlans,
     staleTime: 2 * 60 * 1000,
-  });
-}
-
-export function useCreateSubscriptionPlan() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (dto: CreateSubscriptionPlanDto) => createSubscriptionPlan(dto),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: subscriptionKeys.all,
-      });
-
-      toast.success('پلن اشتراک با موفقیت ایجاد شد');
-    },
-
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'خطا در ایجاد پلن اشتراک');
-    },
   });
 }
 
@@ -75,46 +53,6 @@ export function useUpdateSubscriptionPlan() {
 
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'خطا در ویرایش پلن اشتراک');
-    },
-  });
-}
-
-export function useDeleteSubscriptionPlan() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: deleteSubscriptionPlan,
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: subscriptionKeys.all,
-      });
-
-      toast.success('پلن اشتراک حذف شد');
-    },
-
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'خطا در حذف پلن اشتراک');
-    },
-  });
-}
-
-export function useToggleSubscriptionPlan() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: toggleSubscriptionPlan,
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: subscriptionKeys.all,
-      });
-
-      toast.success('وضعیت پلن تغییر کرد');
-    },
-
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'خطا در تغییر وضعیت پلن');
     },
   });
 }
@@ -147,22 +85,10 @@ export function useUserSubscriptions() {
   });
 }
 
-export function useCreateUserSubscription() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: createUserSubscription,
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: subscriptionKeys.user(),
-      });
-
-      toast.success('اشتراک با موفقیت فعال شد');
-    },
-
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'خطا در فعال‌سازی اشتراک');
-    },
+export function useSmsUsage() {
+  return useQuery({
+    queryKey: subscriptionKeys.smsUsage(),
+    queryFn: getSmsUsage,
+    staleTime: 60 * 1000,
   });
 }
