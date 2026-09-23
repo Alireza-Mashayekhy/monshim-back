@@ -9,7 +9,7 @@ import {
   MessageSquare,
   ShieldCheck,
 } from 'lucide-react';
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import AppCard from '@/components/shared/app-card';
@@ -21,7 +21,12 @@ import {
   SUBSCRIPTION_PLAN_DISPLAY,
   SUBSCRIPTION_PLAN_ICONS,
 } from '@/constants/subscription-plans';
-import { cn, formatPrice } from '@/lib/utils';
+import {
+  cn,
+  formatPrice,
+  getDurationLabel,
+  toPersianDigits,
+} from '@/lib/utils';
 import { usePaySubscription } from '@/services/features/payment/hooks';
 import {
   useActiveSubscriptionPlans,
@@ -68,6 +73,8 @@ function useNow() {
 }
 
 export default function SubscriptionPage() {
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
+
   const { data: plans, isLoading: plansLoading } = useActiveSubscriptionPlans();
 
   const { data: currentSubscription, isLoading: currentLoading } =
@@ -92,6 +99,24 @@ export default function SubscriptionPage() {
           DEFAULT_PLAN_ICON,
       }));
   }, [plans]);
+
+  const durations = useMemo(
+    () =>
+      Array.from(new Set((plans?.data ?? []).map(p => p.durationDays))).sort(
+        (a, b) => a - b,
+      ),
+    [plans],
+  );
+
+  const activeDuration = durations.includes(selectedDuration)
+    ? selectedDuration
+    : (durations[0] ?? 30);
+
+  const filteredDisplayPlans = useMemo(
+    () =>
+      displayPlans.filter(item => item.plan.durationDays === activeDuration),
+    [displayPlans, activeDuration],
+  );
 
   const smsTotal = currentSubscription?.data?.smsTotal ?? 0;
   const smsUsed = currentSubscription?.data?.smsUsed ?? 0;
@@ -142,7 +167,7 @@ export default function SubscriptionPage() {
                     </h2>
 
                     <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-                      اشتراک یک‌ماهه
+                      اشتراک {getDurationLabel(currentPlan?.durationDays ?? 30)}
                     </p>
                   </div>
                 </div>
@@ -248,8 +273,28 @@ export default function SubscriptionPage() {
           </div>
         </div>
 
+        {durations.length > 1 && (
+          <div className="mb-5 flex rounded-xl bg-gray-100 p-1">
+            {durations.map(duration => (
+              <button
+                key={duration}
+                type="button"
+                onClick={() => setSelectedDuration(duration)}
+                className={cn(
+                  'flex-1 rounded-lg py-2.5 text-sm font-bold transition-all',
+                  activeDuration === duration
+                    ? 'bg-white text-gray-900 shadow'
+                    : 'text-gray-500 hover:text-gray-700',
+                )}
+              >
+                {getDurationLabel(duration)}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 lg:gap-4">
-          {displayPlans.map(({ plan, display, icon: Icon }, index) => {
+          {filteredDisplayPlans.map(({ plan, display, icon: Icon }, index) => {
             const isCurrent = currentPlan?.id === plan.id;
             const isRecommended = !!display?.recommended;
             const planName = display?.name ?? plan.name;
@@ -330,7 +375,7 @@ export default function SubscriptionPage() {
                       </div>
 
                       <span className="text-[11px] font-bold text-gray-400">
-                        / ماهانه
+                        / {getDurationLabel(plan.durationDays)}
                       </span>
                     </div>
                     <Button

@@ -49,3 +49,18 @@ export const formatNumberInput = (value: string) => {
 export const unformatNumberInput = (value: string) => {
   return parseFloat(value.replace(/,/g, '')) || 0;
 };
+
+export const getDurationLabel = (days: number): string => {
+  switch (days) {
+    case 30:
+      return 'یک‌ماهه';
+    case 90:
+      return 'سه‌ماهه';
+    case 180:
+      return 'شش‌ماهه';
+    case 365:
+      return 'یک‌ساله';
+    default:
+      return `${toPersianDigits(days)} روزه`;
+  }
+};
