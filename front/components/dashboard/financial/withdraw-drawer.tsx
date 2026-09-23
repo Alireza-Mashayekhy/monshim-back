@@ -2,7 +2,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -11,11 +10,12 @@ import RHFNumberInput from '@/components/form/rhf-number-input';
 import RHFSelect from '@/components/form/rhf-select';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatPrice } from '@/lib/utils';
 import { useBankCards, useWithdraw } from '@/services/features/wallet/hooks';
@@ -32,17 +32,17 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-interface WithdrawModalProps {
+interface WithdrawDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   balance: number;
 }
 
-export function WithdrawModal({
+export function WithdrawDrawer({
   open,
   onOpenChange,
   balance,
-}: WithdrawModalProps) {
+}: WithdrawDrawerProps) {
   const withdraw = useWithdraw();
   const { data: cards, isLoading: cardsLoading } = useBankCards();
 
@@ -54,7 +54,7 @@ export function WithdrawModal({
     },
   });
 
-  const { reset, watch } = methods;
+  const { reset, watch, handleSubmit } = methods;
   const amountValue = watch('amount');
   const parsedAmount = parseFloat(amountValue?.replace(/,/g, '') || '0');
 
@@ -79,24 +79,19 @@ export function WithdrawModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md rounded-3xl p-6">
-        <DialogHeader className="flex flex-row justify-between items-center">
-          <DialogTitle className="font-bold text-lg text-gray-800">
-            درخواست برداشت
-          </DialogTitle>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X size={20} />
-          </button>
-        </DialogHeader>
+    <Drawer open={open} onOpenChange={handleClose}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle className="text-center">درخواست برداشت</DrawerTitle>
+          <DrawerDescription className="text-center text-sm">
+            مبلغ مورد نظر را برای برداشت مشخص کنید
+          </DrawerDescription>
+        </DrawerHeader>
 
         <FormProvider
           methods={methods}
-          onSubmit={onSubmit}
-          className="space-y-4"
+          onSubmit={handleSubmit(onSubmit)}
+          className="px-4 pb-4 space-y-4"
         >
           <RHFNumberInput
             name="amount"
@@ -107,7 +102,7 @@ export function WithdrawModal({
             max={9999999999}
           />
 
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 text-center">
             موجودی قابل برداشت: {formatPrice(balance)} تومان
             {parsedAmount > balance && (
               <p className="text-red-500 text-xs mt-1">
@@ -144,7 +139,7 @@ export function WithdrawModal({
             {withdraw.isPending ? 'در حال ثبت...' : 'ثبت درخواست برداشت'}
           </Button>
         </FormProvider>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   );
 }

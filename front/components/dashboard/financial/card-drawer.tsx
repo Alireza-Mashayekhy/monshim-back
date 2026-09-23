@@ -2,7 +2,6 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -10,11 +9,12 @@ import FormProvider from '@/components/form/form-provider';
 import RHFInput from '@/components/form/rhf-input';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { useAddCard } from '@/services/features/wallet/hooks';
 
 const schema = z.object({
@@ -35,12 +35,12 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-interface CardModalProps {
+interface CardDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CardModal({ open, onOpenChange }: CardModalProps) {
+export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
   const addCard = useAddCard();
 
   const methods = useForm<FormData>({
@@ -70,24 +70,19 @@ export function CardModal({ open, onOpenChange }: CardModalProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md rounded-3xl p-6">
-        <DialogHeader className="flex flex-row justify-between items-center">
-          <DialogTitle className="font-bold text-lg text-gray-800">
-            افزودن کارت بانکی
-          </DialogTitle>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <X size={20} />
-          </button>
-        </DialogHeader>
+    <Drawer open={open} onOpenChange={handleClose}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle className="text-center">افزودن کارت بانکی</DrawerTitle>
+          <DrawerDescription className="text-center text-sm">
+            کارت بانکی خود را برای برداشت وجه اضافه کنید
+          </DrawerDescription>
+        </DrawerHeader>
 
         <FormProvider
           methods={methods}
-          onSubmit={onSubmit}
-          className="space-y-4"
+          onSubmit={handleSubmit(onSubmit)}
+          className="px-4 pb-4 space-y-4"
         >
           <RHFInput name="bankName" label="نام بانک" placeholder="مثلاً ملی" />
           <RHFInput
@@ -112,7 +107,7 @@ export function CardModal({ open, onOpenChange }: CardModalProps) {
             {addCard.isPending ? 'در حال ثبت...' : 'افزودن کارت'}
           </Button>
         </FormProvider>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   );
 }

@@ -4,9 +4,9 @@ import { Plus, Search, Users, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { ClubCustomersList } from '@/components/dashboard/club/club-customers-list';
-import { CustomerDialog } from '@/components/dashboard/club/customer-dialog';
-import { GroupsDialog } from '@/components/dashboard/club/groups-dialog';
-import { ManualBookingDialog } from '@/components/dashboard/club/manual-booking-dialog';
+import { CustomerDrawer } from '@/components/dashboard/club/customer-drawer';
+import { GroupsDrawer } from '@/components/dashboard/club/groups-drawer';
+import { ManualBookingDrawer } from '@/components/dashboard/club/manual-booking-drawer';
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
@@ -35,11 +35,11 @@ export default function ClubPage() {
   const [groupId, setGroupId] = useState<string>(ALL_GROUPS);
   const [page, setPage] = useState(1);
 
-  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<ClubCustomer | null>(
     null,
   );
-  const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
+  const [groupsDrawerOpen, setGroupsDrawerOpen] = useState(false);
   const [bookingCustomer, setBookingCustomer] = useState<ClubCustomer | null>(
     null,
   );
@@ -61,14 +61,14 @@ export default function ClubPage() {
 
   const { data, isLoading, isError } = useClubCustomers(queryParams);
 
-  const openAddDialog = () => {
+  const openAddDrawer = () => {
     setEditingCustomer(null);
-    setCustomerDialogOpen(true);
+    setCustomerDrawerOpen(true);
   };
 
-  const openEditDialog = (customer: ClubCustomer) => {
+  const openEditDrawer = (customer: ClubCustomer) => {
     setEditingCustomer(customer);
-    setCustomerDialogOpen(true);
+    setCustomerDrawerOpen(true);
   };
 
   const handleDelete = async (customer: ClubCustomer) => {
@@ -101,10 +101,10 @@ export default function ClubPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setGroupsDialogOpen(true)}>
+            <Button variant="outline" onClick={() => setGroupsDrawerOpen(true)}>
               مدیریت گروه‌ها
             </Button>
-            <Button className="gap-2" onClick={openAddDialog}>
+            <Button className="gap-2" onClick={openAddDrawer}>
               <Plus size={16} />
               افزودن مشتری
             </Button>
@@ -128,7 +128,7 @@ export default function ClubPage() {
                   setPage(1);
                 }}
                 placeholder="جستجو در نام یا شماره موبایل..."
-                className="h-10 pr-9 pl-9 rounded-xl"
+                className="pr-9 pl-9"
               />
               {search && (
                 <button
@@ -152,7 +152,7 @@ export default function ClubPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-full md:w-56 h-10 rounded-xl">
+              <SelectTrigger className="w-full md:w-56">
                 <SelectValue placeholder="همه گروه‌ها" />
               </SelectTrigger>
               <SelectContent>
@@ -176,26 +176,25 @@ export default function ClubPage() {
           pagination={data?.pagination}
           page={page}
           onPageChange={setPage}
-          onEdit={openEditDialog}
+          onEdit={openEditDrawer}
           onBook={setBookingCustomer}
           onDelete={handleDelete}
           filtered={!!debouncedSearch.trim() || groupId !== ALL_GROUPS}
         />
       </FadeIn>
 
-      {/* دیالوگ‌ها */}
-      <CustomerDialog
-        open={customerDialogOpen}
-        onOpenChange={setCustomerDialogOpen}
+      <CustomerDrawer
+        open={customerDrawerOpen}
+        onOpenChange={setCustomerDrawerOpen}
         customer={editingCustomer}
       />
 
-      <GroupsDialog
-        open={groupsDialogOpen}
-        onOpenChange={setGroupsDialogOpen}
+      <GroupsDrawer
+        open={groupsDrawerOpen}
+        onOpenChange={setGroupsDrawerOpen}
       />
 
-      <ManualBookingDialog
+      <ManualBookingDrawer
         open={!!bookingCustomer}
         onOpenChange={open => {
           if (!open) setBookingCustomer(null);

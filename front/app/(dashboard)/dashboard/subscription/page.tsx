@@ -33,10 +33,6 @@ import {
   useCurrentUserSubscription,
 } from '@/services/features/subscription/hooks';
 
-function toPersianDigits(value: number | string) {
-  return String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
-}
-
 function formatDate(date: string) {
   return toPersianDigits(new Date(date).toLocaleDateString('fa-IR'));
 }

@@ -1,11 +1,11 @@
 // app/(dashboard)/financial/page.tsx
 'use client';
 
-import { ArrowDownLeft, Wallet } from 'lucide-react';
+import { ArrowDownLeft, Plus, Wallet } from 'lucide-react';
 import { useState } from 'react';
 
-import { CardModal } from '@/components/dashboard/financial/cardModal';
-import { WithdrawModal } from '@/components/dashboard/financial/withdrawModal';
+import { CardDrawer } from '@/components/dashboard/financial/card-drawer';
+import { WithdrawDrawer } from '@/components/dashboard/financial/withdraw-drawer';
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
@@ -18,8 +18,8 @@ import {
 } from '@/services/features/wallet/hooks';
 
 export default function FinancialPage() {
-  const [showCardModal, setShowCardModal] = useState(false);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showCardDrawer, setShowCardDrawer] = useState(false);
+  const [showWithdrawDrawer, setShowWithdrawDrawer] = useState(false);
 
   const {
     data: balanceData,
@@ -45,7 +45,7 @@ export default function FinancialPage() {
   return (
     <DashboardShell>
       <FadeIn>
-        <AppCard className="bg-gradient-to-br from-primary to-primary-700 text-white">
+        <AppCard className="bg-gradient-to-br from-primary to-primary/60 text-white">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-white/70">موجودی کیف پول</p>
@@ -64,7 +64,7 @@ export default function FinancialPage() {
             <Button
               variant="secondary"
               className="flex-1 text-primary"
-              onClick={() => setShowWithdrawModal(true)}
+              onClick={() => setShowWithdrawDrawer(true)}
               disabled={balance <= 0}
             >
               <ArrowDownLeft size={16} /> تسویه وجه
@@ -72,9 +72,9 @@ export default function FinancialPage() {
             <Button
               variant="secondary"
               className="flex-1 text-primary"
-              onClick={() => setShowCardModal(true)}
+              onClick={() => setShowCardDrawer(true)}
             >
-              کارت‌ها
+              <Plus size={16} /> کارت‌ها
             </Button>
           </div>
         </AppCard>
@@ -122,10 +122,10 @@ export default function FinancialPage() {
         </div>
       </FadeIn>
 
-      <CardModal open={showCardModal} onOpenChange={setShowCardModal} />
-      <WithdrawModal
-        open={showWithdrawModal}
-        onOpenChange={setShowWithdrawModal}
+      <CardDrawer open={showCardDrawer} onOpenChange={setShowCardDrawer} />
+      <WithdrawDrawer
+        open={showWithdrawDrawer}
+        onOpenChange={setShowWithdrawDrawer}
         balance={balance}
       />
     </DashboardShell>

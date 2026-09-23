@@ -2,43 +2,34 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Camera, Clock, Copy, Share2, Store, User } from 'lucide-react';
+import { Camera, Copy, Pencil, Share2, Store, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
 
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
-import FormProvider from '@/components/form/form-provider';
-import { PersianDatePicker } from '@/components/form/persian-date-picker';
-import RHFInput from '@/components/form/rhf-input';
-import RHFSelect from '@/components/form/rhf-select';
-import RHFTextArea from '@/components/form/rhf-textarea';
+import { BasicInfoDrawer } from '@/components/dashboard/profile/basic-info-drawer';
+import { SalonInfoDrawer } from '@/components/dashboard/profile/salon-info-drawer';
 import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
-import { TimeInput } from '@/components/shared/time-input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { isoToJalali, jalaliToIso } from '@/lib/date-utils';
+import { isoToJalali } from '@/lib/date-utils';
 import { getImageUploadError, IMAGE_ACCEPT } from '@/lib/image-upload';
 import { DefaultImage } from '@/lib/utils';
 import {
   useMyBarberProfile,
   useMyReferralCode,
-  useUpdateBarberProfile,
   useUploadProfileImage,
 } from '@/services/features/barber/hooks';
-import {
-  useCityList,
-  useProvinceList,
-} from '@/services/features/locations/hooks';
 
 const schema = z.object({
   fullName: z.string().min(1, 'نام و نام خانوادگی الزامی است'),
   birthDate: z.string().optional().nullable(),
   salonName: z.string().min(1, 'نام فروشگاه الزامی است'),
-  provinceId: z.string().nullable(), // ← تغییر از number به string
-  cityId: z.string().nullable(), // ← تغییر از number به string
+  provinceId: z.string().nullable(),
+  cityId: z.string().nullable(),
   address: z.string().min(1, 'آدرس الزامی است'),
   bio: z.string().optional(),
   workStartTime: z.string().nullable().optional(),
@@ -48,16 +39,16 @@ type FormData = z.infer<typeof schema>;
 
 export default function ProfilePage() {
   const { data: profile, isLoading, error } = useMyBarberProfile();
-  const updateMutation = useUpdateBarberProfile();
   const uploadImageMutation = useUploadProfileImage();
   const { data: referralData } = useMyReferralCode();
 
-  const { data: provinces } = useProvinceList();
   const selectedProvince = profile?.data?.provinceId;
-  const { data: cities } = useCityList(selectedProvince || null);
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [basicInfoDrawerOpen, setBasicInfoDrawerOpen] = useState(false);
+  const [salonInfoDrawerOpen, setSalonInfoDrawerOpen] = useState(false);
+  const [workHoursDrawerOpen, setWorkHoursDrawerOpen] = useState(false);
 
   const methods = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -81,7 +72,6 @@ export default function ProfilePage() {
     if (profile?.data) {
       reset({
         fullName: profile.data.fullName || '',
-        // تبدیل تاریخ میلادی به شمسی برای نمایش در فرم
         birthDate: isoToJalali(profile.data.birthDate) || null,
         salonName: profile.data.salonName || '',
         provinceId: profile.data.provinceId
@@ -113,17 +103,6 @@ export default function ProfilePage() {
         },
       });
     }
-  };
-
-  const onSubmit = (data: FormData) => {
-    const payload = {
-      ...data,
-      // تبدیل تاریخ شمسی به میلادی برای ارسال به سرور
-      birthDate: jalaliToIso(data.birthDate),
-      provinceId: data.provinceId ? parseInt(data.provinceId) : null,
-      cityId: data.cityId ? parseInt(data.cityId) : null,
-    };
-    updateMutation.mutate(payload);
   };
 
   if (isLoading) {
@@ -213,12 +192,7 @@ export default function ProfilePage() {
       )}
 
       <FadeIn delay={0.1}>
-        <FormProvider
-          methods={methods}
-          onSubmit={onSubmit}
-          className="space-y-6"
-        >
-          {/* عکس پروفایل */}
+        <div className="space-y-2 lg:space-y-5">
           <AppCard>
             <div className="flex flex-col items-center gap-4 sm:flex-row">
               <div className="relative">
@@ -230,7 +204,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 bg-primary-600 text-white p-1.5 rounded-full shadow-lg hover:bg-primary-700"
+                  className="absolute bottom-0 right-0 bg-primary text-white p-1.5 rounded-full shadow-lg hover:bg-primary-700"
                 >
                   <Camera size={16} />
                 </button>
@@ -255,58 +229,76 @@ export default function ProfilePage() {
               </div>
             </div>
           </AppCard>
-
-          {/* اطلاعات فردی */}
           <AppCard>
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <User size={18} className="text-primary-600" />
-              اطلاعات فردی
-            </h3>
-            <div className="space-y-4 grid sm:grid-cols-2 gap-4">
-              <RHFInput name="fullName" label="نام و نام خانوادگی" isRequired />
-              <PersianDatePicker name="birthDate" label="تاریخ تولد" />
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <User size={18} className="text-primary-600" />
+                اطلاعات فردی
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBasicInfoDrawerOpen(true)}
+                className="gap-1"
+              >
+                <Pencil size={14} />
+                ویرایش
+              </Button>
             </div>
-          </AppCard>
-
-          {/* اطلاعات فروشگاه */}
-          <AppCard>
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Store size={18} className="text-primary-600" />
-              اطلاعات فروشگاه
-            </h3>
-            <div className="space-y-4">
-              <RHFInput name="salonName" label="نام فروشگاه" isRequired />
-              <div className="grid grid-cols-2 gap-4">
-                <RHFSelect
-                  name="provinceId"
-                  label="استان"
-                  items={provinces?.data?.map(p => ({
-                    value: p.id.toString(),
-                    text: p.name,
-                  }))}
-                  placeholder="انتخاب استان..."
-                />
-                <RHFSelect
-                  name="cityId"
-                  label="شهر"
-                  items={cities?.data?.map(c => ({
-                    value: c.id.toString(),
-                    text: c.name,
-                  }))}
-                  placeholder="انتخاب شهر..."
-                  disabled={!watch('provinceId')}
-                />
-              </div>
-              <RHFTextArea name="address" label="آدرس" rows={3} required />
-              <RHFTextArea
-                name="bio"
-                label="بیوگرافی"
-                rows={4}
-                placeholder="درباره خود و فروشگاهتان..."
+            <div className="space-y-3">
+              <InfoRow
+                label="نام و نام خانوادگی"
+                value={profile?.data?.fullName || 'ثبت نشده'}
+              />
+              <InfoRow
+                label="تاریخ تولد"
+                value={
+                  profile?.data?.birthDate
+                    ? isoToJalali(profile.data.birthDate)
+                    : 'ثبت نشده'
+                }
               />
             </div>
           </AppCard>
-
+          <AppCard>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <Store size={18} className="text-primary-600" />
+                اطلاعات فروشگاه
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSalonInfoDrawerOpen(true)}
+                className="gap-1"
+              >
+                <Pencil size={14} />
+                ویرایش
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <InfoRow
+                label="نام فروشگاه"
+                value={profile?.data?.salonName || 'ثبت نشده'}
+              />
+              <InfoRow
+                label="استان"
+                value={profile?.data?.provinceName || 'ثبت نشده'}
+              />
+              <InfoRow
+                label="شهر"
+                value={profile?.data?.cityName || 'ثبت نشده'}
+              />
+              <InfoRow
+                label="آدرس"
+                value={profile?.data?.address || 'ثبت نشده'}
+              />
+              <InfoRow
+                label="بیوگرافی"
+                value={profile?.data?.bio || 'ثبت نشده'}
+              />
+            </div>
+          </AppCard>
           {/* کد معرف */}
           <AppCard>
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -341,56 +333,27 @@ export default function ProfilePage() {
             ) : (
               <p className="text-sm text-gray-400"></p>
             )}
-          </AppCard>
-
-          {/* ساعات کاری */}
-          <AppCard>
-            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Clock size={18} className="text-primary-600" />
-              ساعات کاری
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Controller
-                name="workStartTime"
-                control={methods.control}
-                render={({ field }) => (
-                  <TimeInput
-                    label="ساعت شروع"
-                    value={field.value || ''}
-                    onChange={e => field.onChange(e.target.value || null)}
-                  />
-                )}
-              />
-              <Controller
-                name="workEndTime"
-                control={methods.control}
-                render={({ field }) => (
-                  <TimeInput
-                    label="ساعت پایان"
-                    value={field.value || ''}
-                    onChange={e => field.onChange(e.target.value || null)}
-                  />
-                )}
-              />
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              * در صورت خالی بودن، ساعات کاری به‌عنوان نامشخص در نظر گرفته
-              می‌شود.
-            </p>
-          </AppCard>
-
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={
-                updateMutation.isPending || uploadImageMutation.isPending
-              }
-            >
-              {updateMutation.isPending ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
-            </Button>
-          </div>
-        </FormProvider>
+          </AppCard>{' '}
+        </div>
       </FadeIn>
+
+      <BasicInfoDrawer
+        open={basicInfoDrawerOpen}
+        onOpenChange={setBasicInfoDrawerOpen}
+      />
+      <SalonInfoDrawer
+        open={salonInfoDrawerOpen}
+        onOpenChange={setSalonInfoDrawerOpen}
+      />
     </DashboardShell>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm font-medium text-gray-800">{value}</span>
+    </div>
   );
 }

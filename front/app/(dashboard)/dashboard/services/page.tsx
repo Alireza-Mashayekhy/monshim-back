@@ -1,11 +1,10 @@
-// app/(dashboard)/services/page.tsx
 'use client';
 
 import { Banknote, Clock, Edit, Plus, Scissors, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
-import { ServiceModal } from '@/components/dashboard/services/services-modal';
+import { ServiceDrawer } from '@/components/dashboard/services/services-drawer';
 import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,7 @@ import {
 } from '@/services/features/services/hooks';
 
 export default function ServicesPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingService, setEditingService] = useState<any>(null);
 
   const { data: services, isLoading, error } = useMyServices();
@@ -29,9 +28,9 @@ export default function ServicesPage() {
     }
   };
 
-  const openModal = (service?: any) => {
+  const openDrawer = (service?: any) => {
     setEditingService(service || null);
-    setIsModalOpen(true);
+    setIsDrawerOpen(true);
   };
 
   if (isLoading) {
@@ -91,7 +90,7 @@ export default function ServicesPage() {
               {services?.data?.length} خدمت فعال
             </p>
           </div>
-          <Button onClick={() => openModal()} className="gap-2">
+          <Button onClick={() => openDrawer()} className="gap-2">
             <Plus size={16} /> افزودن
           </Button>
         </div>
@@ -132,7 +131,7 @@ export default function ServicesPage() {
                   variant="ghost"
                   size="icon"
                   className="text-blue-600 hover:bg-blue-50"
-                  onClick={() => openModal(service)}
+                  onClick={() => openDrawer(service)}
                 >
                   <Edit size={16} />
                 </Button>
@@ -159,9 +158,9 @@ export default function ServicesPage() {
         </div>
       </FadeIn>
 
-      <ServiceModal
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
+      <ServiceDrawer
+        open={isDrawerOpen}
+        onOpenChange={setIsDrawerOpen}
         editingService={editingService}
       />
     </DashboardShell>

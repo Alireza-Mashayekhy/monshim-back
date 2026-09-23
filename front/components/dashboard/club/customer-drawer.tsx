@@ -11,12 +11,12 @@ import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -34,7 +34,7 @@ import {
 } from '@/services/features/club/hooks';
 import type { ClubCustomer } from '@/services/features/club/types';
 
-interface CustomerDialogProps {
+interface CustomerDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** در حالت ویرایش، مشتری انتخاب‌شده */
@@ -61,11 +61,11 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export function CustomerDialog({
+export function CustomerDrawer({
   open,
   onOpenChange,
   customer,
-}: CustomerDialogProps) {
+}: CustomerDrawerProps) {
   const isEdit = !!customer;
 
   const { data: groups } = useClubGroups();
@@ -84,7 +84,7 @@ export function CustomerDialog({
     },
   });
 
-  const { control, reset, setValue } = methods;
+  const { control, reset, setValue, handleSubmit } = methods;
   const groupId = useWatch({ control, name: 'groupId' });
   const newGroupName = useWatch({ control, name: 'newGroupName' }) ?? '';
 
@@ -137,22 +137,27 @@ export function CustomerDialog({
   const pending =
     addCustomer.isPending || updateCustomer.isPending || createGroup.isPending;
 
+  const handleClose = () => {
+    reset();
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-3xl">
-        <DialogHeader>
-          <DialogTitle>
+    <Drawer open={open} onOpenChange={handleClose}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle className="text-center">
             {isEdit ? 'ویرایش مشتری' : 'افزودن مشتری جدید'}
-          </DialogTitle>
-          <DialogDescription>
-            مشتریانی که به سالن شما مراجعه می‌کنند را اینجا ثبت کنید.
-          </DialogDescription>
-        </DialogHeader>
+          </DrawerTitle>
+          <DrawerDescription className="text-center text-sm">
+            مشتریانی که به سالن شما مراجعه می‌کنند را اینجا ثبت کنید
+          </DrawerDescription>
+        </DrawerHeader>
 
         <FormProvider
           methods={methods}
-          onSubmit={onSubmit}
-          className="space-y-4"
+          onSubmit={handleSubmit(onSubmit)}
+          className="px-4 pb-4 space-y-4"
         >
           <div className="grid grid-cols-2 gap-3">
             <RHFInput name="firstName" label="نام" placeholder="مثلاً علی" />
@@ -225,7 +230,7 @@ export function CustomerDialog({
               type="button"
               variant="outline"
               className="flex-1"
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
               disabled={pending}
             >
               انصراف
@@ -241,7 +246,7 @@ export function CustomerDialog({
             </Button>
           </div>
         </FormProvider>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   );
 }

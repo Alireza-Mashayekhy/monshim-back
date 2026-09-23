@@ -107,7 +107,7 @@ export function ClubCustomersList({
   return (
     <>
       {/* دسکتاپ */}
-      <div className="hidden lg:block bg-white rounded-sm overflow-hidden">
+      <div className="hidden lg:block bg-white rounded-2xl border overflow-hidden">
         <Table dir="rtl">
           <TableHeader>
             <TableRow>

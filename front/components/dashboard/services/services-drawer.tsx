@@ -12,21 +12,22 @@ import RHFNumberInput from '@/components/form/rhf-number-input';
 import RHFSelect from '@/components/form/rhf-select';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { unformatNumberInput } from '@/lib/utils';
 import {
   useCreateService,
   useUpdateService,
 } from '@/services/features/services/hooks';
 
-interface ServiceModalProps {
+interface ServiceDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  editingService?: any; // Service | null
+  editingService?: any;
 }
 
 const schema = z.object({
@@ -47,11 +48,11 @@ const durationOptions = [
   { value: '120', label: '۲ ساعت' },
 ];
 
-export function ServiceModal({
+export function ServiceDrawer({
   open,
   onOpenChange,
   editingService,
-}: ServiceModalProps) {
+}: ServiceDrawerProps) {
   const createMutation = useCreateService();
   const updateMutation = useUpdateService();
 
@@ -65,7 +66,7 @@ export function ServiceModal({
     },
   });
 
-  const { reset } = methods;
+  const { reset, handleSubmit } = methods;
 
   useEffect(() => {
     if (editingService) {
@@ -136,19 +137,29 @@ export function ServiceModal({
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
+  const handleClose = () => {
+    reset();
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-3xl p-6">
-        <DialogHeader className="flex flex-row justify-between items-center">
-          <DialogTitle className="font-bold text-lg text-gray-800">
+    <Drawer open={open} onOpenChange={handleClose}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle className="text-center">
             {editingService ? 'ویرایش خدمت' : 'افزودن خدمت جدید'}
-          </DialogTitle>
-        </DialogHeader>
+          </DrawerTitle>
+          <DrawerDescription className="text-center text-sm">
+            {editingService
+              ? 'اطلاعات خدمت را ویرایش کنید'
+              : 'خدمت جدیدی به لیست خود اضافه کنید'}
+          </DrawerDescription>
+        </DrawerHeader>
 
         <FormProvider
           methods={methods}
-          onSubmit={onSubmit}
-          className="space-y-4"
+          onSubmit={handleSubmit(onSubmit)}
+          className="px-4 pb-4 space-y-4"
         >
           <RHFInput
             name="name"
@@ -185,7 +196,7 @@ export function ServiceModal({
                 : 'افزودن'}
           </Button>
         </FormProvider>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   );
 }

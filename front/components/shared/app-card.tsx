@@ -9,7 +9,7 @@ export default function AppCard({ children, className }: Props) {
   return (
     <div
       className={cn(
-        `rounded-[28px] border bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)]`,
+        `rounded-2xl border bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.04)]`,
         className,
       )}
     >
