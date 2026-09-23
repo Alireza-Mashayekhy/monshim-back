@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
+import MicrosoftClarity from '@/components/analytics/MicrosoftClarity';
 import { iranSans } from '@/components/font';
 import { makeQueryClient } from '@/lib/query-client';
 import { extractUser } from '@/lib/roles';
@@ -73,6 +74,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-primary-3">
         <GoogleAnalytics />
+        <MicrosoftClarity />
 
         <Providers dehydratedState={buildDehydratedState(user, known)}>
           <AuthProvider>{children}</AuthProvider>
