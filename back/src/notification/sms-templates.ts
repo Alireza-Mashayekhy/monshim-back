@@ -18,6 +18,9 @@ export const SMS_TEMPLATES = {
   /** ❌ رزرو لغو شد — پیامک به آرایشگر (لغو توسط مشتری) */
   BOOKING_CANCELED_BARBER: 312735,
 
+  /** ❌ رد رزرو — پیامک به مشتری (رد توسط آرایشگر) */
+  BOOKING_REJECTED_CUSTOMER: 187211,
+
   /** ⏰ یادآوری نوبت — پیامک به مشتری (در زمان یادآوری) */
   BOOKING_REMINDER_CUSTOMER: 121540,
 
