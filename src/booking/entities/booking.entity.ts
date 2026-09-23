@@ -65,6 +65,43 @@ export class Booking {
   })
   note: string | null;
 
+  @Column({
+    name: 'barber_note',
+    type: 'text',
+    nullable: true,
+  })
+  barberNote: string | null;
+
+  // یادداشت مربوط به مشتری (قابل نمایش در پنل نوبت‌ها)
+  @Column({
+    name: 'customer_note',
+    type: 'text',
+    nullable: true,
+  })
+  customerNote: string | null;
+
+  // آیا لینک بیعانه برای مشتری ارسال شود
+  @Column({
+    name: 'send_deposit_link',
+    default: false,
+  })
+  sendDepositLink: boolean;
+
+  // آیا پیامک یادآوری برای مشتری ارسال شود
+  @Column({
+    name: 'send_sms_reminder',
+    default: false,
+  })
+  sendSmsReminder: boolean;
+
+  // چند ساعت قبل از نوبت، پیامک یادآوری ارسال شود (۱، ۲، ۴، ۶، ۱۲، ۲۴)
+  @Column({
+    name: 'reminder_hours',
+    type: 'int',
+    nullable: true,
+  })
+  reminderHours: number | null;
+
   @CreateDateColumn({
     name: 'created_at',
   })

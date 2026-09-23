@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsNumber,
   IsOptional,
+  IsString,
   Min,
 } from 'class-validator';
 
@@ -29,4 +30,18 @@ export class BookingQueryDto {
   @IsOptional()
   @IsDateString()
   date?: string;
+
+  // بازه تاریخ (برای فیلترهای این هفته / این ماه)
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  // جستجو در نام یا شماره مشتری
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
