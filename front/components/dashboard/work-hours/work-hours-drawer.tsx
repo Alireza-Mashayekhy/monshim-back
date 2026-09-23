@@ -148,7 +148,6 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
                       onChange={val =>
                         updateSlot(idx, slotIndex, 'startTime', val)
                       }
-                      size="sm"
                     />
                     <span className="text-gray-400 text-sm mb-1">تا</span>
                     <TimePicker24
@@ -157,7 +156,6 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
                       onChange={val =>
                         updateSlot(idx, slotIndex, 'endTime', val)
                       }
-                      size="sm"
                     />
                     <button
                       type="button"
