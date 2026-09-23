@@ -23,6 +23,53 @@ export const FA_MONTHS = [
 // Saturday=0 .. Friday=6 (Jalali week starts on Saturday — شنبه)
 export const FA_WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
 
+// نام کامل روزهای هفته (شنبه=0 .. جمعه=6)
+export const FA_WEEKDAY_NAMES = [
+  'شنبه',
+  'یکشنبه',
+  'دوشنبه',
+  'سه‌شنبه',
+  'چهارشنبه',
+  'پنجشنبه',
+  'جمعه',
+];
+
+/** ایندکس روز هفته به‌سبک فارسی: شنبه=0 .. جمعه=6 */
+export function persianWeekdayIndex(d: Date): number {
+  return (d.getDay() + 1) % 7;
+}
+
+/** نام کامل روز هفته یک تاریخ */
+export function faWeekdayName(d: Date): string {
+  return FA_WEEKDAY_NAMES[persianWeekdayIndex(d)];
+}
+
+/** تاریخ شروع هفته (شنبه) و پایان هفته (جمعه) شامل امروز */
+export function currentPersianWeekRange(now = new Date()): {
+  start: Date;
+  end: Date;
+} {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - persianWeekdayIndex(now));
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return { start, end };
+}
+
+/** اولین و آخرین روز ماه جاری میلادی شامل امروز */
+export function currentMonthRange(now = new Date()): {
+  start: Date;
+  end: Date;
+} {
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  return { start, end };
+}
+
 export function jalaliToGregorian(jy: number, jm: number, jd: number): Date {
   const g = jalaali.toGregorian(jy, jm, jd);
   return new Date(g.gy, g.gm - 1, g.gd);

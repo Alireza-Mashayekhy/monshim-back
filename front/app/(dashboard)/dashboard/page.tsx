@@ -18,7 +18,7 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { AppointmentBookingDialog } from '@/components/dashboard/appointments/appointment-booking-dialog';
+import { ManualBookingDrawer } from '@/components/dashboard/appointments/manual-booking-drawer';
 import StatCard from '@/components/dashboard/cards/stat-card';
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import AppCard from '@/components/shared/app-card';
@@ -334,10 +334,7 @@ export default function DashboardPage() {
         </Button>
       </FadeIn>
 
-      <AppointmentBookingDialog
-        open={bookingOpen}
-        onOpenChange={setBookingOpen}
-      />
+      <ManualBookingDrawer open={bookingOpen} onOpenChange={setBookingOpen} />
     </DashboardShell>
   );
 }

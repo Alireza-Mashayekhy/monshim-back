@@ -43,6 +43,8 @@ export interface CreateCustomerGroupDto {
   name: string;
 }
 
+export const REMINDER_HOURS_OPTIONS = [1, 2, 4, 6, 12, 24] as const;
+
 export interface CreateManualBookingDto {
   /** شناسه مشتری باشگاه */
   clubCustomerId: string;
@@ -51,5 +53,9 @@ export interface CreateManualBookingDto {
   date: string;
   /** HH:mm */
   time: string;
-  note?: string;
+  barberNote?: string;
+  customerNote?: string;
+  sendDepositLink?: boolean;
+  sendSmsReminder?: boolean;
+  reminderHours?: number;
 }

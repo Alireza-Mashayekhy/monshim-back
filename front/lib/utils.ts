@@ -5,6 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function toPersianDigits(value: number | string) {
+  return String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
+}
+
 export const getFullImageUrl = (
   path: string | null | undefined,
 ): string | null => {

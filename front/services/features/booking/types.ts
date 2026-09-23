@@ -12,6 +12,11 @@ export interface Booking {
   price: number;
   status: BookingStatus;
   note?: string;
+  barberNote?: string | null;
+  customerNote?: string | null;
+  sendDepositLink?: boolean;
+  sendSmsReminder?: boolean;
+  reminderHours?: number | null;
   createdAt: string;
   updatedAt: string;
   // روابط (برای نمایش)
@@ -36,6 +41,8 @@ export interface BookingQueryParams {
   limit?: number;
   status?: Booking['status'];
   date?: string; // YYYY-MM-DD
+  startDate?: string;
+  endDate?: string;
   search?: string;
 }
 

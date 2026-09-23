@@ -1,44 +1,40 @@
 // components/dashboard/appointments/AppointmentFilter.tsx
 'use client';
 
-import { useState } from 'react';
-
 import { cn } from '@/lib/utils';
 
-const filters = [
+export type AppointmentFilterKey =
+  'today' | 'tomorrow' | 'week' | 'month' | 'all';
+
+const filters: { key: AppointmentFilterKey; label: string }[] = [
   { key: 'today', label: 'امروز' },
   { key: 'tomorrow', label: 'فردا' },
   { key: 'week', label: 'این هفته' },
+  { key: 'month', label: 'این ماه' },
   { key: 'all', label: 'همه' },
 ];
 
 interface AppointmentFilterProps {
-  onFilterChange: (filter: string) => void;
-  initialFilter?: string;
+  value: AppointmentFilterKey;
+  onChange: (filter: AppointmentFilterKey) => void;
 }
 
 export default function AppointmentFilter({
-  onFilterChange,
-  initialFilter = 'today',
+  value,
+  onChange,
 }: AppointmentFilterProps) {
-  const [selected, setSelected] = useState(initialFilter);
-
-  const handleClick = (key: string) => {
-    setSelected(key);
-    onFilterChange(key);
-  };
-
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
+    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
       {filters.map(item => (
         <button
           key={item.key}
-          onClick={() => handleClick(item.key)}
+          type="button"
+          onClick={() => onChange(item.key)}
           className={cn(
-            'rounded-full px-5 py-2 whitespace-nowrap transition',
-            selected === item.key
+            'h-9 shrink-0 whitespace-nowrap rounded-xl px-4 text-xs font-black transition',
+            value === item.key
               ? 'bg-primary text-white'
-              : 'bg-primary-50 text-primary hover:bg-primary-100',
+              : 'border border-gray-200 bg-white text-gray-500 hover:border-primary/40 hover:text-primary',
           )}
         >
           {item.label}

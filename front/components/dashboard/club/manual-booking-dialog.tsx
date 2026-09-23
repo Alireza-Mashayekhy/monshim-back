@@ -43,7 +43,7 @@ const schema = z.object({
   serviceId: z.string().min(1, 'انتخاب خدمت الزامی است'),
   date: z.string().min(1, 'انتخاب تاریخ الزامی است'),
   time: z.string().min(1, 'انتخاب ساعت الزامی است'),
-  note: z.string().optional(),
+  barberNote: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -55,7 +55,7 @@ export function ManualBookingDialog({
 }: ManualBookingDialogProps) {
   const methods = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { serviceId: '', date: '', time: '', note: '' },
+    defaultValues: { serviceId: '', date: '', time: '', barberNote: '' },
   });
 
   const { control, reset, setValue } = methods;
@@ -86,7 +86,7 @@ export function ManualBookingDialog({
   // ریست فرم هنگام باز شدن برای مشتری جدید
   useEffect(() => {
     if (open) {
-      reset({ serviceId: '', date: '', time: '', note: '' });
+      reset({ serviceId: '', date: '', time: '', barberNote: '' });
     }
   }, [open, customer?.id, reset]);
 
@@ -103,7 +103,7 @@ export function ManualBookingDialog({
         serviceId: values.serviceId,
         date: jalaliToIso(values.date) ?? values.date,
         time: values.time,
-        note: values.note?.trim() || undefined,
+        barberNote: values.barberNote?.trim() || undefined,
       });
       onOpenChange(false);
     } catch {
@@ -235,12 +235,12 @@ export function ManualBookingDialog({
           {/* یادداشت */}
           <div className="space-y-2">
             <span className="block text-sm font-medium text-gray-700">
-              یادداشت (اختیاری)
+              یادداشت خصوصی برای خودم (اختیاری)
             </span>
             <Textarea
-              {...methods.register('note')}
+              {...methods.register('barberNote')}
               rows={3}
-              placeholder="توضیحی برای این نوبت..."
+              placeholder="توضیحی برای این نوبت — فقط در پنل خودت دیده می‌شود..."
               className="rounded-xl"
             />
           </div>
