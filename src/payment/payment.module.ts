@@ -5,6 +5,7 @@ import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { BookingModule } from 'src/booking/booking.module';
 import { Booking } from 'src/booking/entities/booking.entity';
 import { Service } from 'src/services/entities/service.entity';
+import { SiteSettings } from 'src/settings/entities/setting.entity';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
 import { UserSubscription } from 'src/subscription/entities/user-subscription.entity';
 import { User } from 'src/users/entities/user.entity';
@@ -25,6 +26,7 @@ import { PaymentService } from './payment.service';
       UserSubscription,
       Service,
       Booking,
+      SiteSettings,
     ]),
     BookingModule,
     WalletModule,

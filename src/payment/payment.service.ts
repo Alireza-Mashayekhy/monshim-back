@@ -12,6 +12,7 @@ import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { BookingsService } from 'src/booking/booking.service';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { Service } from 'src/services/entities/service.entity';
+import { SiteSettings } from 'src/settings/entities/setting.entity';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
 import {
   UserSubscription,
@@ -57,6 +58,9 @@ export class PaymentService {
 
     @InjectRepository(Booking)
     private readonly bookingRepo: Repository<Booking>,
+
+    @InjectRepository(SiteSettings)
+    private readonly settingsRepo: Repository<SiteSettings>,
 
     @InjectRepository(BarberWorkHours)
     private readonly workHoursRepo: Repository<BarberWorkHours>,
@@ -463,6 +467,120 @@ export class PaymentService {
     };
   }
 
+  async initiateDepositPaymentByToken(token: string) {
+    const booking = await this.bookingRepo.findOne({
+      where: { depositToken: token },
+      relations: {
+        customer: true,
+        service: true,
+        barber: {
+          user: true,
+        },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('لینک پرداخت معتبر نیست');
+    }
+
+    if (booking.depositPaidAt) {
+      throw new BadRequestException('بیعانه این نوبت قبلاً پرداخت شده است');
+    }
+
+    if (
+      booking.status === BookingStatus.CANCELED ||
+      booking.status === BookingStatus.REJECTED
+    ) {
+      throw new BadRequestException('این نوبت لغو شده است');
+    }
+
+    const amount = await this.getBookingDepositAmount(booking);
+
+    if (amount <= 0) {
+      throw new BadRequestException('مبلغ بیعانه این نوبت مشخص نیست');
+    }
+
+    const barber = booking.barber;
+    const salonName = barber?.salonName || 'سالن';
+    const service = booking.service;
+
+    const orderId = `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const appUrl = this.getAppUrl();
+    const callbackUrl = `${appUrl}/api/payment/callback`;
+
+    const { trackId, paymentUrl } = await this.requestZibalPayment({
+      amountTomans: amount,
+      callbackUrl,
+      description: `پرداخت بیعانه نوبت - ${salonName} - منشیم`,
+      orderId,
+      mobile: booking.customer?.phone,
+    });
+
+    const payment = this.paymentRepo.create({
+      userId: booking.customerId,
+      amount,
+      trackId,
+      orderId,
+      purpose: PaymentPurpose.BOOKING,
+      purposeId: booking.id,
+      metadata: JSON.stringify({
+        depositLink: true,
+        bookingId: booking.id,
+        barberUserId: barber?.userId,
+      }),
+      status: PaymentStatus.PENDING,
+      description: `پرداخت بیعانه نوبت ${service?.name ?? ''} - ${salonName}`,
+    });
+
+    await this.paymentRepo.save(payment);
+
+    return { trackId, paymentUrl, orderId, amount };
+  }
+
+  /**
+   * URL ریدایرکت لینک بیعانه: در صورت خطا، صفحه خطای فرانت
+   */
+  async getDepositRedirectUrl(token: string): Promise<string> {
+    try {
+      const { paymentUrl } = await this.initiateDepositPaymentByToken(token);
+
+      return paymentUrl;
+    } catch (error: any) {
+      const message = encodeURIComponent(
+        error?.response?.message ||
+          error?.message ||
+          'خطا در شروع پرداخت بیعانه',
+      );
+
+      return `${this.getFrontUrl()}/payment/callback?status=failed&message=${message}`;
+    }
+  }
+
+  /**
+   * مبلغ بیعانه نوبت: قیمت بیعانه خدمت در صورت ثبت، وگرنه درصد بیعانه سایت
+   */
+  private async getBookingDepositAmount(booking: Booking): Promise<number> {
+    const depositPrice = Number(booking.service?.depositPrice ?? 0);
+
+    if (depositPrice > 0) {
+      return Math.round(depositPrice);
+    }
+
+    let depositPercent = 30;
+
+    try {
+      const settings = await this.settingsRepo.findOne({ where: { id: 1 } });
+
+      if (settings?.depositPercent) {
+        depositPercent = Number(settings.depositPercent);
+      }
+    } catch {
+      // تنظیمات موجود نیست — از مقدار پیش‌فرض ۳۰٪ استفاده می‌شود
+    }
+
+    return Math.round((Number(booking.price) * depositPercent) / 100);
+  }
+
   // =========================================================
   // ۴. مدیریت کال‌بک درگاه زیبال (CALLBACK)
   // =========================================================
@@ -535,7 +653,7 @@ export class PaymentService {
           payment.purposeId,
         );
       } else if (payment.purpose === PaymentPurpose.BOOKING) {
-        await this.confirmBookingAfterPayment(payment);
+        await this.completeBookingPayment(payment);
       } else if (payment.purpose === PaymentPurpose.WALLET) {
         await this.walletService.deposit(
           payment.userId,
@@ -578,12 +696,45 @@ export class PaymentService {
       price: plan.price,
       smsTotal: plan.smsCount,
       smsUsed: 0,
+      smsTotal: plan.smsCount,
+      smsUsed: 0,
       status: UserSubscriptionStatus.ACTIVE,
       startDate,
       endDate,
     });
 
     await this.userSubscriptionRepo.save(userSubscription);
+  }
+
+  private async completeBookingPayment(payment: Payment) {
+    if (payment.metadata?.includes('"depositLink":true')) {
+      await this.completeDepositAfterPayment(payment);
+
+      return;
+    }
+
+    await this.confirmBookingAfterPayment(payment);
+  }
+
+  private async completeDepositAfterPayment(payment: Payment) {
+    if (!payment.metadata) return;
+
+    const meta = JSON.parse(payment.metadata);
+
+    if (meta.bookingId) {
+      const booking = await this.bookingRepo.findOne({
+        where: { id: meta.bookingId },
+      });
+
+      if (booking && !booking.depositPaidAt) {
+        booking.depositPaidAt = new Date();
+
+        await this.bookingRepo.save(booking);
+      }
+    }
+
+    // بیعانه به کیف پول آرایشگر واریز می‌شود
+    await this.creditBarberWallet(meta.barberUserId, payment.amount, payment);
   }
 
   // ایجاد و ثبت قطعی رزرو نوبت فقط و فقط پس از تایید پرداخت درگاه

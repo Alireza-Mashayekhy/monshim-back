@@ -46,6 +46,42 @@ export class SmsIrService {
       );
     }
 
+    const result = await this.sendTemplate(mobile, this.templateId, parameters);
+
+    if (!result) {
+      throw new InternalServerErrorException(
+        'سرویس پیامک در سرور تنظیم نشده است',
+      );
+    }
+
+    return result;
+  }
+
+  /**
+   * ارسال پیامک با قالب دلخواه (برای پیامک‌های نوبت، یادآوری و ...)
+   * اگر API Key تنظیم نشده باشد (محیط توسعه) هیچ درخواستی ارسال نمی‌شود.
+   */
+  async sendTemplate(
+    mobile: string,
+    templateId: number,
+    parameters: VerifyParameter[],
+  ): Promise<{ messageId: number; cost: number } | null> {
+    if (!this.apiKey) {
+      this.logger.warn(
+        `SMS_IR_API_KEY تنظیم نشده است؛ پیامک قالب ${templateId} به ${mobile} ارسال نشد`,
+      );
+
+      return null;
+    }
+
+    if (!templateId) {
+      this.logger.warn(
+        `کد قالب ${templateId} معتبر نیست؛ پیامک به ${mobile} ارسال نشد`,
+      );
+
+      return null;
+    }
+
     const payload = {
       mobile,
       templateId: this.templateId,
