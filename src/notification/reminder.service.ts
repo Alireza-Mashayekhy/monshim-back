@@ -76,16 +76,11 @@ export class ReminderService {
       const barberUserId = booking.barber?.userId;
       const customerPhone = booking.customer?.phone;
 
-      // علامت‌گذاری قبل از ارسال برای جلوگیری از ارسال تکراری
-      booking.reminderSentAt = now;
-
       try {
         if (!barberUserId || !customerPhone) {
           this.logger.warn(
             `یادآوری نوبت ${booking.id}: اطلاعات آرایشگر/مشتری ناقص است`,
           );
-
-          await this.bookingRepo.save(booking);
 
           continue;
         }
@@ -105,6 +100,7 @@ export class ReminderService {
           salonName: booking.barber?.salonName ?? 'سالن شما',
         });
 
+        booking.reminderSentAt = now;
         await this.bookingRepo.save(booking);
 
         this.logger.log(
@@ -117,8 +113,6 @@ export class ReminderService {
             error?.message ?? String(error)
           }`,
         );
-
-        await this.bookingRepo.save(booking);
       }
     }
   }

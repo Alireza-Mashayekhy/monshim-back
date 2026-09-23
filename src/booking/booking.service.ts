@@ -4,18 +4,22 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomBytes } from 'crypto';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { ClubService } from 'src/club/club.service';
 import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { getPagination } from 'src/common/query';
+import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { ReferralService } from 'src/referral/referral.service';
 import { Service } from 'src/services/entities/service.entity';
 import {
   UserSubscription,
   UserSubscriptionStatus,
 } from 'src/subscription/entities/user-subscription.entity';
+import { UserSubscriptionService } from 'src/subscription/user-subscription.service';
 import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 
@@ -207,12 +211,35 @@ export class BookingsService {
     const saved = await this.bookingRepo.save(booking);
 
     // ✅ پیامک تأیید به مشتری + اطلاع رزرو جدید به آرایشگر (رایگان)
-    this.sendBookingCreatedSms(saved, barber, service);
+    this.sendBookingRequestSms(saved, barber, service);
 
     return saved;
   }
 
-  private sendBookingCreatedSms(
+  private sendBookingRequestSms(
+    booking: Booking,
+    barber: BarberProfile,
+    service: Service,
+  ): void {
+    void this.userRepo
+      .findOne({ where: { id: booking.customerId } })
+      .then(customer => {
+        if (!customer) return;
+
+        void this.bookingSmsService.sendNewBookingToBarber(
+          barber.user?.phone ?? '',
+          {
+            customerName: customer.fullName ?? 'مشتری',
+            serviceName: service.name,
+            date: booking.date,
+            time: booking.time,
+          },
+        );
+      })
+      .catch(() => undefined);
+  }
+
+  private sendBookingConfirmedSms(
     booking: Booking,
     barber: BarberProfile,
     service: Service,
@@ -233,16 +260,6 @@ export class BookingsService {
         void this.bookingSmsService.sendBookingSuccessToCustomer(
           customer.phone,
           smsParams,
-        );
-
-        void this.bookingSmsService.sendNewBookingToBarber(
-          barber.user?.phone ?? '',
-          {
-            customerName: customer.fullName ?? 'مشتری',
-            serviceName: service.name,
-            date: booking.date,
-            time: booking.time,
-          },
         );
       })
       .catch(() => undefined);
@@ -497,14 +514,60 @@ export class BookingsService {
       throw new BadRequestException('رزرو لغو شده قابل تغییر نیست');
     }
 
+    const previousStatus = booking.status;
     booking.status = newStatus;
 
-    // اگر رزرو تکمیل شد، سیستم معرف را بررسی کن
-    if (newStatus === BookingStatus.CONFIRMED) {
+    if (
+      newStatus === BookingStatus.CONFIRMED &&
+      previousStatus === BookingStatus.PENDING
+    ) {
+      // ارسال پیامک تأیید
+      const barber = await this.barberProfileRepo.findOne({
+        where: { id: booking.barberId },
+      });
+      const service = await this.serviceRepo.findOne({
+        where: { id: booking.serviceId },
+      });
+      if (barber && service) {
+        this.sendBookingConfirmedSms(booking, barber, service);
+
+        // ارسال اطلاع به آرایشگر
+        const customer = await this.userRepo.findOne({
+          where: { id: booking.customerId },
+        });
+        if (customer) {
+          void this.bookingSmsService.sendNewBookingToBarber(
+            barber.user?.phone ?? '',
+            {
+              customerName: customer.fullName ?? 'مشتری',
+              serviceName: service.name,
+              date: booking.date,
+              time: booking.time,
+            },
+          );
+        }
+      }
+
       await this.clubService.addFromSuccessfulBooking({
         barberId: booking.barberId,
         customerId: booking.customerId,
       });
+    }
+
+    // اگر رزرو لغو شد توسط آرایشگر، پیامک لغو ارسال بشه
+    if (
+      newStatus === BookingStatus.CANCELED &&
+      previousStatus !== BookingStatus.CANCELED
+    ) {
+      this.sendBookingCanceledSms(booking.id);
+    }
+
+    // اگر رزرو رد شد، پیامک رد به مشتری ارسال بشه
+    if (
+      newStatus === BookingStatus.REJECTED &&
+      previousStatus === BookingStatus.PENDING
+    ) {
+      this.sendBookingRejectedSms(booking.id);
     }
 
     if (newStatus === BookingStatus.COMPLETED) {
@@ -548,7 +611,7 @@ export class BookingsService {
       );
     }
 
-    if (!smsEligible && !dto.sendDepositLink) {
+    if (dto.sendSmsReminder && !smsEligible && !dto.sendDepositLink) {
       throw new BadRequestException(
         'چون امکان ارسال پیامک یادآوری ندارید، ارسال لینک بیعانه برای مشتری الزامی است',
       );
@@ -568,26 +631,48 @@ export class BookingsService {
       where: { id: dto.serviceId },
     });
 
-    const booking = await this.create(member.customerId, {
-      barberId: barber.userId,
+    if (!service) {
+      throw new NotFoundException('سرویس مورد نظر یافت نشد');
+    }
+
+    // ایجاد رزرو مستقیماً با استاتوس CONFIRMED
+    const booking = this.bookingRepo.create({
+      customerId: member.customerId,
+      barberId: barber.id,
       serviceId: dto.serviceId,
       date: dto.date,
       time: dto.time,
-      note: dto.customerNote,
+      price: service.price,
+      note: dto.customerNote ?? '',
+      status: BookingStatus.CONFIRMED,
+      barberNote: dto.barberNote?.trim() || null,
+      customerNote: dto.customerNote?.trim() || null,
+      sendDepositLink: dto.sendDepositLink ?? false,
+      sendSmsReminder: smsEligible ? (dto.sendSmsReminder ?? false) : false,
+      reminderHours:
+        smsEligible && dto.sendSmsReminder ? (dto.reminderHours ?? null) : null,
     });
 
-    booking.status = BookingStatus.CONFIRMED;
-    booking.barberNote = dto.barberNote?.trim() || null;
-    booking.customerNote = dto.customerNote?.trim() || null;
-    booking.sendDepositLink = dto.sendDepositLink ?? false;
-    booking.sendSmsReminder = smsEligible
-      ? (dto.sendSmsReminder ?? false)
-      : false;
-    booking.reminderHours = booking.sendSmsReminder
-      ? (dto.reminderHours ?? null)
-      : null;
-
     const saved = await this.bookingRepo.save(booking);
+
+    if (service) {
+      this.sendBookingConfirmedSms(saved, barber, service);
+
+      const customer = await this.userRepo.findOne({
+        where: { id: member.customerId },
+      });
+      if (customer) {
+        void this.bookingSmsService.sendNewBookingToBarber(
+          barber.user?.phone ?? '',
+          {
+            customerName: customer.fullName ?? 'مشتری',
+            serviceName: service.name,
+            date: saved.date,
+            time: saved.time,
+          },
+        );
+      }
+    }
 
     await this.sendManualBookingSms(saved, barber, service, member.customerId);
 
@@ -597,6 +682,12 @@ export class BookingsService {
     });
 
     return saved;
+  }
+
+  private getAppUrl(): string {
+    return (
+      this.configService.get<string>('APP_URL') || 'http://localhost:4000'
+    ).replace(/\/+$/, '');
   }
 
   private async sendManualBookingSms(
@@ -647,12 +738,6 @@ export class BookingsService {
     }
   }
 
-  private getAppUrl(): string {
-    return (
-      this.configService.get<string>('APP_URL') || 'http://localhost:4000'
-    ).replace(/\/+$/, '');
-  }
-
   private async hasSmsCredit(barberUserId: number): Promise<boolean> {
     const subscription = await this.userSubscriptionRepo.findOne({
       where: {
@@ -697,6 +782,39 @@ export class BookingsService {
     this.sendBookingCanceledSms(saved.id);
 
     return saved;
+  }
+
+  private sendBookingRejectedSms(bookingId: string): void {
+    void this.bookingRepo
+      .findOne({
+        where: { id: bookingId },
+        relations: {
+          customer: true,
+          service: true,
+          barber: {
+            user: true,
+          },
+        },
+      })
+      .then(booking => {
+        if (!booking) return;
+
+        const customerName = booking.customer?.fullName ?? 'مشتری';
+        const serviceName = booking.service?.name ?? 'خدمت';
+        const salonName = booking.barber?.salonName ?? 'سالن شما';
+
+        void this.bookingSmsService.sendBookingRejectedToCustomer(
+          booking.customer?.phone ?? '',
+          {
+            customerName,
+            serviceName,
+            date: booking.date,
+            time: booking.time,
+            salonName,
+          },
+        );
+      })
+      .catch(() => undefined);
   }
 
   private sendBookingCanceledSms(bookingId: string): void {

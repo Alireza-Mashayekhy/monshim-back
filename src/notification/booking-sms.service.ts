@@ -77,6 +77,19 @@ export class BookingSmsService {
     );
   }
 
+  /** ❌ رد رزرو برای مشتری — رایگان */
+  async sendBookingRejectedToCustomer(
+    customerPhone: string,
+    params: BookingSmsParams,
+  ): Promise<void> {
+    await this.safeSend(
+      customerPhone,
+      SMS_TEMPLATES.BOOKING_REJECTED_CUSTOMER,
+      bookingParams(params),
+      'رد رزرو به مشتری',
+    );
+  }
+
   /** ⏰ یادآوری نوبت برای مشتری (قالب 121540) — ۲ پیامک از آرایشگر کسر می‌شود */
   async sendReminderToCustomer(
     customerPhone: string,

@@ -84,7 +84,7 @@ export class SmsIrService {
 
     const payload = {
       mobile,
-      templateId: this.templateId,
+      templateId: templateId,
       parameters,
     };
 
