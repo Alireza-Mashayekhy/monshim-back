@@ -4,6 +4,7 @@ import { dehydrate } from '@tanstack/react-query';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 
+import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
 import { iranSans } from '@/components/font';
 import { makeQueryClient } from '@/lib/query-client';
 import { extractUser } from '@/lib/roles';
@@ -71,6 +72,8 @@ export default async function RootLayout({
       className={cn('h-full', 'antialiased', 'font-sans', iranSans.className)}
     >
       <body className="min-h-full flex flex-col bg-primary-3">
+        <GoogleAnalytics />
+
         <Providers dehydratedState={buildDehydratedState(user, known)}>
           <AuthProvider>{children}</AuthProvider>
         </Providers>
