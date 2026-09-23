@@ -102,6 +102,32 @@ export class Booking {
   })
   reminderHours: number | null;
 
+  // زمان ارسال پیامک یادآوری (برای جلوگیری از ارسال تکراری)
+  @Column({
+    name: 'reminder_sent_at',
+    type: 'datetime',
+    nullable: true,
+  })
+  reminderSentAt: Date | null;
+
+  // توکن تصادفی لینک عمومی پرداخت بیعانه (وقتی آرایشگر لینک بیعانه می‌فرستد)
+  @Column({
+    name: 'deposit_token',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+    unique: true,
+  })
+  depositToken: string | null;
+
+  // زمان پرداخت موفق بیعانه از طریق لینک
+  @Column({
+    name: 'deposit_paid_at',
+    type: 'datetime',
+    nullable: true,
+  })
+  depositPaidAt: Date | null;
+
   @CreateDateColumn({
     name: 'created_at',
   })

@@ -47,6 +47,13 @@ export class PaymentController {
     return this.paymentService.initiateWalletCharge(req.user.id, dto);
   }
 
+  @Get('deposit/:token')
+  async depositLink(@Param('token') token: string, @Res() res: Response) {
+    const redirectUrl = await this.paymentService.getDepositRedirectUrl(token);
+
+    return res.redirect(redirectUrl);
+  }
+
   // ۴. کال‌بک بازگشت از درگاه پرداخت زیبال (عمومی - بدون گارد)
   @Get('callback')
   async handleGetCallback(

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -10,10 +11,13 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { BarberModule } from './barber/barber.module';
 import { BookingModule } from './booking/booking.module';
+import { ClubModule } from './club/club.module';
 import { TypeOrmConfigService } from './common/config/typeorm.config';
 import { FilesModule } from './files/files.module';
 import { LocationsModule } from './locations/locations.module';
+import { NotificationModule } from './notification/notification.module';
 import { OtpModule } from './otp/otp.module';
+import { PaymentModule } from './payment/payment.module';
 import { RedisModule } from './redis/redis.module';
 import { ReferralModule } from './referral/referral.module';
 import { ServicesModule } from './services/services.module';
@@ -22,8 +26,6 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { TicketModule } from './ticket/ticket.module';
 import { UsersModule } from './users/users.module';
 import { WalletModule } from './wallet/wallet.module';
-import { ClubModule } from './club/club.module';
-import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -34,6 +36,7 @@ import { PaymentModule } from './payment/payment.module';
     TypeOrmModule.forRootAsync({
       useClass: TypeOrmConfigService,
     }),
+    ScheduleModule.forRoot(),
     // CacheModule.registerAsync({
     //   useFactory: async () => ({
     //     store: await redisStore({
@@ -67,6 +70,7 @@ import { PaymentModule } from './payment/payment.module';
     TicketModule,
     ClubModule,
     PaymentModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [
