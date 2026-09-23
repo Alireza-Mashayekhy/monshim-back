@@ -339,10 +339,7 @@ export function ManualBookingDrawer({
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent
-        dir="rtl"
-        className="mx-auto flex h-[92dvh] w-full max-w-lg flex-col gap-0 rounded-t-[28px] p-0 sm:inset-x-auto sm:inset-y-0 sm:left-0 sm:right-auto sm:h-full sm:max-h-full sm:w-[440px] sm:max-w-[440px] sm:translate-y-0 sm:rounded-none sm:border-e"
-      >
+      <DrawerContent dir="rtl">
         {/* هدر */}
         <DrawerHeader className="border-b border-gray-100 p-5 pb-4">
           <DrawerTitle className="flex items-center gap-2.5 text-base">
