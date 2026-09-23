@@ -5,6 +5,7 @@ import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { ClubModule } from 'src/club/club.module';
 import { ReferralModule } from 'src/referral/referral.module';
 import { Service } from 'src/services/entities/service.entity';
+import { UserSubscription } from 'src/subscription/entities/user-subscription.entity';
 import { User } from 'src/users/entities/user.entity';
 
 import { BookingsController } from './booking.controller';
@@ -19,6 +20,7 @@ import { Booking } from './entities/booking.entity';
       Service,
       User,
       BarberWorkHours,
+      UserSubscription,
     ]),
     ReferralModule,
     ClubModule,

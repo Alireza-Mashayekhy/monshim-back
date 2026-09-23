@@ -12,6 +12,10 @@ import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { getPagination } from 'src/common/query';
 import { ReferralService } from 'src/referral/referral.service';
 import { Service } from 'src/services/entities/service.entity';
+import {
+  UserSubscription,
+  UserSubscriptionStatus,
+} from 'src/subscription/entities/user-subscription.entity';
 import { Repository } from 'typeorm';
 
 import { BookingQueryDto } from './dto/booking-query.dto';
@@ -33,6 +37,9 @@ export class BookingsService {
 
     @InjectRepository(BarberWorkHours)
     private workHoursRepo: Repository<BarberWorkHours>,
+
+    @InjectRepository(UserSubscription)
+    private userSubscriptionRepo: Repository<UserSubscription>,
 
     private referralService: ReferralService,
     private clubService: ClubService,
@@ -217,7 +224,7 @@ export class BookingsService {
     const [data, total] = await qb.getManyAndCount();
 
     return {
-      data,
+      data: data.map(booking => this.sanitizeForCustomer(booking)),
       pagination: {
         page,
         limit,
@@ -225,6 +232,12 @@ export class BookingsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  private sanitizeForCustomer(booking: Booking): Booking {
+    booking.barberNote = null;
+
+    return booking;
   }
 
   // =========================================================
@@ -247,6 +260,9 @@ export class BookingsService {
     const limit = query.limit ?? 10;
     const status = query.status;
     const date = query.date;
+    const startDate = query.startDate;
+    const endDate = query.endDate;
+    const search = query.search?.trim();
 
     const qb = this.bookingRepo
       .createQueryBuilder('booking')
@@ -270,12 +286,33 @@ export class BookingsService {
       });
     }
 
+    if (startDate && endDate) {
+      qb.andWhere('booking.date BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
+    } else if (startDate) {
+      qb.andWhere('booking.date >= :startDate', { startDate });
+    } else if (endDate) {
+      qb.andWhere('booking.date <= :endDate', { endDate });
+    }
+
+    if (search) {
+      qb.andWhere(
+        '(customer.fullName LIKE :search OR customer.phone LIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
     const { skip, take } = getPagination(page, limit);
 
-    qb.skip(skip)
-      .take(take)
-      .orderBy('booking.date', 'DESC')
-      .addOrderBy('booking.time', 'DESC');
+    qb.skip(skip).take(take);
+
+    if (date || startDate || endDate) {
+      qb.orderBy('booking.date', 'ASC').addOrderBy('booking.time', 'ASC');
+    } else {
+      qb.orderBy('booking.date', 'DESC').addOrderBy('booking.time', 'DESC');
+    }
 
     const [data, total] = await qb.getManyAndCount();
 
@@ -320,6 +357,10 @@ export class BookingsService {
 
     if (!isCustomer && !isBarber && !isAdmin) {
       throw new ForbiddenException('شما دسترسی به این رزرو را ندارید');
+    }
+
+    if (!isBarber && !isAdmin) {
+      this.sanitizeForCustomer(booking);
     }
 
     return booking;
@@ -449,15 +490,39 @@ export class BookingsService {
       dto.clubCustomerId,
     );
 
+    const smsEligible = await this.hasSmsCredit(barberUserId);
+
+    if (dto.sendSmsReminder && !smsEligible) {
+      throw new BadRequestException(
+        'برای ارسال پیامک یادآوری، اشتراک فعال و اعتبار پیامک کافی لازم است',
+      );
+    }
+
+    if (!smsEligible && !dto.sendDepositLink) {
+      throw new BadRequestException(
+        'چون امکان ارسال پیامک یادآوری ندارید، ارسال لینک بیعانه برای مشتری الزامی است',
+      );
+    }
+
     const booking = await this.create(member.customerId, {
       barberId: barber.userId,
       serviceId: dto.serviceId,
       date: dto.date,
       time: dto.time,
-      note: dto.note,
+      note: dto.customerNote,
     });
 
     booking.status = BookingStatus.CONFIRMED;
+    booking.barberNote = dto.barberNote?.trim() || null;
+    booking.customerNote = dto.customerNote?.trim() || null;
+    booking.sendDepositLink = dto.sendDepositLink ?? false;
+    booking.sendSmsReminder = smsEligible
+      ? (dto.sendSmsReminder ?? false)
+      : false;
+    booking.reminderHours = booking.sendSmsReminder
+      ? (dto.reminderHours ?? null)
+      : null;
+
     const saved = await this.bookingRepo.save(booking);
 
     await this.clubService.addFromSuccessfulBooking({
@@ -466,6 +531,24 @@ export class BookingsService {
     });
 
     return saved;
+  }
+
+  private async hasSmsCredit(barberUserId: number): Promise<boolean> {
+    const subscription = await this.userSubscriptionRepo.findOne({
+      where: {
+        userId: barberUserId,
+        status: UserSubscriptionStatus.ACTIVE,
+      },
+      order: {
+        endDate: 'DESC',
+      },
+    });
+
+    if (!subscription || subscription.endDate <= new Date()) {
+      return false;
+    }
+
+    return subscription.smsTotal - subscription.smsUsed > 0;
   }
 
   // =========================================================
