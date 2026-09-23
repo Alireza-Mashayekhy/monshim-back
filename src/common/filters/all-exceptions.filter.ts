@@ -4,8 +4,8 @@
  * پاسخهای معنادار با کد وضعیت درست تبدیل میکند؛ بقیهٔ خطاها
  * با همان رفتار پیشفرض Nest مدیریت میشوند.
  */
+import type { ArgumentsHost } from '@nestjs/common';
 import {
-  ArgumentsHost,
   BadRequestException,
   Catch,
   ConflictException,

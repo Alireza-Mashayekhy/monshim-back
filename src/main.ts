@@ -1,4 +1,4 @@
-import './instrument.ts';
+import './instrument';
 
 import { ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost, NestFactory } from '@nestjs/core';
