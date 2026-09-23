@@ -2,7 +2,6 @@
 
 import { Settings } from 'lucide-react';
 
-import FinancialSettings from '@/components/admin/settings/financial-settings';
 import SubscriptionSection from '@/components/admin/settings/subscription-section';
 
 export default function SettingsPage() {
@@ -20,7 +19,7 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <FinancialSettings />
+      {/* <FinancialSettings /> */}
 
       <SubscriptionSection />
     </div>
