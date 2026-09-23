@@ -15,6 +15,7 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
+import { SentryExceptionCaptured } from '@sentry/nestjs';
 
 import { getDriverError, isDuplicateEntryError } from '../utils/db-error.util';
 
@@ -123,6 +124,7 @@ export function mapToHttpException(exception: unknown): HttpException | null {
 export class AllExceptionsFilter extends BaseExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
+  @SentryExceptionCaptured()
   catch(exception: unknown, host: ArgumentsHost) {
     const mapped = mapToHttpException(exception);
 
