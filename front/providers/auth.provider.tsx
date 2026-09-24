@@ -30,9 +30,9 @@ export default function AuthProvider({
   const isPublic = isPublicAuthPath(pathname);
   const denied = user && !canAccessPath(pathname, user);
   const isAuthPage =
-    pathname === '/' ||
     pathname === '/login' ||
     pathname === '/login-otp' ||
+    pathname === '/barbaer-signup' ||
     pathname === '/register';
 
   const destination =
@@ -52,6 +52,7 @@ export default function AuthProvider({
     setUser(user);
   }, [user, setUser]);
   useEffect(() => {
+    console.log(destination);
     if (destination) router.replace(destination);
   }, [destination, router]);
 

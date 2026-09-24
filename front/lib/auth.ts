@@ -13,7 +13,11 @@ export function isPublicAuthPath(pathname: string) {
     isPathWithin(pathname, '/login') ||
     isPathWithin(pathname, '/login-otp') ||
     isPathWithin(pathname, '/register') ||
-    isPathWithin(pathname, '/barbaer-signup')
+    isPathWithin(pathname, '/barbaer-signup') ||
+    // صفحات لندینگ عمومی (سئو) — باید برای مهمان‌ها و موتورهای جست‌وجو آزاد باشند
+    isPathWithin(pathname, '/barber-management') ||
+    isPathWithin(pathname, '/online-barber-booking') ||
+    isPathWithin(pathname, '/pricing')
   );
 }
 
