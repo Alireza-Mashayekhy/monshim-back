@@ -15,6 +15,8 @@ import {
   Unique,
 } from 'typeorm';
 
+import { BarberReview } from './barber-review.entity';
+
 @Entity()
 @Unique(['referralCode'])
 export class BarberProfile {
@@ -91,9 +93,12 @@ export class BarberProfile {
     type: 'decimal',
     precision: 2,
     scale: 1,
-    default: 4.8,
+    default: 0,
   })
   rating: number;
+
+  @Column({ name: 'review_count', type: 'int', default: 0 })
+  reviewCount: number;
 
   @Column({
     type: 'text',
@@ -131,4 +136,7 @@ export class BarberProfile {
   // رزروهای این آرایشگر
   @OneToMany(() => Booking, booking => booking.barber)
   bookings: Booking[];
+
+  @OneToMany(() => BarberReview, review => review.barber)
+  reviews: BarberReview[];
 }

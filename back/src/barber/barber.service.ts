@@ -219,7 +219,8 @@ export class BarberService {
         cityName: user.barberProfile?.city?.name || null,
         provinceName: user.barberProfile?.province?.name || null,
         minPrice,
-        rating: Number(user.barberProfile?.rating || 4.8),
+        rating: Number(user.barberProfile?.rating || 0),
+        reviewCount: Number(user.barberProfile?.reviewCount || 0),
       };
     });
 
