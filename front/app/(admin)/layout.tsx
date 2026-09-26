@@ -1,5 +1,15 @@
+import { Metadata } from 'next';
+
 import AdminSidebar from '@/components/layout/admin/sidebar';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+
+export const metadata: Metadata = {
+  title: {
+    default: 'پنل مدیریت | منشیم',
+    template: '%s | منشیم',
+  },
+  description: 'پنل مدیریت سامانه منشیم',
+};
 
 export default function AdminLayout({
   children,

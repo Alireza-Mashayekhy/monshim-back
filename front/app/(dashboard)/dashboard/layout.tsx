@@ -1,5 +1,15 @@
+import { Metadata } from 'next';
+
 import DesktopSidebar from '@/components/dashboard/layout/desktop-sidebar';
 import MobileNavigation from '@/components/dashboard/layout/mobile-navigation';
+
+export const metadata: Metadata = {
+  title: {
+    default: 'داشبورد | منشیم',
+    template: '%s | منشیم',
+  },
+  description: 'داشبورد مدیریت آرایشگاه منشیم',
+};
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
