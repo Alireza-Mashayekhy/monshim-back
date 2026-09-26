@@ -1,6 +1,13 @@
 'use client';
 
-import { Calendar, Check, Headphones, Settings, User } from 'lucide-react';
+import {
+  Calendar,
+  Check,
+  Headphones,
+  MessageSquareText,
+  Settings,
+  User,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -34,6 +41,11 @@ const items = [
     link: '/admin/approvals',
     icon: Check,
     name: 'تایید آرایشگر',
+  },
+  {
+    link: '/admin/reviews',
+    icon: MessageSquareText,
+    name: 'نظرات',
   },
   {
     link: '/admin/tickets',

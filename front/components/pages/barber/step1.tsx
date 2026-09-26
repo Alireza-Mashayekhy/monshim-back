@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { formatPrice } from '@/lib/utils';
 import { Barber, Service } from '@/services/features/barber/types';
 
+import { ReviewsSection } from './reviews-section';
+
 interface Step1ProfileProps {
   barber: Barber;
   selectedServiceIds: string[];
@@ -38,10 +40,13 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
   const selectedCount = selectedServiceIds.length;
   const hasSelection = selectedCount > 0;
 
+  const reviewCount = barber.reviewCount ?? 0;
+  const ratingValue = Number(barber.rating ?? 0);
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'services', label: 'خدمات' },
     { key: 'about', label: 'درباره ما' },
-    { key: 'reviews', label: `نظرات (${barber.reviewCount ?? 0})` },
+    { key: 'reviews', label: `نظرات (${toFa(String(reviewCount))})` },
   ];
 
   return (
@@ -91,7 +96,7 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
           <div className="flex items-center justify-end gap-2 text-gray-600">
             <Star size={18} className="fill-yellow-400 text-yellow-400" />
             <span className="font-bold text-gray-800">
-              {barber?.rating ? toFa(Number(barber?.rating)?.toFixed(1)) : '۰'}
+              {reviewCount > 0 ? toFa(ratingValue.toFixed(1)) : 'بدون امتیاز'}
             </span>
           </div>
         </div>
@@ -177,9 +182,11 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
           )}
 
           {activeTab === 'reviews' && (
-            <div className="py-10 text-center text-gray-400 text-sm">
-              هنوز نظری ثبت نشده است.
-            </div>
+            <ReviewsSection
+              barberId={barber.userId ?? barber.id}
+              rating={ratingValue}
+              reviewCount={reviewCount}
+            />
           )}
         </div>
       </div>

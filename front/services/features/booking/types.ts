@@ -32,6 +32,7 @@ export interface Booking {
   };
   barber?: {
     id: string;
+    userId?: number;
     salonName: string;
   };
 }
@@ -76,6 +77,7 @@ export interface MyBooking {
   // روابط (برای نمایش)
   barber?: {
     id?: string | number;
+    userId?: number;
     salonName?: string;
     address?: string;
     phone?: string;

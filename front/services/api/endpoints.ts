@@ -38,12 +38,19 @@ export const endpoints = {
     workHours: '/barber/profile/work-hours',
     updateWorkHours: '/barber/profile/work-hours',
     referralCode: '/barber/profile/referral-code',
+    reviews: (id: number | string) => `/barber/${id}/reviews`,
+    myReview: (id: number | string) => `/barber/${id}/reviews/my`,
+    myReviews: '/barber-reviews/my',
     admin: {
       list: '/admin/barber',
       detail: (id: string) => `/admin/barber/${id}`,
       update: '/admin/barber',
       remove: '/admin/barber',
       review: (id: string) => `/admin/barber/${id}/review`,
+    },
+    adminReviews: {
+      list: '/admin/barber-reviews',
+      moderate: (id: string) => `/admin/barber-reviews/${id}`,
     },
   },
 

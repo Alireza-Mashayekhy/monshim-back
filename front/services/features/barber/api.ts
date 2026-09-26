@@ -7,6 +7,9 @@ import {
   Barber,
   BarberProfile,
   BarberResponse,
+  BarberReview,
+  CreateBarberReviewDto,
+  MyBarberReviewInfo,
   UpdateBarberProfile,
   WorkHours,
 } from './types';
@@ -90,5 +93,41 @@ export const getMyReferralCode = async () => {
 
 export const getMyReferrals = async () => {
   const { data } = await api.get(endpoints.referral.myReferrals);
+  return data;
+};
+
+export const getBarberReviews = async (
+  barberId: number | string,
+  params?: { page?: number; limit?: number },
+) => {
+  const { data } = await api.get<ApiListResponse<BarberReview>>(
+    endpoints.barber.reviews(barberId),
+    { params },
+  );
+  return data;
+};
+
+export const getMyBarberReview = async (barberId: number | string) => {
+  const { data } = await api.get<ApiSingleResponse<MyBarberReviewInfo>>(
+    endpoints.barber.myReview(barberId),
+  );
+  return data;
+};
+
+export const getMyBarberReviews = async () => {
+  const { data } = await api.get<ApiListResponse<BarberReview>>(
+    endpoints.barber.myReviews,
+  );
+  return data;
+};
+
+export const createBarberReview = async (
+  barberId: number | string,
+  dto: CreateBarberReviewDto,
+) => {
+  const { data } = await api.post<ApiSingleResponse<BarberReview>>(
+    endpoints.barber.reviews(barberId),
+    dto,
+  );
   return data;
 };

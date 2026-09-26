@@ -5,6 +5,8 @@ import { ApiListResponse, ApiSingleResponse } from '@/services/api/types';
 import {
   BarberProfile,
   BarberResponse,
+  BarberReview,
+  ModerateBarberReviewDto,
   ReviewBarberDto,
   UpdateBarberProfile,
 } from './types';
@@ -48,6 +50,34 @@ export const deleteBarber = async () => {
 export async function reviewBarber(id: string, dto: ReviewBarberDto) {
   const { data } = await api.patch<ApiSingleResponse<BarberResponse>>(
     endpoints.barber.admin.review(id),
+    dto,
+  );
+
+  return data;
+}
+
+export async function barberReviewListAdmin(query?: {
+  page?: number;
+  limit?: number;
+  status?: 'pending' | 'approved' | 'rejected';
+  search?: string;
+}) {
+  const { data } = await api.get<ApiListResponse<BarberReview>>(
+    endpoints.barber.adminReviews.list,
+    {
+      params: query,
+    },
+  );
+
+  return data;
+}
+
+export async function moderateBarberReview(
+  id: string,
+  dto: ModerateBarberReviewDto,
+) {
+  const { data } = await api.patch<ApiSingleResponse<BarberReview>>(
+    endpoints.barber.adminReviews.moderate(id),
     dto,
   );
 

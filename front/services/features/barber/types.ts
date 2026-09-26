@@ -109,3 +109,41 @@ export interface ReviewBarberDto {
   isApproved: boolean;
   rejectionReason?: string | null;
 }
+
+export type BarberReviewStatus = 'pending' | 'approved' | 'rejected';
+
+export interface BarberReview {
+  id: string;
+  barberId: string;
+  customerId: number;
+  rating: number;
+  comment: string | null;
+  status: BarberReviewStatus;
+  adminNote?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  customer?: {
+    id: number;
+    fullName: string;
+  };
+  barber?: {
+    id: string;
+    userId: number;
+    salonName: string;
+  };
+}
+
+export interface CreateBarberReviewDto {
+  rating: number;
+  comment?: string;
+}
+
+export interface ModerateBarberReviewDto {
+  status: 'approved' | 'rejected';
+  adminNote?: string | null;
+}
+
+export interface MyBarberReviewInfo {
+  myReview: BarberReview | null;
+  canReview: boolean;
+}

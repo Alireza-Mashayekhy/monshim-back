@@ -8,11 +8,13 @@ import {
   Loader2,
   MapPin,
   Scissors,
+  Star,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { RateBarberDialog } from '@/components/pages/barber/rate-barber-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +33,7 @@ import {
 } from '@/constants/booking';
 import { toFa } from '@/lib/jalali';
 import { cn, formatPrice, getFullImageUrl } from '@/lib/utils';
+import { useMyBarberReviews } from '@/services/features/barber/hooks';
 import { useCancelBooking } from '@/services/features/booking/hooks';
 import type { MyBooking } from '@/services/features/booking/types';
 
@@ -77,7 +80,10 @@ const bookingDateLabel = (date: string): string => {
 
 export function AppointmentCard({ booking }: AppointmentCardProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [rateOpen, setRateOpen] = useState(false);
   const cancelBooking = useCancelBooking();
+  const { data: myReviewsData, isLoading: myReviewsLoading } =
+    useMyBarberReviews();
 
   const salonName = booking.barber?.salonName;
   const address = booking.barber?.address;
@@ -88,8 +94,20 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
       ? Math.round(Number(booking.service.price) * 0.1)
       : 0;
   const cancelable = canCancelBooking(booking.status);
-  const salonId = booking.barber?.id;
+  const salonId = booking.barber?.userId ?? booking.barber?.id;
+  const reviewBarberId = booking.barber?.userId ?? booking.barber?.id;
   const imageUrl = getFullImageUrl(booking.barber?.profileImage);
+
+  const myReview = (myReviewsData?.data ?? []).find(
+    review =>
+      booking.barber?.id != null &&
+      String(review.barberId) === String(booking.barber.id),
+  );
+  const canRate =
+    booking.status === 'completed' &&
+    reviewBarberId != null &&
+    !myReviewsLoading &&
+    !myReview;
 
   const handleCancel = async () => {
     try {
@@ -190,7 +208,12 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
         <div
           className={cn(
             'grid gap-2',
-            cancelable ? 'grid-cols-2' : 'grid-cols-1',
+            (salonId != null ? 1 : 0) +
+              (cancelable ? 1 : 0) +
+              (canRate ? 1 : 0) ===
+              2
+              ? 'grid-cols-2'
+              : 'grid-cols-1',
           )}
         >
           {salonId != null && (
@@ -200,6 +223,18 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
                 مشاهده جزئیات
               </Button>
             </Link>
+          )}
+
+          {canRate && (
+            <Button
+              variant="outline"
+              type="button"
+              className="w-full border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+              onClick={() => setRateOpen(true)}
+            >
+              <Star size={15} className="fill-current" />
+              ثبت نظر
+            </Button>
           )}
 
           {cancelable && (
@@ -215,6 +250,17 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
             </Button>
           )}
         </div>
+
+        {myReview && (
+          <p className="flex items-center gap-1 text-[10px] text-gray-400">
+            <Star size={11} className="fill-yellow-400 text-yellow-400" />
+            {myReview.status === 'pending'
+              ? 'نظر شما در انتظار تایید ادمین است'
+              : myReview.status === 'approved'
+                ? 'نظر شما تایید و نمایش داده شد'
+                : 'نظر شما تایید نشد'}
+          </p>
+        )}
       </div>
 
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
@@ -251,6 +297,13 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RateBarberDialog
+        barberId={reviewBarberId ?? null}
+        barberName={salonName}
+        open={rateOpen}
+        onOpenChange={setRateOpen}
+      />
     </>
   );
 }

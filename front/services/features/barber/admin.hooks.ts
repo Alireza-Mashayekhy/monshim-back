@@ -2,13 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import {
+  barberReviewListAdmin,
   deleteBarber,
   getBarberById,
+  moderateBarberReview,
   notApprovedBarberList,
   reviewBarber,
   updateBarber,
 } from './admin.api';
-import { ReviewBarberDto, UpdateBarberProfile } from './types';
+import {
+  ModerateBarberReviewDto,
+  ReviewBarberDto,
+  UpdateBarberProfile,
+} from './types';
 
 export const useBarberList = (params: {
   page?: number;
@@ -89,6 +95,47 @@ export const useReviewBarber = () => {
       toast.error(
         error.response?.data?.message || 'خطا در تغییر وضعیت پروفایل',
       );
+    },
+  });
+};
+
+export const useAdminBarberReviews = (params?: {
+  page?: number;
+  limit?: number;
+  status?: 'pending' | 'approved' | 'rejected';
+  search?: string;
+}) => {
+  return useQuery({
+    queryKey: ['adminBarberReviews', params],
+    queryFn: () =>
+      barberReviewListAdmin({
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 10,
+        status: params?.status,
+        search: params?.search,
+      }),
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useModerateBarberReview = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, dto }: { id: string; dto: ModerateBarberReviewDto }) =>
+      moderateBarberReview(id, dto),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminBarberReviews'] });
+      queryClient.invalidateQueries({ queryKey: ['barber-reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['my-barber-reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['barber'] });
+      queryClient.invalidateQueries({ queryKey: ['barbers'] });
+      queryClient.invalidateQueries({ queryKey: ['homeBarbers'] });
+    },
+
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'خطا در بررسی نظر');
     },
   });
 };

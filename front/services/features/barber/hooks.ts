@@ -8,8 +8,12 @@ import { toast } from 'sonner';
 
 import {
   barberList,
+  createBarberReview,
   getBarberById,
+  getBarberReviews,
   getMyBarberProfile,
+  getMyBarberReview,
+  getMyBarberReviews,
   getMyReferralCode,
   getMyReferrals,
   getWorkHours,
@@ -17,7 +21,7 @@ import {
   updateWorkHours,
   uploadProfileImage,
 } from './api';
-import { UpdateBarberProfile, WorkHours } from './types';
+import { CreateBarberReviewDto, UpdateBarberProfile, WorkHours } from './types';
 
 export const useBarberList = (params?: {
   cityId?: number;
@@ -166,5 +170,61 @@ export const useMyReferrals = () => {
     queryKey: ['my-referrals'],
     queryFn: getMyReferrals,
     staleTime: 2 * 60 * 1000, // ۲ دقیقه
+  });
+};
+
+export const useBarberReviews = (
+  barberId: number | string,
+  params?: { page?: number; limit?: number },
+) => {
+  return useQuery({
+    queryKey: ['barber-reviews', barberId, params],
+    queryFn: () => getBarberReviews(barberId, params),
+    enabled: barberId !== undefined && barberId !== null && barberId !== '',
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useMyBarberReview = (barberId: number | string) => {
+  return useQuery({
+    queryKey: ['my-barber-review', barberId],
+    queryFn: () => getMyBarberReview(barberId),
+    enabled: barberId !== undefined && barberId !== null && barberId !== '',
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useMyBarberReviews = () => {
+  return useQuery({
+    queryKey: ['my-barber-reviews'],
+    queryFn: getMyBarberReviews,
+    staleTime: 60 * 1000,
+  });
+};
+
+export const useCreateBarberReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      barberId,
+      dto,
+    }: {
+      barberId: number | string;
+      dto: CreateBarberReviewDto;
+    }) => createBarberReview(barberId, dto),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['barber-reviews'] });
+      queryClient.invalidateQueries({
+        queryKey: ['my-barber-review', variables.barberId],
+      });
+      queryClient.invalidateQueries({ queryKey: ['my-barber-reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['barber'] });
+      queryClient.invalidateQueries({ queryKey: ['barbers'] });
+      queryClient.invalidateQueries({ queryKey: ['homeBarbers'] });
+      toast.success('نظر شما ثبت شد و پس از تایید ادمین نمایش داده می‌شود.');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'خطا در ثبت نظر');
+    },
   });
 };

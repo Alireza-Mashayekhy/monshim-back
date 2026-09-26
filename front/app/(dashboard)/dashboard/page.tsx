@@ -78,6 +78,7 @@ export default function DashboardPage() {
   const profile = profileData?.data;
   const rating =
     barberData?.data?.rating != null ? Number(barberData.data.rating) : null;
+  const reviewCount = Number(barberData?.data?.reviewCount ?? 0);
 
   const balanceValue = Number(balance?.data?.balance ?? 0);
   const recentBookings: Booking[] = stats.recentBookings ?? [];
@@ -122,12 +123,16 @@ export default function DashboardPage() {
               <StatCard
                 title="امتیاز"
                 value={
-                  rating != null
+                  reviewCount > 0 && rating != null
                     ? `${toPersianNumber(rating.toFixed(1))} از ۵`
-                    : '—'
+                    : 'بدون امتیاز'
                 }
                 icon={Star}
-                sub="میانگین امتیاز سالن"
+                sub={
+                  reviewCount > 0
+                    ? `میانگین امتیاز از ${toPersianNumber(reviewCount)} نظر`
+                    : 'میانگین امتیاز سالن'
+                }
               />
 
               <StatCard
