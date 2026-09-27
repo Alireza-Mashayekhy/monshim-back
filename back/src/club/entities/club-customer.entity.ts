@@ -28,11 +28,8 @@ export class ClubCustomer {
   @Column({ name: 'group_id', type: 'char', length: 36, nullable: true })
   groupId: string | null;
 
-  @Column({ length: 80 })
-  firstName: string;
-
-  @Column({ length: 80 })
-  lastName: string;
+  @Column({ length: 160 })
+  fullName: string;
 
   @Column({ length: 11 })
   phone: string;
