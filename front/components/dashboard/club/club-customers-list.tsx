@@ -125,9 +125,7 @@ export function ClubCustomersList({
                     <div className="size-8 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center">
                       <UserRound size={15} />
                     </div>
-                    <span className="font-medium">
-                      {customer.firstName} {customer.lastName}
-                    </span>
+                    <span className="font-medium">{customer.fullName}</span>
                   </div>
                 </TableCell>
                 <TableCell dir="ltr" className="text-right">
@@ -196,7 +194,7 @@ export function ClubCustomersList({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-bold text-gray-800 text-sm">
-                  {customer.firstName} {customer.lastName}
+                  {customer.fullName}
                 </p>
                 <p
                   className="text-xs text-gray-500 mt-1 flex items-center gap-1"

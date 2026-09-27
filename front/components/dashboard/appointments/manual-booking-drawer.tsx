@@ -66,8 +66,7 @@ import { useCurrentUserSubscription } from '@/services/features/subscription/hoo
 const DEFAULT_VALUES: FormValues = {
   customerMode: 'existing',
   existingCustomerId: '',
-  firstName: '',
-  lastName: '',
+  fullName: '',
   phone: '',
   serviceId: '',
   date: '',
@@ -93,8 +92,7 @@ const schema = z
   .object({
     customerMode: z.enum(['existing', 'new']),
     existingCustomerId: z.string().optional(),
-    firstName: z.string().optional(),
-    lastName: z.string().optional(),
+    fullName: z.string().optional(),
     phone: z.string().optional(),
     serviceId: z.string().min(1, 'انتخاب خدمت الزامی است'),
     date: z.string().min(1, 'انتخاب تاریخ الزامی است'),
@@ -115,18 +113,11 @@ const schema = z
         });
       }
     } else {
-      if (!data.firstName?.trim()) {
+      if (!data.fullName?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['firstName'],
-          message: 'نام الزامی است',
-        });
-      }
-      if (!data.lastName?.trim()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['lastName'],
-          message: 'نام خانوادگی الزامی است',
+          path: ['fullName'],
+          message: 'نام و نام خانوادگی الزامی است',
         });
       }
       if (!data.phone?.trim()) {
@@ -303,8 +294,7 @@ export function ManualBookingDrawer({
 
       if (values.customerMode === 'new') {
         const newCustomer = await addCustomer.mutateAsync({
-          firstName: values.firstName!.trim(),
-          lastName: values.lastName!.trim(),
+          fullName: values.fullName!.trim(),
           phone: normalizePhone(values.phone!),
         });
         clubCustomerId = newCustomer.id;
@@ -404,12 +394,12 @@ export function ManualBookingDrawer({
                   // مشتری انتخاب‌شده
                   <div className="flex items-center gap-2.5 rounded-2xl border border-primary-2 bg-primary-3 p-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
-                      {selectedCustomer.firstName.charAt(0)}
+                      {selectedCustomer.fullName.charAt(0)}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-black text-gray-900">
-                        {selectedCustomer.firstName} {selectedCustomer.lastName}
+                        {selectedCustomer.fullName}
                       </p>
 
                       <p
@@ -481,12 +471,12 @@ export function ManualBookingDrawer({
                                   className="flex w-full items-center gap-2.5 p-3 text-right transition hover:bg-primary-3"
                                 >
                                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-2 text-[11px] font-black text-primary">
-                                    {customer.firstName.charAt(0)}
+                                    {customer.fullName.charAt(0)}
                                   </div>
 
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-xs font-black text-gray-900">
-                                      {customer.firstName} {customer.lastName}
+                                      {customer.fullName}
                                     </p>
 
                                     <p
@@ -535,15 +525,11 @@ export function ManualBookingDrawer({
                   </span>
                 </p>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <RHFInput name="firstName" label="نام" placeholder="علی" />
-
-                  <RHFInput
-                    name="lastName"
-                    label="نام خانوادگی"
-                    placeholder="رضایی"
-                  />
-                </div>
+                <RHFInput
+                  name="fullName"
+                  label="نام و نام خانوادگی"
+                  placeholder="علی رضایی"
+                />
 
                 <RHFPhoneInput
                   name="phone"
@@ -707,28 +693,37 @@ export function ManualBookingDrawer({
             {/* لینک بیعانه + پیامک یادآوری */}
             <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
               {/* ارسال لینک بیعانه */}
-              <div className="flex items-center justify-between gap-3 pb-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-2/60 text-primary">
-                    <Wallet size={15} />
+              <div className="space-y-2 pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-2/60 text-primary">
+                      <Wallet size={15} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-gray-900">
+                        ارسال لینک بیعانه
+                      </p>
+
+                      <p className="mt-0.5 text-[10px] font-medium text-gray-400">
+                        لینک پرداخت بیعانه برای مشتری ارسال می‌شود
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <p className="text-xs font-black text-gray-900">
-                      ارسال لینک بیعانه
-                    </p>
-
-                    <p className="mt-0.5 text-[10px] font-medium text-gray-400">
-                      لینک پرداخت بیعانه برای مشتری ارسال می‌شود
-                    </p>
-                  </div>
+                  <Switch
+                    checked={effectiveDepositLink}
+                    disabled={!smsEligible || isSubmitting}
+                    onCheckedChange={v => setValue('sendDepositLink', v)}
+                  />
                 </div>
 
-                <Switch
-                  checked={effectiveDepositLink}
-                  disabled={!smsEligible || isSubmitting}
-                  onCheckedChange={v => setValue('sendDepositLink', v)}
-                />
+                <ul className="space-y-1 pr-10 text-[10px] font-medium leading-5 text-gray-500">
+                  <li>• برای عدم ارسال لینک بیعانه باید پلن خریداری کنید.</li>
+                  <li>
+                    • در صورت ارسال لینک بیعانه، از پلن شما پیامک کسر نمی‌شود.
+                  </li>
+                </ul>
               </div>
 
               {/* پیامک یادآوری */}
@@ -804,12 +799,13 @@ export function ManualBookingDrawer({
 
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-black leading-5 text-amber-700">
-                      برای ارسال پیامک یادآوری به اشتراک فعال و اعتبار پیامک
-                      نیاز داری.
+                      جهت ثبت رزرو و ارسال پیامک باید پنل ماهانه فعال کنید.
                     </p>
 
                     <p className="mt-1 text-[10px] font-medium leading-5 text-amber-600">
-                      به همین دلیل ارسال لینک بیعانه برای این نوبت الزامی شد.
+                      یا با استفاده از ارسال لینک بیعانه، بعد از پرداخت بیعانه
+                      ثبت رزرو به‌صورت رایگان و بر عهده مجموعه منشیم
+                      می‌باشد.{' '}
                     </p>
 
                     <Link

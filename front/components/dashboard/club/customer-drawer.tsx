@@ -44,16 +44,11 @@ interface CustomerDrawerProps {
 const NO_GROUP = 'no-group';
 
 const schema = z.object({
-  firstName: z
+  fullName: z
     .string()
     .trim()
-    .min(1, 'نام الزامی است')
-    .max(80, 'حداکثر ۸۰ کاراکتر'),
-  lastName: z
-    .string()
-    .trim()
-    .min(1, 'نام خانوادگی الزامی است')
-    .max(80, 'حداکثر ۸۰ کاراکتر'),
+    .min(1, 'نام و نام خانوادگی الزامی است')
+    .max(160, 'حداکثر ۱۶۰ کاراکتر'),
   phone: phoneSchema,
   groupId: z.string(),
   newGroupName: z.string().optional(),
@@ -76,8 +71,7 @@ export function CustomerDrawer({
   const methods = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
+      fullName: '',
       phone: '',
       groupId: NO_GROUP,
       newGroupName: '',
@@ -93,8 +87,7 @@ export function CustomerDrawer({
     if (!open) return;
 
     reset({
-      firstName: customer?.firstName ?? '',
-      lastName: customer?.lastName ?? '',
+      fullName: customer?.fullName ?? '',
       phone: customer?.phone ?? '',
       groupId: customer?.groupId || customer?.group?.id || NO_GROUP,
       newGroupName: '',
@@ -116,8 +109,7 @@ export function CustomerDrawer({
 
   const onSubmit = async (values: FormValues) => {
     const payload = {
-      firstName: values.firstName,
-      lastName: values.lastName,
+      fullName: values.fullName,
       phone: normalizePhone(values.phone),
       groupId: values.groupId === NO_GROUP ? null : values.groupId,
     };
@@ -159,14 +151,11 @@ export function CustomerDrawer({
           onSubmit={handleSubmit(onSubmit)}
           className="px-4 pb-4 space-y-4"
         >
-          <div className="grid grid-cols-2 gap-3">
-            <RHFInput name="firstName" label="نام" placeholder="مثلاً علی" />
-            <RHFInput
-              name="lastName"
-              label="نام خانوادگی"
-              placeholder="مثلاً رضایی"
-            />
-          </div>
+          <RHFInput
+            name="fullName"
+            label="نام و نام خانوادگی"
+            placeholder="مثلاً علی رضایی"
+          />
 
           <RHFPhoneInput
             name="phone"

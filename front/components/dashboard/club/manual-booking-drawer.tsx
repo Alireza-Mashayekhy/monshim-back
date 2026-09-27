@@ -116,9 +116,7 @@ export function ManualBookingDrawer({
     onOpenChange(false);
   };
 
-  const customerName = customer
-    ? `${customer.firstName} ${customer.lastName}`
-    : '';
+  const customerName = customer ? customer.fullName : '';
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>

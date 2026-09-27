@@ -8,8 +8,7 @@ export interface ClubGroup {
 
 export interface ClubCustomer {
   id: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   groupId?: string | null;
   /** رابطهٔ گروه — بسته به پاسخ سرور ممکن است نباشد */
@@ -26,15 +25,13 @@ export interface ClubCustomerQuery {
 }
 
 export interface CreateClubCustomerDto {
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   groupId?: string | null;
 }
 
 export interface UpdateClubCustomerDto {
-  firstName?: string;
-  lastName?: string;
+  fullName?: string;
   /** مقدار null برای حذف گروه */
   groupId?: string | null;
 }

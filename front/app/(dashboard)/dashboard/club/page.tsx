@@ -72,7 +72,7 @@ export default function ClubPage() {
   };
 
   const handleDelete = async (customer: ClubCustomer) => {
-    const fullName = `${customer.firstName} ${customer.lastName}`;
+    const { fullName } = customer;
     if (!window.confirm(`آیا از حذف «${fullName}» اطمینان دارید؟`)) return;
 
     try {
