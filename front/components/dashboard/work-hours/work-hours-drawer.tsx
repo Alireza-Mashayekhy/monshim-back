@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { TimePicker24 } from '@/components/form/time-picker-24';
+import { TimePicker } from '@/components/form/time-picker';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -37,6 +37,8 @@ interface WorkHoursDrawerProps {
 export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
   const { data: workHours, isLoading } = useWorkHours();
   const updateMutation = useUpdateWorkHours();
+
+  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
 
   const [hoursByDay, setHoursByDay] = useState<{
     [key: number]: { startTime: string; endTime: string }[];
@@ -113,7 +115,7 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>
-      <DrawerContent>
+      <DrawerContent ref={setContentEl}>
         <DrawerHeader>
           <DrawerTitle className="text-center">تنظیم ساعات کاری</DrawerTitle>
           <DrawerDescription className="text-center text-sm">
@@ -140,18 +142,20 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
                 {(hoursByDay[idx] || []).map((slot, slotIndex) => (
                   <div
                     key={slotIndex}
-                    className="flex flex-wrap items-end gap-3 p-2 rounded-lg bg-gray-50 border border-gray-100"
+                    className="flex items-end gap-2 p-2 rounded-lg bg-gray-50 border border-gray-100"
                   >
-                    <TimePicker24
+                    <TimePicker
                       label="شروع"
+                      portalTarget={contentEl}
                       value={slot.startTime}
                       onChange={val =>
                         updateSlot(idx, slotIndex, 'startTime', val)
                       }
                     />
-                    <span className="text-gray-400 text-sm mb-1">تا</span>
-                    <TimePicker24
+                    <span className="text-gray-400 text-sm mb-2.5">تا</span>
+                    <TimePicker
                       label="پایان"
+                      portalTarget={contentEl}
                       value={slot.endTime}
                       onChange={val =>
                         updateSlot(idx, slotIndex, 'endTime', val)
@@ -160,7 +164,7 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
                     <button
                       type="button"
                       onClick={() => removeSlot(idx, slotIndex)}
-                      className="mt-3 text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                      className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
