@@ -10,17 +10,11 @@ import {
 import { IRAN_PHONE_REGEX } from 'src/common/constants/constants';
 
 export class CreateClubCustomerDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'علی رضایی' })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(80)
-  firstName: string;
-
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(80)
-  lastName: string;
+  @MaxLength(160)
+  fullName: string;
 
   @ApiProperty({ example: '09123456789' })
   @IsString()

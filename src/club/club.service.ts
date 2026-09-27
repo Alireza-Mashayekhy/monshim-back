@@ -137,10 +137,9 @@ export class ClubService {
 
     if (query.search?.trim()) {
       const search = query.search.trim();
-      qb.andWhere(
-        `( club.firstName LIKE :search OR club.lastName LIKE :search OR club.phone LIKE :search OR CONCAT(club.firstName, ' ', club.lastName) LIKE :search OR CONCAT(club.lastName, ' ', club.firstName) LIKE :search OR CONCAT(club.lastName, club.firstName) LIKE :search )`,
-        { search: `%${search}%` },
-      );
+      qb.andWhere('( club.fullName LIKE :search OR club.phone LIKE :search )', {
+        search: `%${search}%`,
+      });
     }
 
     const { skip, take } = getPagination(page, limit);
@@ -165,8 +164,7 @@ export class ClubService {
     await this.ensureDefaultGroups(barber.id);
 
     return this.upsertMember(barber.id, {
-      firstName: dto.firstName.trim(),
-      lastName: dto.lastName.trim(),
+      fullName: this.normalizeName(dto.fullName),
       phone: dto.phone,
       groupId: dto.groupId ?? null,
     });
@@ -189,15 +187,15 @@ export class ClubService {
       member.groupId = null;
     }
 
-    if (dto.firstName) member.firstName = dto.firstName.trim();
-    if (dto.lastName) member.lastName = dto.lastName.trim();
+    if (dto.fullName?.trim())
+      member.fullName = this.normalizeName(dto.fullName);
 
     const user = await this.userRepo.findOne({
       where: { id: member.customerId },
     });
 
     if (user) {
-      user.fullName = `${member.firstName} ${member.lastName}`.trim();
+      user.fullName = member.fullName;
       await this.userRepo.save(user);
     }
 
@@ -246,13 +244,10 @@ export class ClubService {
       return null;
     }
 
-    const { firstName, lastName } = this.splitFullName(user.fullName);
-
     const member = this.clubCustomerRepo.create({
       barberId: params.barberId,
       customerId: user.id,
-      firstName,
-      lastName,
+      fullName: this.normalizeName(user.fullName) || 'مشتری',
       phone: user.phone,
       groupId: null,
     });
@@ -276,8 +271,7 @@ export class ClubService {
   private async upsertMember(
     barberId: string,
     data: {
-      firstName: string;
-      lastName: string;
+      fullName: string;
       phone: string;
       groupId: string | null;
     },
@@ -301,8 +295,7 @@ export class ClubService {
     const member = this.clubCustomerRepo.create({
       barberId,
       customerId: user.id,
-      firstName: data.firstName,
-      lastName: data.lastName,
+      fullName: data.fullName,
       phone: user.phone,
       groupId: data.groupId,
     });
@@ -311,13 +304,12 @@ export class ClubService {
   }
 
   private async findOrCreateUser(data: {
-    firstName: string;
-    lastName: string;
+    fullName: string;
     phone: string;
   }): Promise<User> {
     let user = await this.userRepo.findOne({ where: { phone: data.phone } });
 
-    const fullName = `${data.firstName} ${data.lastName}`.trim();
+    const { fullName } = data;
 
     if (!user) {
       user = this.userRepo.create({
@@ -350,11 +342,7 @@ export class ClubService {
     return group;
   }
 
-  private splitFullName(fullName: string) {
-    const parts = (fullName || '').trim().split(/\s+/);
-    const firstName = parts.shift() || 'مشتری';
-    const lastName = parts.join(' ') || '';
-
-    return { firstName, lastName };
+  private normalizeName(name: string) {
+    return (name || '').trim().replace(/\s+/g, ' ');
   }
 }
