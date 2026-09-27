@@ -1,11 +1,13 @@
 'use client';
 
-import { UserRound } from 'lucide-react';
+import { Store } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
-import { cn } from '@/lib/utils';
+import { cn, getFullImageUrl } from '@/lib/utils';
+import { useMyBarberProfile } from '@/services/features/barber/hooks';
 import { useAuthStore } from '@/store/auth.store';
 
 import BottomNavigation from './bottom-navigation';
@@ -15,19 +17,35 @@ export default function MobileNavigation() {
   const [open, setOpen] = useState(false);
   const { user } = useAuthStore();
 
+  const { data: barberProfile } = useMyBarberProfile();
+  const salonName = barberProfile?.data?.salonName;
+  const salonImage = getFullImageUrl(barberProfile?.data?.profileImage);
+
   return (
     <>
       <header className="lg:hidden sticky top-0 z-40 h-16 bg-primary-3/90 backdrop-blur-xl border-b border-primary/10">
         <div className="h-full px-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full bg-primary-2 text-primary flex items-center justify-center font-black border-2 border-white shadow-sm ring-1 ring-primary/20 overflow-hidden">
-              {user?.fullName?.charAt(0) || <UserRound size={18} />}
+            <div className="relative w-10 h-10 shrink-0 rounded-full bg-primary-2 text-primary flex items-center justify-center border-2 border-white shadow-sm ring-1 ring-primary/20 overflow-hidden">
+              {salonImage ? (
+                <Image
+                  src={salonImage}
+                  alt={salonName || 'سالن'}
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                />
+              ) : (
+                <Store size={18} />
+              )}
             </div>
-            <div className="text-right">
-              <p className="text-[11px] text-gray-400 font-medium">سلام 👋</p>
+            <div className="min-w-0 text-right">
+              <p className="text-sm font-black text-gray-900 tracking-tight truncate">
+                {salonName || 'داشبورد آرایشگر'}
+              </p>
 
-              <p className="text-sm font-black text-gray-900 tracking-tight">
-                {user?.fullName}
+              <p className="text-[11px] text-gray-400 font-medium truncate">
+                {user?.fullName ? `سلام ${user.fullName} 👋` : 'سلام 👋'}
               </p>
             </div>
           </div>
