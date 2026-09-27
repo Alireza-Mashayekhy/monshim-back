@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { CalendarClock, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
 import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
@@ -32,6 +33,11 @@ import { useAvailableSlots } from '@/services/features/booking/hooks';
 import { useCreateManualBooking } from '@/services/features/club/hooks';
 import type { ClubCustomer } from '@/services/features/club/types';
 import { useMyServices } from '@/services/features/services/hooks';
+
+import {
+  NOT_APPROVED_MESSAGE,
+  NotApprovedAlert,
+} from '../appointments/not-approved-alert';
 
 interface ManualBookingDrawerProps {
   open: boolean;
@@ -67,6 +73,7 @@ export function ManualBookingDrawer({
   const { data: barberProfile } = useMyBarberProfile();
   const createManualBooking = useCreateManualBooking();
 
+  const isNotApproved = !!barberProfile?.data && !barberProfile.data.isApproved;
   const barberId = barberProfile?.data?.id ? String(barberProfile.data.id) : '';
   const isoDate = jalaliToIso(jalaliDate) ?? '';
 
@@ -96,6 +103,11 @@ export function ManualBookingDrawer({
 
   const onSubmit = async (values: FormValues) => {
     if (!customer) return;
+
+    if (isNotApproved) {
+      toast.error(NOT_APPROVED_MESSAGE);
+      return;
+    }
 
     try {
       await createManualBooking.mutateAsync({
@@ -139,6 +151,7 @@ export function ManualBookingDrawer({
             onSubmit={handleSubmit(onSubmit)}
             className="space-y-4"
           >
+            {isNotApproved && <NotApprovedAlert onNavigate={handleClose} />}
             {/* خدمت */}
             <div className="space-y-2">
               <span className="block text-sm font-medium text-gray-700">
@@ -262,7 +275,7 @@ export function ManualBookingDrawer({
               <Button
                 type="submit"
                 className="flex-1"
-                disabled={createManualBooking.isPending}
+                disabled={createManualBooking.isPending || isNotApproved}
               >
                 {createManualBooking.isPending ? (
                   <Loader2 size={16} className="animate-spin" />

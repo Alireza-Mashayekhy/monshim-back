@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
+import { toast } from 'sonner';
 import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
@@ -62,6 +63,8 @@ import type {
 } from '@/services/features/club/types';
 import { useMyServices } from '@/services/features/services/hooks';
 import { useCurrentUserSubscription } from '@/services/features/subscription/hooks';
+
+import { NOT_APPROVED_MESSAGE, NotApprovedAlert } from './not-approved-alert';
 
 const DEFAULT_VALUES: FormValues = {
   customerMode: 'existing',
@@ -208,6 +211,7 @@ export function ManualBookingDrawer({
   const createManualBooking = useCreateManualBooking();
 
   const barberId = barberProfile?.data?.id ? String(barberProfile.data.id) : '';
+  const isNotApproved = !!barberProfile?.data && !barberProfile.data.isApproved;
   const isoDate = jalaliToIso(jalaliDate) ?? '';
 
   const { data: slotsResponse, isLoading: slotsLoading } = useAvailableSlots(
@@ -289,6 +293,10 @@ export function ManualBookingDrawer({
   };
 
   const onSubmit = async (values: FormOutput) => {
+    if (isNotApproved) {
+      toast.error(NOT_APPROVED_MESSAGE);
+      return;
+    }
     try {
       let clubCustomerId = values.existingCustomerId;
 
@@ -352,6 +360,9 @@ export function ManualBookingDrawer({
         >
           {/* بدنه */}
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 scrollbar-thin">
+            {isNotApproved && (
+              <NotApprovedAlert onNavigate={() => handleOpenChange(false)} />
+            )}
             {/* تب مشتری */}
             <div className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1">
               <button
@@ -826,7 +837,7 @@ export function ManualBookingDrawer({
             <Button
               type="submit"
               className="h-11 w-full"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isNotApproved}
             >
               {isSubmitting ? (
                 <>
