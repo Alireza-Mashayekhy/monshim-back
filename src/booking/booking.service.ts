@@ -598,6 +598,12 @@ export class BookingsService {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد');
     }
 
+    if (!barber.isApproved) {
+      throw new ForbiddenException(
+        'پروفایل شما هنوز تایید نشده و امکان ثبت رزرو دستی ندارید',
+      );
+    }
+
     const member = await this.clubService.findMemberForBarber(
       barber.id,
       dto.clubCustomerId,
