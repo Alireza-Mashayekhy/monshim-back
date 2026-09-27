@@ -1,7 +1,7 @@
 // app/(dashboard)/financial/page.tsx
 'use client';
 
-import { ArrowDownLeft, Plus, Wallet } from 'lucide-react';
+import { ArrowDownLeft, CreditCard, Wallet } from 'lucide-react';
 import { useState } from 'react';
 
 import { CardDrawer } from '@/components/dashboard/financial/card-drawer';
@@ -74,7 +74,7 @@ export default function FinancialPage() {
               className="flex-1 text-primary"
               onClick={() => setShowCardDrawer(true)}
             >
-              <Plus size={16} /> کارت‌ها
+              <CreditCard size={16} /> کارت‌ها
             </Button>
           </div>
         </AppCard>
