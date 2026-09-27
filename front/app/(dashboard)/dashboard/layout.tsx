@@ -5,7 +5,7 @@ import MobileNavigation from '@/components/dashboard/layout/mobile-navigation';
 
 export const metadata: Metadata = {
   title: {
-    default: 'داشبورد | منشیم',
+    default: 'داشبورد',
     template: '%s | منشیم',
   },
   description: 'داشبورد مدیریت آرایشگاه منشیم',

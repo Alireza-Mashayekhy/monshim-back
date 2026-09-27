@@ -4,7 +4,7 @@ import AuthCardLayout from '@/components/pages/auth/auth-card-layout';
 import LoginOtpForm from '@/components/pages/auth/login-otp-form';
 
 export const metadata: Metadata = {
-  title: 'ورود با کد تأیید | منشیم',
+  title: 'ورود با کد تأیید',
   description:
     'ورود سریع به سامانه نوبت‌دهی منشیم با شماره موبایل و کد یک‌بار مصرف',
 };

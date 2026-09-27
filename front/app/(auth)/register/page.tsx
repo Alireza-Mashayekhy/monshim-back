@@ -4,7 +4,7 @@ import AuthCardLayout from '@/components/pages/auth/auth-card-layout';
 import RegisterForm from '@/components/pages/auth/register-form';
 
 export const metadata: Metadata = {
-  title: 'ثبت‌نام حساب کاربری | منشیم',
+  title: 'ثبت‌نام حساب کاربری',
   description: 'ثبت‌نام در سامانه هوشمند نوبت‌دهی منشیم و رزرو آنلاین آرایشگاه',
 };
 

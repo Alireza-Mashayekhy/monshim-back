@@ -2,7 +2,7 @@ import { ShieldCheck } from 'lucide-react';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'سیاست حریم خصوصی | منشیم',
+  title: 'سیاست حریم خصوصی',
   description: 'سیاست حریم خصوصی سامانه نوبت‌دهی منشیم',
 };
 

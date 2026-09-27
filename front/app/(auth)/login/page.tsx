@@ -4,7 +4,7 @@ import AuthCardLayout from '@/components/pages/auth/auth-card-layout';
 import LoginPasswordForm from '@/components/pages/auth/login-password-form';
 
 export const metadata: Metadata = {
-  title: 'ورود با رمز عبور | منشیم',
+  title: 'ورود با رمز عبور',
   description:
     'ورود به سامانه هوشمند نوبت‌دهی منشیم با شماره موبایل و رمز عبور',
 };

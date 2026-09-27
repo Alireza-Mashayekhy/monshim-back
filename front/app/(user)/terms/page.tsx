@@ -2,7 +2,7 @@ import { ScrollText } from 'lucide-react';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'قوانین و شرایط استفاده | منشیم',
+  title: 'قوانین و شرایط استفاده ',
   description: 'قوانین و شرایط استفاده از سامانه نوبت‌دهی منشیم',
 };
 

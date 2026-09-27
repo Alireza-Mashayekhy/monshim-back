@@ -5,7 +5,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 export const metadata: Metadata = {
   title: {
-    default: 'پنل مدیریت | منشیم',
+    default: 'پنل مدیریت',
     template: '%s | منشیم',
   },
   description: 'پنل مدیریت سامانه منشیم',
