@@ -12,7 +12,7 @@ import { Referral, ReferralStatus } from './entities/referral.entity';
 export class ReferralService {
   private readonly logger = new Logger(ReferralService.name);
   private readonly REQUIRED_BOOKINGS = 5; // تعداد رزروهای مورد نیاز
-  private readonly REWARD_AMOUNT = 50000; // مبلغ پاداش (تومان)
+  private readonly REWARD_AMOUNT = 30000; // مبلغ پاداش (تومان)
 
   constructor(
     @InjectRepository(Referral)
