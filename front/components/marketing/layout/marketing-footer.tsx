@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import Logo from '@/components/shared/logo';
 
-import { NAV_LINKS } from './marketing-links';
+import { SEO_LINKS } from './marketing-links';
 
 const SOCIAL_LINKS = [
   {
@@ -49,7 +49,7 @@ export default function MarketingFooter() {
 
   return (
     <footer className="border-t border-primary-100/60 bg-primary-3">
-      <div className="custom-container py-12 lg:py-16">
+      <div className="custom-container py-8 lg:py-14">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           {/* برند و معرفی کوتاه — شامل کلیدواژه‌های اصلی */}
           <div className="space-y-4">
@@ -90,7 +90,7 @@ export default function MarketingFooter() {
               دسترسی سریع
             </h2>
             <ul className="space-y-3">
-              {NAV_LINKS.map(link => (
+              {SEO_LINKS.map(link => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
@@ -108,6 +108,15 @@ export default function MarketingFooter() {
                   className="text-sm text-muted-foreground transition-colors hover:text-primary"
                 >
                   ثبت‌نام رایگان
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/login"
+                  title="ورود به حساب کاربری منشیم"
+                  className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                >
+                  ورود به حساب کاربری
                 </Link>
               </li>
             </ul>

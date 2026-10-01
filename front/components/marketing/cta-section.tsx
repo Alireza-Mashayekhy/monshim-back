@@ -6,6 +6,7 @@ interface CtaSectionProps {
   title: string;
   description: string;
   primaryLabel?: string;
+  primaryHref?: string;
   primaryTitle?: string;
   secondaryLabel?: string;
   secondaryTitle?: string;
@@ -19,6 +20,7 @@ interface CtaSectionProps {
 export default function CtaSection({
   title,
   description,
+  primaryHref = '/barbaer-signup',
   primaryLabel = 'رایگان شروع کنید',
   primaryTitle = 'ثبت‌نام رایگان نوبت دهی آنلاین آرایشگاه در منشیم',
   secondaryLabel = 'مشاهده تعرفه‌ها',
@@ -28,7 +30,7 @@ export default function CtaSection({
   return (
     <section
       aria-labelledby="cta-heading"
-      className="custom-container py-16 lg:py-24"
+      className="custom-container py-8 lg:py-14"
     >
       <div className="relative overflow-hidden rounded-4xl bg-gradient-to-l from-primary to-teal-700 px-6 py-14 text-center shadow-xl shadow-primary/20 sm:px-12 lg:py-20">
         <div
@@ -55,7 +57,7 @@ export default function CtaSection({
               variant="secondary"
               className="w-full sm:w-auto"
             >
-              <Link href="/register" title={primaryTitle}>
+              <Link href={primaryHref} title={primaryTitle}>
                 {primaryLabel}
               </Link>
             </Button>

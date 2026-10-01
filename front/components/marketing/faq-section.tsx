@@ -27,7 +27,7 @@ export default function FaqSection({ heading, items }: FaqSectionProps) {
   return (
     <section
       aria-labelledby="faq-heading"
-      className="custom-container py-16 lg:py-24"
+      className="custom-container py-8 lg:py-14"
     >
       <SectionHeading
         id="faq-heading"

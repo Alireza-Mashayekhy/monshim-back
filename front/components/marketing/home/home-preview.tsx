@@ -30,14 +30,19 @@ export default function HomePreview() {
       aria-labelledby="home-preview-heading"
       className="bg-gradient-to-b from-background to-primary-2/50"
     >
-      <div className="custom-container py-16 lg:py-24">
+      <div className="custom-container py-8 lg:py-14">
         <SectionHeading
           id="home-preview-heading"
-          title="نمونه واقعی منشیم"
+          eyebrow="پیش‌نمایش محصول"
+          title="صفحهٔ اختصاصی آرایشگاه در منشیم"
           description="هر آرایشگاه در منشیم یک صفحه اختصاصی دارد؛ مشتری خدمات را انتخاب می‌کند، روز و ساعت خالی را می‌بیند و رزرو آرایشگاه در چند ثانیه انجام می‌شود."
         />
 
-        <figure className="mx-auto mt-12 max-w-md">
+        <p className="mx-auto mt-4 w-fit rounded-full border border-dashed border-primary-300 bg-white px-4 py-1.5 text-[11px] font-bold text-primary">
+          نمونهٔ نمایشی — داده‌ها ساختگی است
+        </p>
+
+        <figure className="mx-auto mt-8 max-w-md">
           <div className="overflow-hidden rounded-[32px] border border-primary-100/70 bg-primary-3 shadow-xl shadow-primary/10">
             {/* تصویر سالن + دکمه علاقه‌مندی — مثل صفحه واقعی */}
             <div className="relative h-52">
@@ -57,10 +62,13 @@ export default function HomePreview() {
             </div>
 
             {/* شیت محتوای آرایشگاه */}
-            <div className="-mt-6 rounded-t-[24px] bg-primary-3 px-5 pt-5 pb-5">
+            <div className="-mt-6 rounded-t-[24px] bg-primary-3 px-5 pt-5 pb-5 relative z-[2]">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-xl font-black text-foreground">
-                  آرایشگر نمونه منشیم
+                  سالن آرا
+                  <span className="mr-2 align-middle rounded-md bg-primary-2 px-2 py-0.5 text-[10px] font-bold text-primary">
+                    نمونهٔ نمایشی
+                  </span>{' '}
                 </h3>
                 <p className="flex items-center gap-1 text-sm font-bold text-foreground/80">
                   <Star
@@ -139,8 +147,8 @@ export default function HomePreview() {
             </div>
           </div>
           <figcaption className="mt-4 text-center text-xs leading-6 text-muted-foreground">
-            صفحه اختصاصی آرایشگاه در منشیم؛ از انتخاب خدمات تا پرداخت آنلاین و
-            یادآوری پیامکی
+            نمونهٔ نمایشی صفحهٔ اختصاصی آرایشگاه در منشیم؛ از انتخاب خدمات تا
+            پرداخت آنلاین و یادآوری پیامکی{' '}
           </figcaption>
         </figure>
 

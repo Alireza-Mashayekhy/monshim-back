@@ -51,7 +51,7 @@ export default function PlanFeaturesTable() {
   return (
     <section
       aria-labelledby="pricing-comparison-heading"
-      className="custom-container py-16 lg:py-24"
+      className="custom-container py-8 lg:py-14"
     >
       <SectionHeading
         id="pricing-comparison-heading"

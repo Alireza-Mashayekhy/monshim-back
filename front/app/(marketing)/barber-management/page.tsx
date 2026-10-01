@@ -106,7 +106,8 @@ const MANAGEMENT_FAQS = [
       'منشیم ثبت رزرو آنلاین آرایشگاه، جلوگیری از تداخل نوبت‌ها، یادآوری خودکار نوبت به مشتری، ثبت پرونده مشتریان و محاسبه گزارش مالی آرایشگاه را به صورت خودکار انجام می‌دهد تا وقت شما صرف کار اصلی شود.',
   },
   {
-    question: 'آیا منشیم برای مدیریت آرایشگاه مردانه و سالن زیبایی هر دو مناسب است؟',
+    question:
+      'آیا منشیم برای مدیریت آرایشگاه مردانه و سالن زیبایی هر دو مناسب است؟',
     answer:
       'بله؛ منشیم برای آرایشگاه مردانه، سالن زیبایی بانوان و سالن‌های مختلط طراحی شده است. خدمات، ساعات کاری و تعداد آرایشگران به دلخواه شما تنظیم می‌شود و برای هر نوع کسب‌وکار آرایشی قابل استفاده است.',
   },
@@ -146,7 +147,7 @@ export default function BarberManagementPage() {
         imageSrc="/landing/hero-management.png"
         imageAlt="نرم افزار مدیریت آرایشگاه و سالن زیبایی منشیم با داشبورد گزارش و مدیریت نوبت‌ها"
         primaryCta={{
-          href: '/register',
+          href: '/barbaer-signup',
           label: 'شروع رایگان مدیریت آرایشگاه',
           title: 'ثبت‌نام رایگان نرم افزار مدیریت آرایشگاه منشیم',
         }}
@@ -163,7 +164,10 @@ export default function BarberManagementPage() {
       />
 
       {/* ردیف‌های ویژگی اصلی — هر ردیف یک کلیدواژه کانونی */}
-      <section aria-label="امکانات نرم افزار مدیریت آرایشگاه منشیم" className="custom-container">
+      <section
+        aria-label="امکانات نرم افزار مدیریت آرایشگاه منشیم"
+        className="custom-container"
+      >
         <FeatureRow
           id="calendar"
           eyebrow="تقویم و نوبت‌ها"
@@ -213,7 +217,7 @@ export default function BarberManagementPage() {
 
       {/* مقایسه قبل و بعد */}
       <section aria-labelledby="before-after-heading" className="bg-primary-3">
-        <div className="custom-container py-16 lg:py-24">
+        <div className="custom-container py-8 lg:py-14">
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <p className="mb-3 inline-flex items-center rounded-full bg-white px-4 py-1 text-xs font-bold text-primary shadow-sm">
               چرا منشیم؟

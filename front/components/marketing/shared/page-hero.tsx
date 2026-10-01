@@ -1,6 +1,7 @@
 import { BadgeCheck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
 
@@ -10,8 +11,10 @@ interface PageHeroProps {
   /** عنوان اصلی صفحه (H1) — می‌تواند شامل JSX برای رنگی کردن کلیدواژه باشد */
   heading: React.ReactNode;
   description: string;
-  imageSrc: string;
-  imageAlt: string;
+  imageSrc?: string;
+  imageAlt?: string;
+  /** المان بصری سفارشی — ترجیحاً اسکرین‌شات واقعی رابط کاربری منشیم */
+  visual?: ReactNode;
   primaryCta: { href: string; label: string; title: string };
   secondaryCta: { href: string; label: string; title: string };
   highlights: readonly string[];
@@ -23,7 +26,8 @@ export default function PageHero({
   heading,
   description,
   imageSrc,
-  imageAlt,
+  imageAlt = '',
+  visual,
   primaryCta,
   secondaryCta,
   highlights,
@@ -39,7 +43,7 @@ export default function PageHero({
         className="pointer-events-none absolute -bottom-40 -right-32 size-96 rounded-full bg-primary-2/70 blur-3xl"
       />
 
-      <div className="custom-container relative grid items-center gap-10 py-12 lg:grid-cols-2 lg:gap-8 lg:py-16">
+      <div className="custom-container relative grid items-center gap-10 py-8 lg:grid-cols-2 lg:gap-8 lg:py-14">
         <div className="text-center lg:text-start">
           <p className="mb-5 inline-flex items-center rounded-full border border-primary-200/60 bg-white px-4 py-1.5 text-xs font-bold text-primary shadow-sm">
             {eyebrow}
@@ -85,15 +89,18 @@ export default function PageHero({
         </div>
 
         <div className="relative">
-          <Image
-            src={imageSrc}
-            alt={imageAlt}
-            width={1400}
-            height={768}
-            priority
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="h-auto w-full rounded-3xl"
-          />
+          {visual ??
+            (imageSrc ? (
+              <Image
+                src={imageSrc}
+                alt={imageAlt}
+                width={1400}
+                height={768}
+                priority
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="h-auto w-full rounded-3xl"
+              />
+            ) : null)}
         </div>
       </div>
     </section>

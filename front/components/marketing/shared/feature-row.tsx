@@ -1,13 +1,15 @@
 import { Check } from 'lucide-react';
 import Image from 'next/image';
+import { ReactNode } from 'react';
 
 interface FeatureRowProps {
   eyebrow: string;
   title: string;
   description: string;
   bullets: readonly string[];
-  imageSrc: string;
-  imageAlt: string;
+  imageSrc?: string;
+  imageAlt?: string;
+  visual?: ReactNode;
   /** تصویر در سمت مقابل متن قرار گیرد */
   reverse?: boolean;
   id?: string;
@@ -23,14 +25,15 @@ export default function FeatureRow({
   description,
   bullets,
   imageSrc,
-  imageAlt,
+  imageAlt = '',
+  visual,
   reverse = false,
   id,
 }: FeatureRowProps) {
   return (
     <article
       id={id}
-      className="grid items-center gap-8 py-10 lg:grid-cols-2 lg:gap-12 lg:py-14"
+      className="grid items-center gap-8 py-8 lg:grid-cols-2 lg:gap-12 lg:py-14"
     >
       <div
         className={`text-center lg:text-start ${reverse ? 'lg:order-2' : ''}`}
@@ -61,14 +64,17 @@ export default function FeatureRow({
       </div>
 
       <div className={reverse ? 'lg:order-1' : ''}>
-        <Image
-          src={imageSrc}
-          alt={imageAlt}
-          width={1200}
-          height={800}
-          sizes="(max-width: 1024px) 100vw, 50vw"
-          className="h-auto w-full rounded-3xl border border-primary-100/50 shadow-sm"
-        />
+        {visual ??
+          (imageSrc ? (
+            <Image
+              src={imageSrc}
+              alt={imageAlt}
+              width={1200}
+              height={800}
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="h-auto w-full rounded-3xl border border-primary-100/50 shadow-sm"
+            />
+          ) : null)}
       </div>
     </article>
   );

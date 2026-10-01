@@ -16,6 +16,7 @@ export interface PricingPlan {
   recommended?: boolean;
   /** برچسب حجم کار — هماهنگ با برچسب‌های پنل کاربری */
   bookingsLabel: string;
+  maxBookingsPerMonth: number;
 }
 
 export const PRICING_PLANS: PricingPlan[] = [
@@ -26,6 +27,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     monthlyPrice: 59000,
     smsCount: 100,
     bookingsLabel: 'مناسب حدود ۲۵ رزرو در ماه',
+    maxBookingsPerMonth: 25,
   },
   {
     key: 'basic',
@@ -34,6 +36,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     monthlyPrice: 169000,
     smsCount: 300,
     bookingsLabel: 'مناسب حدود ۷۵ رزرو در ماه',
+    maxBookingsPerMonth: 75,
   },
   {
     key: 'growth',
@@ -42,6 +45,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     monthlyPrice: 379000,
     smsCount: 700,
     bookingsLabel: 'مناسب حدود ۱۷۵ رزرو در ماه',
+    maxBookingsPerMonth: 175,
   },
   {
     key: 'pro',
@@ -51,6 +55,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     smsCount: 1500,
     recommended: true,
     bookingsLabel: 'مناسب حدود ۳۷۵ رزرو در ماه',
+    maxBookingsPerMonth: 375,
   },
   {
     key: 'premium',
@@ -59,6 +64,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     monthlyPrice: 1549000,
     smsCount: 3000,
     bookingsLabel: 'مناسب حدود ۷۵۰ رزرو در ماه',
+    maxBookingsPerMonth: 750,
   },
 ];
 

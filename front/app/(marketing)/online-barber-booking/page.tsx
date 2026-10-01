@@ -135,7 +135,7 @@ export default function OnlineBarberBookingPage() {
           aria-hidden="true"
           className="pointer-events-none absolute -left-32 -top-32 size-96 rounded-full bg-primary-2 blur-3xl"
         />
-        <div className="custom-container relative grid items-center gap-10 py-12 lg:grid-cols-2 lg:gap-8 lg:py-16">
+        <div className="custom-container relative grid items-center gap-10 py-8 lg:grid-cols-2 lg:gap-8 lg:py-14">
           <div className="text-center lg:text-start">
             <p className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary-200/60 bg-white px-4 py-1.5 text-xs font-bold text-primary shadow-sm">
               <MapPin className="size-3.5" aria-hidden="true" />
@@ -160,10 +160,10 @@ export default function OnlineBarberBookingPage() {
                 title="جست‌وجو و رزرو آنلاین آرایشگاه در منشیم"
                 className="inline-flex h-10.5 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary/80"
               >
-                رزرو آرایشگاه نزدیک من
+                پیدا کردن آرایشگاه
               </a>
               <a
-                href="/register"
+                href="/barbaer-signup"
                 title="ثبت رایگان آرایشگاه در سامانه نوبت دهی منشیم"
                 className="inline-flex h-10.5 items-center justify-center rounded-lg border border-primary-300 bg-white px-5 text-sm font-medium text-foreground transition-colors hover:bg-primary-2"
               >
@@ -188,7 +188,7 @@ export default function OnlineBarberBookingPage() {
 
       {/* مراحل رزرو برای مشتری */}
       <section aria-labelledby="booking-steps-heading" className="bg-primary-3">
-        <div className="custom-container py-16 lg:py-24">
+        <div className="custom-container py-8 lg:py-14">
           <SectionHeading
             id="booking-steps-heading"
             eyebrow="رزرو در ۳ قدم"
@@ -202,15 +202,12 @@ export default function OnlineBarberBookingPage() {
                 key={step.title}
                 className="relative rounded-3xl border border-primary-100/60 bg-white p-6 shadow-sm"
               >
-                <span
+                <step.icon
+                  className="mb-4 size-8 text-primary"
                   aria-hidden="true"
-                  className="absolute -top-4 right-6 flex size-9 items-center justify-center rounded-full bg-primary text-sm font-black text-white shadow-md"
-                >
-                  {index + 1}
-                </span>
-                <step.icon className="mb-4 size-8 text-primary" aria-hidden="true" />
+                />
                 <h3 className="mb-2 text-base font-extrabold text-foreground">
-                  {step.title}
+                  {index + 1}. {step.title}
                 </h3>
                 <p className="text-sm leading-7 text-muted-foreground">
                   {step.description}
@@ -222,7 +219,10 @@ export default function OnlineBarberBookingPage() {
       </section>
 
       {/* ردیف‌های ویژگی */}
-      <section aria-label="امکانات رزرو آنلاین آرایشگاه منشیم" className="custom-container">
+      <section
+        aria-label="امکانات رزرو آنلاین آرایشگاه منشیم"
+        className="custom-container"
+      >
         <FeatureRow
           eyebrow="آرایشگاه‌ها"
           title="صفحه اختصاصی هر آرایشگاه؛ رزرو با دید باز"
@@ -259,8 +259,11 @@ export default function OnlineBarberBookingPage() {
       />
 
       <CtaSection
+        primaryHref="/explore"
+        primaryLabel="پیدا کردن آرایشگاه"
+        primaryTitle="جست‌وجوی آرایشگاه بدون ورود"
         title="همین حالا اولین نوبتتان را آنلاین رزرو کنید"
-        description="هزاران آرایشگاه و سالن زیبایی در منشیم منتظر شما هستند؛ رزرو آرایشگاه رایگان است و کمتر از یک دقیقه طول می‌کشد."
+        description="آرایشگاه و خدمات را بدون ورود ببینید؛ هنگام قطعی کردن نوبت وارد حساب شوید."
         secondaryLabel="آرایشگاه دارید؟ تعرفه‌ها را ببینید"
         secondaryTitle="تعرفه پلن‌های نرم افزار مدیریت آرایشگاه منشیم"
       />

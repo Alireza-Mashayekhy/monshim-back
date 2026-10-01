@@ -1,6 +1,5 @@
 import { RefreshCcw, ShieldCheck, Wallet } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
 import CtaSection from '@/components/marketing/cta-section';
 import JsonLd from '@/components/marketing/json-ld';
@@ -10,6 +9,7 @@ import PricingFaq, {
   PRICING_FAQS,
 } from '@/components/marketing/pricing/pricing-faq';
 import PricingPlans from '@/components/marketing/pricing/pricing-plans';
+import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
 import { buildPageMetadata, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 
@@ -94,27 +94,16 @@ export default function PricingPage() {
     <>
       <JsonLd data={pricingJsonLd} />
 
-      {/* بردکرامب (مسیر صفحه) */}
-      <nav
-        aria-label="مسیر صفحه"
-        className="custom-container pt-6 text-xs text-muted-foreground"
-      >
-        <ol className="flex flex-wrap items-center gap-2">
-          <li>
-            <Link href="/" className="hover:text-primary">
-              منشیم
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li aria-current="page" className="font-bold text-foreground">
-            تعرفه‌ها
-          </li>
-        </ol>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { href: '/', label: 'منشیم' },
+          { href: '/pricing', label: 'تعرفه‌ها' },
+        ]}
+      />
 
       <section
         aria-labelledby="pricing-hero-heading"
-        className="custom-container py-10 lg:py-14"
+        className="custom-container py-8 lg:py-14"
       >
         <div className="mx-auto max-w-3xl text-center">
           <h1

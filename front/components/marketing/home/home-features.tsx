@@ -70,7 +70,7 @@ const FEATURES: Feature[] = [
 export default function HomeFeatures() {
   return (
     <section aria-labelledby="home-features-heading" className="bg-primary-3">
-      <div className="custom-container py-16 lg:py-24">
+      <div className="custom-container py-8 lg:py-14">
         <SectionHeading
           id="home-features-heading"
           eyebrow="امکانات منشیم"
@@ -78,7 +78,7 @@ export default function HomeFeatures() {
           description="منشیم فقط یک سایت رزرو آرایشگاه نیست؛ یک نرم افزار مدیریت آرایشگاه کامل است که نوبت دهی، مشتریان، پرداخت‌ها و یادآوری‌ها را ساده می‌کند."
         />
 
-        <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="mt-12 grid gap-4 grid-cols-2 lg:grid-cols-4">
           {FEATURES.map(feature => (
             <li
               key={feature.title}

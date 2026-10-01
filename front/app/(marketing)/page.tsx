@@ -5,9 +5,7 @@ import HomeFaq, { HOME_FAQS } from '@/components/marketing/home/home-faq';
 import HomeFeatures from '@/components/marketing/home/home-features';
 import HomeHero from '@/components/marketing/home/home-hero';
 import HomeHowItWorks from '@/components/marketing/home/home-how-it-works';
-import HomePersonas from '@/components/marketing/home/home-personas';
 import HomePreview from '@/components/marketing/home/home-preview';
-import HomeProblems from '@/components/marketing/home/home-problems';
 import JsonLd from '@/components/marketing/json-ld';
 import { buildPageMetadata, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
@@ -82,15 +80,15 @@ export default function HomePage() {
     <>
       <JsonLd data={homeJsonLd} />
       <HomeHero />
-      <HomePersonas />
-      <HomeProblems />
-      <HomeFeatures />
+      <div id="features" className="scroll-mt-32">
+        <HomeFeatures />
+      </div>{' '}
       <HomeHowItWorks />
       <HomePreview />
       <HomeFaq />
       <CtaSection
-        title="همین حالا با منشیم شروع کنید"
-        description="نوبت دهی و مدیریت آرایشگاه خود را به منشیم بسپارید؛ ثبت‌نام رایگان است، کمتر از ۱۰ دقیقه طول می‌کشد و از همان روز اول اولین نوبت‌های آنلاین را دریافت می‌کنید."
+        title="سالن خودتان را آنلاین کنید"
+        description="خدمات و ساعات کاری را مشخص کنید و لینک رزرو سالن را با مشتریانتان به اشتراک بگذارید."
       />
     </>
   );
