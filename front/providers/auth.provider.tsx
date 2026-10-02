@@ -7,7 +7,9 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
+  buildAuthHref,
   canAccessPath,
+  getAuthDestination,
   isPublicAuthPath,
   SESSION_EXPIRED_EVENT,
 } from '@/lib/auth';
@@ -42,19 +44,31 @@ export default function AuthProvider({
         : denied
           ? '/home'
           : user && isAuthPage
-            ? '/home'
-            : user && isBarber(user) && pathname === '/barbaer-signup'
+            ? pathname === '/barbaer-signup' && isBarber(user)
               ? '/dashboard/profile'
-              : null
+              : '/home'
+            : null
       : null;
 
   useEffect(() => {
     setUser(user);
   }, [user, setUser]);
   useEffect(() => {
-    console.log(destination);
-    if (destination) router.replace(destination);
-  }, [destination, router]);
+    if (!destination) return;
+
+    let redirectTo = destination;
+    if (!user && !isPublic) {
+      const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      redirectTo = buildAuthHref('/login', currentUrl);
+    } else if (user && isAuthPage) {
+      const callbackUrl = new URLSearchParams(window.location.search).get(
+        'callbackUrl',
+      );
+      redirectTo = getAuthDestination(callbackUrl, destination);
+    }
+
+    router.replace(redirectTo);
+  }, [destination, isAuthPage, isPublic, pathname, router, user]);
 
   useEffect(() => {
     const expire = () => {

@@ -22,6 +22,11 @@ import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
 import { Button } from '@/components/ui/button';
 import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  buildAuthHref,
+  type CallbackUrlValue,
+  getAuthDestination,
+} from '@/lib/auth';
 import { normalizePhone, phoneSchema } from '@/lib/phone';
 import { useLoginWithPassword } from '@/services/features/auth/hooks';
 
@@ -32,7 +37,11 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-export default function LoginPasswordForm() {
+export default function LoginPasswordForm({
+  callbackUrl,
+}: {
+  callbackUrl?: CallbackUrlValue;
+}) {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const loginMutation = useLoginWithPassword();
@@ -53,7 +62,7 @@ export default function LoginPasswordForm() {
       });
 
       toast.success('ورود با موفقیت انجام شد. خوش آمدید!');
-      router.replace('/home');
+      router.replace(getAuthDestination(callbackUrl));
       router.refresh();
     } catch (error) {
       toast.error(
@@ -128,7 +137,11 @@ export default function LoginPasswordForm() {
 
       {/* Quick alternative buttons */}
       <div className="space-y-3">
-        <Link href="/login-otp" className="block w-full">
+        <Link
+          href={buildAuthHref('/login-otp', callbackUrl)}
+          className="block w-full"
+        >
+          {' '}
           <Button
             type="button"
             variant="outline"
@@ -142,7 +155,7 @@ export default function LoginPasswordForm() {
         <div className="pt-2 text-center text-xs flex items-center justify-center gap-1 text-gray-500">
           حساب کاربری ندارید؟{' '}
           <Link
-            href="/register"
+            href={buildAuthHref('/register', callbackUrl)}
             className="text-primary font-bold hover:underline inline-flex items-center gap-1"
           >
             <UserPlus className="w-3.5 h-3.5" />

@@ -35,6 +35,11 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  buildAuthHref,
+  type CallbackUrlValue,
+  getAuthDestination,
+} from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
 import { normalizePhone, onlyDigits, phoneSchema } from '@/lib/phone';
 import { cn } from '@/lib/utils';
@@ -75,7 +80,11 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const COUNTDOWN_SECONDS = 120;
 
-function RegisterFormContent() {
+function RegisterFormContent({
+  callbackUrl,
+}: {
+  callbackUrl?: CallbackUrlValue;
+}) {
   const searchParams = useSearchParams();
   const initialPhone = searchParams.get('phone') || '';
   const initialProvinceId = searchParams.get('provinceId') || '';
@@ -234,7 +243,7 @@ function RegisterFormContent() {
       });
 
       toast.success('ثبت‌نام شما با موفقیت انجام شد! خوش آمدید.');
-      router.replace('/home');
+      router.replace(getAuthDestination(callbackUrl));
       router.refresh();
     } catch (error) {
       toast.error(
@@ -448,14 +457,14 @@ function RegisterFormContent() {
           <div className="pt-2 text-center text-xs text-gray-500">
             قبلاً حساب کاربری دارید؟{' '}
             <Link
-              href="/login"
+              href={buildAuthHref('/login', callbackUrl)}
               className="text-primary font-bold hover:underline"
             >
               ورود با رمز عبور
             </Link>{' '}
             یا{' '}
             <Link
-              href="/login-otp"
+              href={buildAuthHref('/login-otp', callbackUrl)}
               className="text-primary font-bold hover:underline"
             >
               ورود سریع با پیامک
@@ -577,7 +586,7 @@ function RegisterFormContent() {
           <div className="pt-2 text-center text-xs text-gray-500">
             قبلاً ثبت‌نام کرده‌اید؟{' '}
             <Link
-              href="/login"
+              href={buildAuthHref('/login', callbackUrl)}
               className="text-primary font-bold hover:underline"
             >
               ورود با رمز عبور
@@ -589,7 +598,11 @@ function RegisterFormContent() {
   );
 }
 
-export default function RegisterForm() {
+export default function RegisterForm({
+  callbackUrl,
+}: {
+  callbackUrl?: CallbackUrlValue;
+}) {
   return (
     <Suspense
       fallback={
@@ -598,7 +611,7 @@ export default function RegisterForm() {
         </div>
       }
     >
-      <RegisterFormContent />
+      <RegisterFormContent callbackUrl={callbackUrl} />
     </Suspense>
   );
 }

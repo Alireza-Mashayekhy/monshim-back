@@ -15,6 +15,7 @@ import BarbaerStep2 from '@/components/pages/auth/barbaer/step-2';
 import BarbaerStep3 from '@/components/pages/auth/barbaer/step-3';
 import BarbaerStep4 from '@/components/pages/auth/barbaer/step-4';
 import BarbaerStep5 from '@/components/pages/auth/barbaer/step-5';
+import { buildAuthHref, CallbackUrlValue } from '@/lib/auth';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
 const STEP_META = [
@@ -48,7 +49,11 @@ const STEP_META = [
   },
 ] as const;
 
-export default function BarberSignupFlow() {
+export default function BarberSignupFlow({
+  callbackUrl,
+}: {
+  callbackUrl?: CallbackUrlValue;
+}) {
   const router = useRouter();
   const { step, updateData, nextStep, prevStep } = useBarberSignupStore();
 
@@ -61,7 +66,7 @@ export default function BarberSignupFlow() {
 
   const handleBack = () => {
     if (step === 1) {
-      router.push('/login');
+      router.push(buildAuthHref('/login', callbackUrl));
     } else {
       prevStep();
     }
@@ -74,12 +79,13 @@ export default function BarberSignupFlow() {
       subtitle={meta.subtitle}
       icon={meta.icon}
       onBack={handleBack}
+      callbackUrl={callbackUrl}
     >
       {step === 1 && <BarbaerStep1 onSubmit={handleStepSubmit} />}
       {step === 2 && <BarbaerStep2 onSubmit={handleStepSubmit} />}
       {step === 3 && <BarbaerStep3 onSubmit={handleStepSubmit} />}
       {step === 4 && <BarbaerStep4 onSubmit={handleStepSubmit} />}
-      {step === 5 && <BarbaerStep5 />}
+      {step === 5 && <BarbaerStep5 callbackUrl={callbackUrl} />}
     </BarberSignupLayout>
   );
 }

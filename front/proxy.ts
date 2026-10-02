@@ -1,7 +1,7 @@
 import { jwtVerify } from 'jose';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { canAccessPath, isPublicAuthPath } from './lib/auth';
+import { buildAuthHref, canAccessPath, isPublicAuthPath } from './lib/auth';
 import { normalizeRoles } from './lib/roles';
 
 export async function proxy(request: NextRequest) {
@@ -30,8 +30,11 @@ export async function proxy(request: NextRequest) {
   // Public pages stay reachable with stale/invalid cookies. Only /auth/me on the
   // client decides whether to redirect; a refresh cookie is NOT authentication.
   if (isPublicAuthPath(pathname)) return next();
-  if (!token && !refreshToken)
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (!token && !refreshToken) {
+    const callbackUrl = `${pathname}${request.nextUrl.search}`;
+    const loginUrl = new URL(buildAuthHref('/login', callbackUrl), request.url);
+    return NextResponse.redirect(loginUrl);
+  }
   if (user && !canAccessPath(pathname, user)) {
     return NextResponse.redirect(new URL('/home', request.url));
   }

@@ -26,6 +26,11 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  buildAuthHref,
+  type CallbackUrlValue,
+  getAuthDestination,
+} from '@/lib/auth';
 import { normalizePhone, onlyDigits, phoneSchema } from '@/lib/phone';
 import { useLogin, useSendOtp } from '@/services/features/auth/hooks';
 
@@ -37,7 +42,11 @@ type PhoneFormValues = z.infer<typeof phoneFormSchema>;
 
 const COUNTDOWN_SECONDS = 120;
 
-export default function LoginOtpForm() {
+export default function LoginOtpForm({
+  callbackUrl,
+}: {
+  callbackUrl?: CallbackUrlValue;
+}) {
   const [step, setStep] = useState<1 | 2>(1);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -127,12 +136,12 @@ export default function LoginOtpForm() {
         toast.info(
           'شما هنوز ثبت‌نام نکرده‌اید. در حال انتقال به صفحه ثبت‌نام...',
         );
-        router.push(`/register?phone=${phone}`);
+        router.push(buildAuthHref('/register', callbackUrl, { phone }));
         return;
       }
 
       toast.success('ورود با موفقیت انجام شد. خوش آمدید!');
-      router.replace('/home');
+      router.replace(getAuthDestination(callbackUrl));
       router.refresh();
     } catch (error) {
       toast.error(
@@ -196,7 +205,11 @@ export default function LoginOtpForm() {
           </div>
 
           <div className="space-y-3">
-            <Link href="/login" className="block w-full">
+            <Link
+              href={buildAuthHref('/login', callbackUrl)}
+              className="block w-full"
+            >
+              {' '}
               <Button
                 type="button"
                 variant="outline"
@@ -210,7 +223,7 @@ export default function LoginOtpForm() {
             <div className="pt-2 text-center text-xs text-gray-500">
               حساب کاربری ندارید؟{' '}
               <Link
-                href="/register"
+                href={buildAuthHref('/register', callbackUrl)}
                 className="text-primary font-bold hover:underline inline-flex items-center gap-1"
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -333,7 +346,9 @@ export default function LoginOtpForm() {
           <div className="pt-2 text-center text-xs text-gray-500">
             حساب کاربری ندارید؟{' '}
             <Link
-              href={`/register${phone ? `?phone=${phone}` : ''}`}
+              href={buildAuthHref('/register', callbackUrl, {
+                phone: phone || undefined,
+              })}
               className="text-primary font-bold hover:underline inline-flex items-center gap-1"
             >
               <UserPlus className="w-3.5 h-3.5" />

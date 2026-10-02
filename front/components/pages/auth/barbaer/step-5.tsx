@@ -22,6 +22,7 @@ import {
 import { getActivityTypeLabel } from '@/constants/activity-types';
 import { useVisualViewport } from '@/hooks/use-visual-viewport';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/api-error';
+import { type CallbackUrlValue, getAuthDestination } from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
 import { getImageUploadError } from '@/lib/image-upload';
 import { toFa } from '@/lib/jalali';
@@ -48,7 +49,11 @@ const base64ToBlob = (base64: string): Blob => {
   return blob;
 };
 
-export default function BarbaerStep5() {
+export default function BarbaerStep5({
+  callbackUrl,
+}: {
+  callbackUrl?: CallbackUrlValue;
+}) {
   const router = useRouter();
   const store = useBarberSignupStore();
   const [otpCode, setOtpCode] = useState('');
@@ -231,7 +236,7 @@ export default function BarbaerStep5() {
       setIsOtpModalOpen(false);
       setOtpCode('');
       store.reset();
-      router.replace('/dashboard/profile');
+      router.replace(getAuthDestination(callbackUrl, '/dashboard/profile'));
       router.refresh();
     } catch (error) {
       toast.error(

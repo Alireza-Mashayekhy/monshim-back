@@ -5,6 +5,7 @@ import Link from 'next/link';
 import React from 'react';
 
 import { BackButton } from '@/components/shared/back-button';
+import { buildAuthHref, CallbackUrlValue } from '@/lib/auth';
 import { toFa } from '@/lib/jalali';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,7 @@ interface BarberSignupLayoutProps {
   icon?: React.ReactNode;
   /** برای مرحله ۱: برگشت به ورود / بقیه مراحل: مرحله قبل */
   onBack: () => void;
+  callbackUrl?: CallbackUrlValue;
   children: React.ReactNode;
 }
 
@@ -26,6 +28,7 @@ export default function BarberSignupLayout({
   subtitle,
   icon,
   onBack,
+  callbackUrl,
   children,
 }: BarberSignupLayoutProps) {
   return (
@@ -41,7 +44,7 @@ export default function BarberSignupLayout({
       <div className="w-full max-w-lg mx-auto px-4 pt-5 pb-2 flex items-center justify-between">
         <BackButton func={onBack} />
         <Link
-          href="/login"
+          href={buildAuthHref('/login', callbackUrl)}
           className="group flex items-center gap-2.5 focus:outline-none"
         >
           <div className="relative">

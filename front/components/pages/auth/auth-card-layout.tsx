@@ -4,11 +4,14 @@ import { ChevronLeft, Scissors, ShieldCheck, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import React from 'react';
 
+import { buildAuthHref, type CallbackUrlValue } from '@/lib/auth';
+
 interface AuthCardLayoutProps {
   children: React.ReactNode;
   title?: string;
   subtitle?: string;
   badgeText?: string;
+  callbackUrl?: CallbackUrlValue;
 }
 
 export default function AuthCardLayout({
@@ -16,6 +19,7 @@ export default function AuthCardLayout({
   title,
   subtitle,
   badgeText,
+  callbackUrl,
 }: AuthCardLayoutProps) {
   return (
     <div className="min-h-screen bg-slate-50/70 text-gray-800 flex flex-col justify-between relative overflow-x-hidden selection:bg-teal-500 selection:text-white">
@@ -31,7 +35,7 @@ export default function AuthCardLayout({
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <Link
-            href="/login"
+            href={buildAuthHref('/login', callbackUrl)}
             className="group flex flex-col items-center focus:outline-none"
           >
             <div className="relative mb-3">
@@ -72,7 +76,11 @@ export default function AuthCardLayout({
 
         {/* Barber registration card */}
         <div className="w-full mt-6">
-          <Link href="/barbaer-signup" className="block group">
+          <Link
+            href={buildAuthHref('/barbaer-signup', callbackUrl)}
+            className="block group"
+          >
+            {' '}
             <div className="bg-gradient-to-r from-amber-50 to-orange-50/80 hover:from-amber-100/70 hover:to-orange-100/70 border border-amber-200/70 rounded-2xl p-4 transition-all duration-200 flex items-center justify-between shadow-xs">
               <div className="flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200/50">
