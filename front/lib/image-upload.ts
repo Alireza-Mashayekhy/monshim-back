@@ -1,4 +1,5 @@
 export const MAX_IMAGE_SIZE = 1024 * 1024 * 3;
+export const MAX_PORTFOLIO_IMAGES = 5;
 export const IMAGE_SIZE_ERROR = 'حداکثر حجم هر عکس 3 مگابایت است.';
 export const IMAGE_FORMAT_ERROR =
   'فقط فرمت‌های jpeg، jpg، png، gif و webp مجاز هستند.';

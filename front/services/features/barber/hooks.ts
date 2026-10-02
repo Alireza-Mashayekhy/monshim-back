@@ -17,11 +17,17 @@ import {
   getMyReferralCode,
   getMyReferrals,
   getWorkHours,
+  updateBarberPortfolio,
   updateBarberProfile,
   updateWorkHours,
   uploadProfileImage,
 } from './api';
-import { CreateBarberReviewDto, UpdateBarberProfile, WorkHours } from './types';
+import {
+  CreateBarberReviewDto,
+  UpdateBarberPortfolio,
+  UpdateBarberProfile,
+  WorkHours,
+} from './types';
 
 export const useBarberList = (params?: {
   cityId?: number;
@@ -128,6 +134,22 @@ export const useUploadProfileImage = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'خطا در آپلود عکس');
+    },
+  });
+};
+
+export const useUpdateBarberPortfolio = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateBarberPortfolio) => updateBarberPortfolio(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
+      toast.success('نمونه‌کارها با موفقیت به‌روزرسانی شدند.');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'خطا در به‌روزرسانی نمونه‌کارها',
+      );
     },
   });
 };

@@ -35,6 +35,7 @@ export const endpoints = {
     myPofile: '/barber/profile/me',
     updateProfile: '/barber/profile/me',
     updateProfileImage: '/barber/profile/image',
+    portfolio: '/barber/profile/portfolio',
     workHours: '/barber/profile/work-hours',
     updateWorkHours: '/barber/profile/work-hours',
     referralCode: '/barber/profile/referral-code',

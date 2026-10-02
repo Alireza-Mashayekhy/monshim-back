@@ -6,7 +6,11 @@ import { toast } from 'sonner';
 
 import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
-import { getImageUploadError, IMAGE_ACCEPT } from '@/lib/image-upload';
+import {
+  getImageUploadError,
+  IMAGE_ACCEPT,
+  MAX_PORTFOLIO_IMAGES,
+} from '@/lib/image-upload';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
 interface Step3Props {
@@ -25,7 +29,7 @@ export default function BarbaerStep3({ onSubmit }: Step3Props) {
   };
 
   const handlePortfolioClick = () => {
-    if (portfolio.length >= 5) {
+    if (portfolio.length >= MAX_PORTFOLIO_IMAGES) {
       toast.warning('در ثبت نام اولیه حداکثر ۵ عکس مجاز است.');
       return;
     }
@@ -53,7 +57,7 @@ export default function BarbaerStep3({ onSubmit }: Step3Props) {
     const files = e.target.files;
     if (!files) return;
 
-    if (portfolio.length + files.length > 5) {
+    if (portfolio.length + files.length > MAX_PORTFOLIO_IMAGES) {
       toast.error('مجموع عکس‌ها نباید بیشتر از ۵ باشد.');
       e.target.value = '';
       return;

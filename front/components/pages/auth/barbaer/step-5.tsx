@@ -24,7 +24,7 @@ import { useVisualViewport } from '@/hooks/use-visual-viewport';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/api-error';
 import { type CallbackUrlValue, getAuthDestination } from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
-import { getImageUploadError } from '@/lib/image-upload';
+import { getImageUploadError, MAX_PORTFOLIO_IMAGES } from '@/lib/image-upload';
 import { toFa } from '@/lib/jalali';
 import { isValidPhone, normalizePhone, onlyDigits } from '@/lib/phone';
 import { formatPrice } from '@/lib/utils';
@@ -136,7 +136,7 @@ export default function BarbaerStep5({
       );
       return false;
     }
-    if (portfolio.length > 5) {
+    if (portfolio.length > MAX_PORTFOLIO_IMAGES) {
       toast.error('حداکثر ۵ نمونه‌کار مجاز است.');
       return false;
     }

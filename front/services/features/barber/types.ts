@@ -76,6 +76,31 @@ export interface UpdateBarberProfile {
   rejectionReason?: string | null;
 }
 
+export interface MyReferral {
+  id: string;
+  referredUserId: number;
+  referredFullName: string | null;
+  referredSalonName: string | null;
+  status: 'PENDING' | 'COMPLETED';
+  completedBookingsCount: number;
+  rewardPaid: boolean;
+  createdAt: string;
+}
+
+export interface MyReferralsInfo {
+  referrals: MyReferral[];
+  stats: {
+    total: number;
+    completed: number;
+    pending: number;
+  };
+}
+
+export interface UpdateBarberPortfolio {
+  files: File[];
+  existingImages: string[];
+}
+
 export interface User {
   id: number;
   fullName: string;

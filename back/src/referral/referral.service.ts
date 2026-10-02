@@ -84,35 +84,38 @@ export class ReferralService {
    * بررسی و به‌روزرسانی تعداد رزروهای تکمیل شده
    * این متد هنگام تکمیل هر رزرو فراخوانی می‌شود
    */
-  async onBookingCompleted(referredUserId: number): Promise<void> {
-    // پیدا کردن رکورد فعال (PENDING) برای این کاربر
-    const referral = await this.referralRepo.findOne({
-      where: {
-        referredUserId,
-        status: ReferralStatus.PENDING,
-      },
-    });
+  async onBookingCompleted(referredProfileId: string): Promise<void> {
+    try {
+      const referral = await this.referralRepo.findOne({
+        where: {
+          referredProfileId,
+          status: ReferralStatus.PENDING,
+        },
+      });
 
-    if (!referral) {
-      return; // رکورد دعوتی وجود ندارد یا قبلاً پاداش دریافت شده
-    }
+      if (!referral) {
+        return; // رکورد دعوتی وجود ندارد یا قبلاً پاداش دریافت شده
+      }
 
-    // شمارش رزروهای تکمیل شده توسط دعوت‌شده
-    const completedCount = await this.bookingRepo.count({
-      where: {
-        customerId: referredUserId,
-        status: BookingStatus.COMPLETED,
-      },
-    });
+      // شمارش رزروهای تکمیل‌شده‌ای که آرایشگر دعوت‌شده انجام داده است.
+      const completedCount = await this.bookingRepo.count({
+        where: {
+          barberId: referredProfileId,
+          status: BookingStatus.COMPLETED,
+        },
+      });
 
-    // به‌روزرسانی تعداد
-    referral.completedBookingsCount = completedCount;
+      referral.completedBookingsCount = completedCount;
 
-    // اگر به تعداد کافی رسید، پاداش بده
-    if (completedCount >= this.REQUIRED_BOOKINGS && !referral.rewardPaid) {
-      await this.awardReward(referral);
-    } else {
-      await this.referralRepo.save(referral);
+      if (completedCount >= this.REQUIRED_BOOKINGS && !referral.rewardPaid) {
+        await this.awardReward(referral);
+      } else {
+        await this.referralRepo.save(referral);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to update referral progress for barber profile ${referredProfileId}: ${String(error)}`,
+      );
     }
   }
 
@@ -137,7 +140,7 @@ export class ReferralService {
       this.logger.log(
         `Referral reward of ${this.REWARD_AMOUNT} Tomans awarded to user ${referral.referrerUserId}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to award referral reward to user ${referral.referrerUserId}: ${error.message}`,
       );
@@ -159,10 +162,36 @@ export class ReferralService {
     const referrals = await this.referralRepo.find({
       where: { referrerProfileId: profile.id },
       relations: {
-        referredProfile: true,
+        referredProfile: { user: true },
       },
       order: { createdAt: 'DESC' },
     });
+
+    const completedBookingsByProfile = new Map<string, number>();
+    if (referrals.length > 0) {
+      const bookingCounts = await this.bookingRepo
+        .createQueryBuilder('booking')
+        .select('booking.barberId', 'barber_profile_id')
+        .addSelect('COUNT(booking.id)', 'completed_bookings_count')
+        .where('booking.barberId IN (:...profileIds)', {
+          profileIds: referrals.map(referral => referral.referredProfileId),
+        })
+        .andWhere('booking.status = :status', {
+          status: BookingStatus.COMPLETED,
+        })
+        .groupBy('booking.barberId')
+        .getRawMany<{
+          barber_profile_id: string;
+          completed_bookings_count: string;
+        }>();
+
+      for (const row of bookingCounts) {
+        completedBookingsByProfile.set(
+          row.barber_profile_id,
+          Number(row.completed_bookings_count),
+        );
+      }
+    }
 
     const stats = {
       total: referrals.length,
@@ -176,8 +205,11 @@ export class ReferralService {
       referrals: referrals.map(r => ({
         id: r.id,
         referredUserId: r.referredUserId,
+        referredFullName: r.referredProfile?.user?.fullName ?? null,
+        referredSalonName: r.referredProfile?.salonName ?? null,
         status: r.status,
-        completedBookingsCount: r.completedBookingsCount,
+        completedBookingsCount:
+          completedBookingsByProfile.get(r.referredProfileId) ?? 0,
         rewardPaid: r.rewardPaid,
         createdAt: r.createdAt,
       })),

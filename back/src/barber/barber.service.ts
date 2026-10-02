@@ -381,6 +381,21 @@ export class BarberService {
     return this.profileRepository.save(profile);
   }
 
+  async updatePortfolioImages(
+    userId: number,
+    portfolioImages: string[],
+  ): Promise<BarberProfile> {
+    const profile = await this.profileRepository.findOne({
+      where: { userId },
+    });
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    profile.portfolioImages = portfolioImages;
+    return this.profileRepository.save(profile);
+  }
+
   remove(id: number) {
     return `This action removes a #${id} barber`;
   }

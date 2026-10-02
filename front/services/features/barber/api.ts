@@ -10,6 +10,8 @@ import {
   BarberReview,
   CreateBarberReviewDto,
   MyBarberReviewInfo,
+  MyReferralsInfo,
+  UpdateBarberPortfolio,
   UpdateBarberProfile,
   WorkHours,
 } from './types';
@@ -71,6 +73,21 @@ export const uploadProfileImage = async (file: File): Promise<string> => {
   return data.imageUrl;
 };
 
+export const updateBarberPortfolio = async (
+  input: UpdateBarberPortfolio,
+): Promise<ApiSingleResponse<BarberProfile>> => {
+  const formData = new FormData();
+  input.files.forEach(file => formData.append('portfolio', file));
+  formData.append('existingImages', JSON.stringify(input.existingImages));
+
+  const { data } = await api.patch<ApiSingleResponse<BarberProfile>>(
+    endpoints.barber.portfolio,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+};
+
 export const getWorkHours = async () => {
   const { data } = await api.get<ApiListResponse<WorkHours>>(
     endpoints.barber.workHours,
@@ -91,8 +108,12 @@ export const getMyReferralCode = async () => {
   return data;
 };
 
-export const getMyReferrals = async () => {
-  const { data } = await api.get(endpoints.referral.myReferrals);
+export const getMyReferrals = async (): Promise<
+  ApiSingleResponse<MyReferralsInfo>
+> => {
+  const { data } = await api.get<ApiSingleResponse<MyReferralsInfo>>(
+    endpoints.referral.myReferrals,
+  );
   return data;
 };
 
