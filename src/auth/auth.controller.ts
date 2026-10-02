@@ -12,7 +12,10 @@ import {
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { memoryStorage } from 'multer';
-import { IMAGE_MAX_SIZE_BYTES } from 'src/common/constants/constants';
+import {
+  IMAGE_MAX_SIZE_BYTES,
+  MAX_BARBER_PORTFOLIO_IMAGES,
+} from 'src/common/constants/constants';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { ParseJsonPipe } from 'src/common/pipes/parse-json.pipe';
 import { extractRefreshToken } from 'src/common/utils/auth-cookie.util';
@@ -103,11 +106,14 @@ export class AuthController {
     FileFieldsInterceptor(
       [
         { name: 'profileImage', maxCount: 1 },
-        { name: 'portfolio', maxCount: 10 },
+        { name: 'portfolio', maxCount: MAX_BARBER_PORTFOLIO_IMAGES },
       ],
       {
         storage: memoryStorage(),
-        limits: { fileSize: IMAGE_MAX_SIZE_BYTES, files: 11 },
+        limits: {
+          fileSize: IMAGE_MAX_SIZE_BYTES,
+          files: MAX_BARBER_PORTFOLIO_IMAGES + 1,
+        },
       },
     ),
   )

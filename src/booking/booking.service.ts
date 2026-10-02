@@ -571,12 +571,13 @@ export class BookingsService {
     }
 
     if (newStatus === BookingStatus.COMPLETED) {
-      // booking.customerId = شناسه کاربری که رزرو کرده (مشتری)
-      await this.referralService.onBookingCompleted(booking.customerId);
+      const savedBooking = await this.bookingRepo.save(booking);
+      await this.referralService.onBookingCompleted(booking.barberId);
       await this.clubService.addFromSuccessfulBooking({
         barberId: booking.barberId,
         customerId: booking.customerId,
       });
+      return savedBooking;
     }
 
     return this.bookingRepo.save(booking);
