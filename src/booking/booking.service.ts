@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
@@ -29,6 +28,7 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { Booking, BookingStatus } from './entities/booking.entity';
 
 const CONFIRMATION_SMS_COST = 2;
+const REMINDER_SMS_COST = 2;
 
 @Injectable()
 export class BookingsService {
@@ -55,7 +55,6 @@ export class BookingsService {
     private clubService: ClubService,
     private userSubscriptionService: UserSubscriptionService,
     private bookingSmsService: BookingSmsService,
-    private configService: ConfigService,
   ) {}
 
   // =========================================================
@@ -79,10 +78,12 @@ export class BookingsService {
           { userId: barberIdNum, isApproved: true },
           { id: String(dto.barberId), isApproved: true },
         ],
+        relations: { user: true },
       });
     } else {
       barber = await this.barberProfileRepo.findOne({
         where: { id: String(dto.barberId), isApproved: true },
+        relations: { user: true },
       });
     }
 
@@ -530,22 +531,6 @@ export class BookingsService {
       });
       if (barber && service) {
         this.sendBookingConfirmedSms(booking, barber, service);
-
-        // ارسال اطلاع به آرایشگر
-        const customer = await this.userRepo.findOne({
-          where: { id: booking.customerId },
-        });
-        if (customer) {
-          void this.bookingSmsService.sendNewBookingToBarber(
-            barber.user?.phone ?? '',
-            {
-              customerName: customer.fullName ?? 'مشتری',
-              serviceName: service.name,
-              date: booking.date,
-              time: booking.time,
-            },
-          );
-        }
       }
 
       await this.clubService.addFromSuccessfulBooking({
@@ -618,21 +603,9 @@ export class BookingsService {
       );
     }
 
-    if (dto.sendSmsReminder && !smsEligible && !dto.sendDepositLink) {
-      throw new BadRequestException(
-        'چون امکان ارسال پیامک یادآوری ندارید، ارسال لینک بیعانه برای مشتری الزامی است',
-      );
-    }
-
     const sendDeposit = dto.sendDepositLink ?? false;
 
-    if (!sendDeposit) {
-      await this.userSubscriptionService.deductSms(
-        barberUserId,
-        CONFIRMATION_SMS_COST,
-        'پیامک تأیید نوبت دستی',
-      );
-    }
+    const sendReminder = smsEligible && (dto.sendSmsReminder ?? false);
 
     const service = await this.serviceRepo.findOne({
       where: { id: dto.serviceId },
@@ -640,6 +613,23 @@ export class BookingsService {
 
     if (!service) {
       throw new NotFoundException('سرویس مورد نظر یافت نشد');
+    }
+
+    const smsCost =
+      (sendDeposit ? 0 : CONFIRMATION_SMS_COST) +
+      (sendReminder ? REMINDER_SMS_COST : 0);
+
+    if (smsCost > 0) {
+      const smsReasons = [
+        !sendDeposit ? 'تأیید' : null,
+        sendReminder ? 'یادآوری' : null,
+      ].filter(Boolean);
+
+      await this.userSubscriptionService.deductSms(
+        barberUserId,
+        smsCost,
+        `پیامک ${smsReasons.join(' و ')} نوبت دستی`,
+      );
     }
 
     // ایجاد رزرو مستقیماً با استاتوس CONFIRMED
@@ -655,29 +645,11 @@ export class BookingsService {
       barberNote: dto.barberNote?.trim() || null,
       customerNote: dto.customerNote?.trim() || null,
       sendDepositLink: sendDeposit,
-      sendSmsReminder: smsEligible ? (dto.sendSmsReminder ?? false) : false,
-      reminderHours:
-        smsEligible && dto.sendSmsReminder ? (dto.reminderHours ?? null) : null,
+      sendSmsReminder: sendReminder,
+      reminderHours: sendReminder ? (dto.reminderHours ?? null) : null,
     });
 
     const saved = await this.bookingRepo.save(booking);
-
-    if (service) {
-      const customer = await this.userRepo.findOne({
-        where: { id: member.customerId },
-      });
-      if (customer) {
-        void this.bookingSmsService.sendNewBookingToBarber(
-          barber.user?.phone ?? '',
-          {
-            customerName: customer.fullName ?? 'مشتری',
-            serviceName: service.name,
-            date: saved.date,
-            time: saved.time,
-          },
-        );
-      }
-    }
 
     await this.sendManualBookingSms(saved, barber, service, member.customerId);
 
@@ -687,12 +659,6 @@ export class BookingsService {
     });
 
     return saved;
-  }
-
-  private getAppUrl(): string {
-    return (
-      this.configService.get<string>('APP_URL') || 'http://localhost:4000'
-    ).replace(/\/+$/, '');
   }
 
   private async sendManualBookingSms(
@@ -712,17 +678,16 @@ export class BookingsService {
       const salonName = barber.salonName ?? 'سالن شما';
 
       if (booking.sendDepositLink) {
-        // توکن عمومی برای لینک پرداخت بیعانه
-        booking.depositToken = randomBytes(24).toString('hex');
+        // فقط توکن را می‌فرستیم؛ دامنه و مسیر ثابت در قالب SMS.ir قرار می‌گیرد.
+        const paymentToken = randomBytes(24).toString('hex');
+        booking.depositToken = paymentToken;
 
         await this.bookingRepo.save(booking);
-
-        const paymentLink = `${this.getAppUrl()}/api/payment/deposit/${booking.depositToken}`;
 
         await this.bookingSmsService.sendDepositLinkToCustomer(customer.phone, {
           customerName,
           salonName,
-          paymentLink,
+          paymentToken,
         });
 
         return;
@@ -759,7 +724,9 @@ export class BookingsService {
     }
 
     // حداقل اعتبار برای یک پیامک (هزینه هر پیامک ۲ اعتبار است)
-    return subscription.smsTotal - subscription.smsUsed >= 2;
+    return (
+      subscription.smsTotal - subscription.smsUsed >= CONFIRMATION_SMS_COST
+    );
   }
 
   // =========================================================

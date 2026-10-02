@@ -3,12 +3,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
-import { UserSubscriptionService } from 'src/subscription/user-subscription.service';
 import { IsNull, LessThan, Repository } from 'typeorm';
 
 import { BookingSmsService } from './booking-sms.service';
 
-const REMINDER_SMS_COST = 2;
 const BATCH_LIMIT = 100;
 
 @Injectable()
@@ -18,8 +16,6 @@ export class ReminderService {
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepo: Repository<Booking>,
-
-    private readonly userSubscriptionService: UserSubscriptionService,
 
     private readonly bookingSmsService: BookingSmsService,
   ) {}
@@ -85,13 +81,6 @@ export class ReminderService {
           continue;
         }
 
-        // کسر ۲ پیامک از اعتبار آرایشگر
-        await this.userSubscriptionService.deductSms(
-          barberUserId,
-          REMINDER_SMS_COST,
-          `پیامک یادآوری نوبت ${booking.date}`,
-        );
-
         await this.bookingSmsService.sendReminderToCustomer(customerPhone, {
           customerName: booking.customer.fullName ?? 'مشتری',
           serviceName: booking.service?.name ?? 'خدمت',
@@ -104,10 +93,10 @@ export class ReminderService {
         await this.bookingRepo.save(booking);
 
         this.logger.log(
-          `یادآوری نوبت ${booking.id} برای آرایشگر ${barberUserId} ارسال و ${REMINDER_SMS_COST} پیامک کسر شد`,
+          `یادآوری نوبت ${booking.id} برای آرایشگر ${barberUserId} ارسال شد`,
         );
       } catch (error: any) {
-        // کسر پیامک ناموفق بود (اعتبار تمام شده / اشتراک منقضی) — ارسال نمی‌شود
+        // خطای ارسال یادآوری نباید باعث شکست پردازش سایر نوبت‌ها شود.
         this.logger.warn(
           `یادآوری نوبت ${booking.id} ارسال نشد: ${
             error?.message ?? String(error)
