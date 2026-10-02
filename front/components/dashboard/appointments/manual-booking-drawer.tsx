@@ -66,6 +66,8 @@ import { useCurrentUserSubscription } from '@/services/features/subscription/hoo
 
 import { NOT_APPROVED_MESSAGE, NotApprovedAlert } from './not-approved-alert';
 
+const SMS_CREDIT_COST_PER_TEMPLATE = 2;
+
 const DEFAULT_VALUES: FormValues = {
   customerMode: 'existing',
   existingCustomerId: '',
@@ -160,11 +162,13 @@ type FormOutput = z.output<typeof schema>;
 interface ManualBookingDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  fixedCustomer?: ClubCustomer | null;
 }
 
 export function ManualBookingDrawer({
   open,
   onOpenChange,
+  fixedCustomer = null,
 }: ManualBookingDrawerProps) {
   const [customerSearch, setCustomerSearch] = useState('');
   const debouncedSearch = useDebounce(customerSearch, 400);
@@ -200,10 +204,15 @@ export function ManualBookingDrawer({
     ? Math.max(0, subscription.smsTotal - subscription.smsUsed)
     : 0;
 
-  const smsEligible = !!subscription && smsRemaining > 0;
+  const smsEligible =
+    !!subscription && smsRemaining >= SMS_CREDIT_COST_PER_TEMPLATE;
 
   // بدون اشتراک فعال، ارسال لینک بیعانه اجباری است
   const effectiveDepositLink = smsEligible ? sendDepositLink : true;
+  const reminderSmsCost = effectiveDepositLink
+    ? SMS_CREDIT_COST_PER_TEMPLATE
+    : SMS_CREDIT_COST_PER_TEMPLATE * 2;
+  const canSendSmsReminder = !!subscription && smsRemaining >= reminderSmsCost;
 
   const { data: services, isLoading: servicesLoading } = useMyServices();
   const { data: barberProfile } = useMyBarberProfile();
@@ -250,8 +259,11 @@ export function ManualBookingDrawer({
   );
 
   const selectedCustomer = useMemo(
-    () => customerResults.find(c => c.id === existingCustomerId) ?? null,
-    [customerResults, existingCustomerId],
+    () =>
+      fixedCustomer ??
+      customerResults.find(c => c.id === existingCustomerId) ??
+      null,
+    [customerResults, existingCustomerId, fixedCustomer],
   );
 
   // تاریخ‌های سریع امروز / فردا
@@ -271,6 +283,15 @@ export function ManualBookingDrawer({
       },
     ];
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    reset({
+      ...DEFAULT_VALUES,
+      existingCustomerId: fixedCustomer?.id ?? '',
+    });
+  }, [open, fixedCustomer?.id, reset]);
 
   // ریست ساعت وقتی خدمت یا تاریخ عوض شد
   useEffect(() => {
@@ -312,7 +333,7 @@ export function ManualBookingDrawer({
 
       // قوانین: بدون اشتراک فعال، لینک بیعانه الزامی و یادآوری غیرفعال است
       const deposit = smsEligible ? values.sendDepositLink : true;
-      const reminder = smsEligible ? values.sendSmsReminder : false;
+      const reminder = canSendSmsReminder ? values.sendSmsReminder : false;
 
       await createManualBooking.mutateAsync({
         clubCustomerId,
@@ -335,6 +356,22 @@ export function ManualBookingDrawer({
 
   const isSubmitting = addCustomer.isPending || createManualBooking.isPending;
 
+  const handleDepositLinkChange = (enabled: boolean) => {
+    setValue('sendDepositLink', enabled);
+
+    if (
+      !enabled &&
+      sendSmsReminder &&
+      smsRemaining < SMS_CREDIT_COST_PER_TEMPLATE * 2
+    ) {
+      setValue('sendSmsReminder', false);
+      setValue('reminderHours', null);
+      toast.error(
+        'برای ارسال پیامک تأیید و یادآوری با هم، حداقل ۴ اعتبار لازم است؛ یادآوری غیرفعال شد.',
+      );
+    }
+  };
+
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
       <DrawerContent dir="rtl">
@@ -348,8 +385,9 @@ export function ManualBookingDrawer({
           </DrawerTitle>
 
           <DrawerDescription className="text-right text-xs leading-5">
-            نوبت را برای مشتری قبلی انتخاب کنید یا مشتری جدید بسازید؛ مشتری جدید
-            به باشگاه مشتریان اضافه می‌شود.
+            {fixedCustomer
+              ? `ثبت نوبت دستی برای ${fixedCustomer.fullName}`
+              : 'نوبت را برای مشتری قبلی انتخاب کنید یا مشتری جدید بسازید؛ مشتری جدید به باشگاه مشتریان اضافه می‌شود.'}
           </DrawerDescription>
         </DrawerHeader>
 
@@ -363,191 +401,221 @@ export function ManualBookingDrawer({
             {isNotApproved && (
               <NotApprovedAlert onNavigate={() => handleOpenChange(false)} />
             )}
-            {/* تب مشتری */}
-            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1">
-              <button
-                type="button"
-                onClick={() =>
-                  setValue('customerMode', 'existing', { shouldValidate: true })
-                }
-                className={cn(
-                  'flex h-10 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition',
-                  customerMode === 'existing'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700',
-                )}
-              >
-                <Users size={15} />
-                مشتری قبلی
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setValue('customerMode', 'new', { shouldValidate: true })
-                }
-                className={cn(
-                  'flex h-10 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition',
-                  customerMode === 'new'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700',
-                )}
-              >
-                <UserPlus size={15} />
-                مشتری جدید
-              </button>
-            </div>
-
-            {/* مشتری قبلی: جستجو با نتایج بازشو */}
-            {customerMode === 'existing' ? (
+            {fixedCustomer ? (
               <div className="space-y-2">
-                {selectedCustomer ? (
-                  // مشتری انتخاب‌شده
-                  <div className="flex items-center gap-2.5 rounded-2xl border border-primary-2 bg-primary-3 p-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
-                      {selectedCustomer.fullName.charAt(0)}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-black text-gray-900">
-                        {selectedCustomer.fullName}
-                      </p>
-
-                      <p
-                        className="mt-0.5 text-[11px] font-medium text-gray-400"
-                        dir="ltr"
-                      >
-                        {toPersianDigits(selectedCustomer.phone)}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setValue('existingCustomerId', '')}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
-                      aria-label="حذف انتخاب"
-                    >
-                      <X size={15} />
-                    </button>
+                <span className="block text-xs font-black text-gray-700">
+                  مشتری
+                </span>
+                <div className="flex items-center gap-2.5 rounded-2xl border border-primary-2 bg-primary-3 p-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
+                    {fixedCustomer.fullName.charAt(0)}
                   </div>
-                ) : (
-                  // جستجو
-                  <div className="relative">
-                    <Search
-                      size={16}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-                    />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-black text-gray-900">
+                      {fixedCustomer.fullName}
+                    </p>
+                    <p
+                      className="mt-0.5 text-[11px] font-medium text-gray-400"
+                      dir="ltr"
+                    >
+                      {toPersianDigits(fixedCustomer.phone)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* تب مشتری */}
+                <div className="grid grid-cols-2 gap-1 rounded-2xl bg-gray-100 p-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setValue('customerMode', 'existing', {
+                        shouldValidate: true,
+                      })
+                    }
+                    className={cn(
+                      'flex h-10 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition',
+                      customerMode === 'existing'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700',
+                    )}
+                  >
+                    <Users size={15} />
+                    مشتری قبلی
+                  </button>
 
-                    <Input
-                      value={customerSearch}
-                      onChange={e => setCustomerSearch(e.target.value)}
-                      placeholder="جستجوی نام یا شماره مشتری..."
-                      className="h-11 rounded-xl pr-10"
-                    />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setValue('customerMode', 'new', { shouldValidate: true })
+                    }
+                    className={cn(
+                      'flex h-10 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition',
+                      customerMode === 'new'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700',
+                    )}
+                  >
+                    <UserPlus size={15} />
+                    مشتری جدید
+                  </button>
+                </div>
 
-                    {/* نتایج بازشو — فقط موقع جستجو */}
-                    {hasSearchQuery && (
-                      <div className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.12)]">
-                        {customersLoading || customersFetching ? (
-                          <div className="flex items-center justify-center gap-2 p-4 text-xs text-gray-400">
-                            <Loader2 size={14} className="animate-spin" />
-                            در حال جستجو...
-                          </div>
-                        ) : customerResults.length === 0 ? (
-                          <div className="p-4 text-center">
-                            <p className="text-xs font-bold text-gray-500">
-                              مشتری‌ای پیدا نشد
-                            </p>
+                {/* مشتری قبلی: جستجو با نتایج بازشو */}
+                {customerMode === 'existing' ? (
+                  <div className="space-y-2">
+                    {selectedCustomer ? (
+                      // مشتری انتخاب‌شده
+                      <div className="flex items-center gap-2.5 rounded-2xl border border-primary-2 bg-primary-3 p-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
+                          {selectedCustomer.fullName.charAt(0)}
+                        </div>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setValue('customerMode', 'new', {
-                                  shouldValidate: true,
-                                })
-                              }
-                              className="mt-2 inline-flex items-center gap-1 text-[11px] font-black text-primary hover:underline"
-                            >
-                              <UserPlus size={13} />
-                              افزودن به‌عنوان مشتری جدید
-                            </button>
-                          </div>
-                        ) : (
-                          <ul className="max-h-56 divide-y divide-gray-50 overflow-y-auto scrollbar-thin">
-                            {customerResults.map(customer => (
-                              <li key={customer.id}>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-black text-gray-900">
+                            {selectedCustomer.fullName}
+                          </p>
+
+                          <p
+                            className="mt-0.5 text-[11px] font-medium text-gray-400"
+                            dir="ltr"
+                          >
+                            {toPersianDigits(selectedCustomer.phone)}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setValue('existingCustomerId', '')}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+                          aria-label="حذف انتخاب"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ) : (
+                      // جستجو
+                      <div className="relative">
+                        <Search
+                          size={16}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+                        />
+
+                        <Input
+                          value={customerSearch}
+                          onChange={e => setCustomerSearch(e.target.value)}
+                          placeholder="جستجوی نام یا شماره مشتری..."
+                          className="h-11 rounded-xl pr-10"
+                        />
+
+                        {/* نتایج بازشو — فقط موقع جستجو */}
+                        {hasSearchQuery && (
+                          <div className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.12)]">
+                            {customersLoading || customersFetching ? (
+                              <div className="flex items-center justify-center gap-2 p-4 text-xs text-gray-400">
+                                <Loader2 size={14} className="animate-spin" />
+                                در حال جستجو...
+                              </div>
+                            ) : customerResults.length === 0 ? (
+                              <div className="p-4 text-center">
+                                <p className="text-xs font-bold text-gray-500">
+                                  مشتری‌ای پیدا نشد
+                                </p>
+
                                 <button
                                   type="button"
-                                  onClick={() => handleSelectCustomer(customer)}
-                                  className="flex w-full items-center gap-2.5 p-3 text-right transition hover:bg-primary-3"
+                                  onClick={() =>
+                                    setValue('customerMode', 'new', {
+                                      shouldValidate: true,
+                                    })
+                                  }
+                                  className="mt-2 inline-flex items-center gap-1 text-[11px] font-black text-primary hover:underline"
                                 >
-                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-2 text-[11px] font-black text-primary">
-                                    {customer.fullName.charAt(0)}
-                                  </div>
-
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-black text-gray-900">
-                                      {customer.fullName}
-                                    </p>
-
-                                    <p
-                                      className="mt-0.5 text-[10px] font-medium text-gray-400"
-                                      dir="ltr"
-                                    >
-                                      {toPersianDigits(customer.phone)}
-                                    </p>
-                                  </div>
-
-                                  <Check
-                                    size={15}
-                                    className="shrink-0 text-primary"
-                                  />
+                                  <UserPlus size={13} />
+                                  افزودن به‌عنوان مشتری جدید
                                 </button>
-                              </li>
-                            ))}
-                          </ul>
+                              </div>
+                            ) : (
+                              <ul className="max-h-56 divide-y divide-gray-50 overflow-y-auto scrollbar-thin">
+                                {customerResults.map(customer => (
+                                  <li key={customer.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleSelectCustomer(customer)
+                                      }
+                                      className="flex w-full items-center gap-2.5 p-3 text-right transition hover:bg-primary-3"
+                                    >
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-2 text-[11px] font-black text-primary">
+                                        {customer.fullName.charAt(0)}
+                                      </div>
+
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-xs font-black text-gray-900">
+                                          {customer.fullName}
+                                        </p>
+
+                                        <p
+                                          className="mt-0.5 text-[10px] font-medium text-gray-400"
+                                          dir="ltr"
+                                        >
+                                          {toPersianDigits(customer.phone)}
+                                        </p>
+                                      </div>
+
+                                      <Check
+                                        size={15}
+                                        className="shrink-0 text-primary"
+                                      />
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
+
+                    {errors.existingCustomerId && (
+                      <p className="text-[11px] text-red-600">
+                        {errors.existingCustomerId.message}
+                      </p>
+                    )}
+
+                    {!selectedCustomer && !hasSearchQuery && (
+                      <p className="text-[11px] leading-5 text-gray-400">
+                        نام یا شماره مشتری را بنویسید تا از لیست باشگاه مشتریان
+                        پیدا شود.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  // مشتری جدید
+                  <div className="space-y-3.5 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+                    <p className="flex items-center gap-1.5 text-xs font-black text-gray-800">
+                      <UserRound size={15} className="text-primary" />
+                      اطلاعات مشتری جدید
+                      <span className="font-medium text-gray-400">
+                        (به باشگاه اضافه می‌شود)
+                      </span>
+                    </p>
+
+                    <RHFInput
+                      name="fullName"
+                      label="نام و نام خانوادگی"
+                      placeholder="علی رضایی"
+                    />
+
+                    <RHFPhoneInput
+                      name="phone"
+                      label="شماره موبایل"
+                      placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+                    />
                   </div>
                 )}
-
-                {errors.existingCustomerId && (
-                  <p className="text-[11px] text-red-600">
-                    {errors.existingCustomerId.message}
-                  </p>
-                )}
-
-                {!selectedCustomer && !hasSearchQuery && (
-                  <p className="text-[11px] leading-5 text-gray-400">
-                    نام یا شماره مشتری را بنویسید تا از لیست باشگاه مشتریان پیدا
-                    شود.
-                  </p>
-                )}
-              </div>
-            ) : (
-              // مشتری جدید
-              <div className="space-y-3.5 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
-                <p className="flex items-center gap-1.5 text-xs font-black text-gray-800">
-                  <UserRound size={15} className="text-primary" />
-                  اطلاعات مشتری جدید
-                  <span className="font-medium text-gray-400">
-                    (به باشگاه اضافه می‌شود)
-                  </span>
-                </p>
-
-                <RHFInput
-                  name="fullName"
-                  label="نام و نام خانوادگی"
-                  placeholder="علی رضایی"
-                />
-
-                <RHFPhoneInput
-                  name="phone"
-                  label="شماره موبایل"
-                  placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-                />
-              </div>
+              </>
             )}
 
             {/* خدمت */}
@@ -725,14 +793,18 @@ export function ManualBookingDrawer({
                   <Switch
                     checked={effectiveDepositLink}
                     disabled={!smsEligible || isSubmitting}
-                    onCheckedChange={v => setValue('sendDepositLink', v)}
+                    onCheckedChange={handleDepositLinkChange}
                   />
                 </div>
 
                 <ul className="space-y-1 pr-10 text-[10px] font-medium leading-5 text-gray-500">
-                  <li>• برای عدم ارسال لینک بیعانه باید پلن خریداری کنید.</li>
                   <li>
-                    • در صورت ارسال لینک بیعانه، از پلن شما پیامک کسر نمی‌شود.
+                    • برای ارسال پیامک تأیید بدون بیعانه، اشتراک فعال و اعتبار
+                    کافی لازم است.
+                  </li>
+                  <li>
+                    • خود پیامک لینک بیعانه رایگان است؛ اعتبار یادآوری در صورت
+                    انتخاب، همان موقع ثبت نوبت کسر می‌شود.{' '}
                   </li>
                 </ul>
               </div>
@@ -750,14 +822,14 @@ export function ManualBookingDrawer({
                     </p>
 
                     <p className="mt-0.5 text-[10px] font-medium text-gray-400">
-                      چند ساعت قبل از نوبت به مشتری پیامک می‌شود
+                      چند ساعت قبل از نوبت می‌رود؛ اعتبارش موقع ثبت کم می‌شود
                     </p>
                   </div>
                 </div>
 
                 <Switch
-                  checked={smsEligible && sendSmsReminder}
-                  disabled={!smsEligible || isSubmitting}
+                  checked={canSendSmsReminder && sendSmsReminder}
+                  disabled={!canSendSmsReminder || isSubmitting}
                   onCheckedChange={v => {
                     setValue('sendSmsReminder', v);
 
@@ -766,8 +838,15 @@ export function ManualBookingDrawer({
                 />
               </div>
 
+              {smsEligible && !canSendSmsReminder && !effectiveDepositLink && (
+                <p className="pb-2 text-[10px] leading-5 text-amber-700">
+                  برای پیامک تأیید و یادآوری با هم، حداقل ۴ اعتبار لازم است؛ با
+                  فعال کردن لینک بیعانه فقط اعتبار یادآوری کسر می‌شود.
+                </p>
+              )}
+
               {/* انتخاب ساعت یادآوری */}
-              {smsEligible && sendSmsReminder && (
+              {canSendSmsReminder && sendSmsReminder && (
                 <div className="space-y-2.5 py-3">
                   <p className="text-[11px] font-black text-gray-600">
                     یادآوری چند ساعت قبل ارسال شود؟
@@ -810,13 +889,13 @@ export function ManualBookingDrawer({
 
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-black leading-5 text-amber-700">
-                      جهت ثبت رزرو و ارسال پیامک باید پنل ماهانه فعال کنید.
+                      برای ثبت نوبت بدون لینک بیعانه، اشتراک فعال و حداقل ۲
+                      اعتبار پیامک لازم است.{' '}
                     </p>
 
                     <p className="mt-1 text-[10px] font-medium leading-5 text-amber-600">
-                      یا با استفاده از ارسال لینک بیعانه، بعد از پرداخت بیعانه
-                      ثبت رزرو به‌صورت رایگان و بر عهده مجموعه منشیم
-                      می‌باشد.{' '}
+                      در غیر این صورت، لینک بیعانه برای مشتری ارسال می‌شود و خود
+                      پیامک لینک از اعتبار شما کم نمی‌کند.
                     </p>
 
                     <Link

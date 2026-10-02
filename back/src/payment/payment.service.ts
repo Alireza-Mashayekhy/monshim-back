@@ -9,8 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
-import { BookingsService } from 'src/booking/booking.service';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
+import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { Service } from 'src/services/entities/service.entity';
 import { SiteSettings } from 'src/settings/entities/setting.entity';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
@@ -65,7 +65,7 @@ export class PaymentService {
     @InjectRepository(BarberWorkHours)
     private readonly workHoursRepo: Repository<BarberWorkHours>,
 
-    private readonly bookingsService: BookingsService,
+    private readonly bookingSmsService: BookingSmsService,
     private readonly walletService: WalletService,
     private readonly configService: ConfigService,
   ) {}
@@ -756,11 +756,13 @@ export class PaymentService {
       await this.paymentRepo.save(payment);
 
       await this.creditBarberWallet(meta.barberUserId, meta.price, payment);
+      void this.sendPaidBookingSms(saved);
       return;
     }
 
     // Multi-item shape: create one booking per service (back-to-back)
     const createdIds: string[] = [];
+    const createdBookings: Booking[] = [];
     for (const item of meta.items || []) {
       const booking = this.bookingRepo.create({
         customerId: meta.customerId,
@@ -774,11 +776,56 @@ export class PaymentService {
       });
       const saved = await this.bookingRepo.save(booking);
       createdIds.push(saved.id);
+      createdBookings.push(saved);
     }
     payment.purposeId = createdIds[0] ?? null;
     await this.paymentRepo.save(payment);
 
     await this.creditBarberWallet(meta.barberUserId, meta.totalPrice, payment);
+    for (const booking of createdBookings) {
+      void this.sendPaidBookingSms(booking);
+    }
+  }
+
+  private async sendPaidBookingSms(booking: Booking): Promise<void> {
+    try {
+      const savedBooking = await this.bookingRepo.findOne({
+        where: { id: booking.id },
+        relations: {
+          customer: true,
+          service: true,
+          barber: { user: true },
+        },
+      });
+
+      if (!savedBooking) return;
+
+      const customerName = savedBooking.customer?.fullName ?? 'مشتری';
+      const serviceName = savedBooking.service?.name ?? 'خدمت';
+      const salonName = savedBooking.barber?.salonName ?? 'سالن شما';
+      const barberParams = {
+        customerName,
+        serviceName,
+        date: savedBooking.date,
+        time: savedBooking.time,
+      };
+
+      await Promise.all([
+        this.bookingSmsService.sendBookingSuccessToCustomer(
+          savedBooking.customer?.phone ?? '',
+          { ...barberParams, salonName },
+        ),
+        this.bookingSmsService.sendNewBookingToBarber(
+          savedBooking.barber?.user?.phone ?? '',
+          barberParams,
+        ),
+      ]);
+    } catch (error: any) {
+      // خطای پیامک نباید پرداخت و ثبت رزرو را ناموفق کند.
+      this.logger.error(
+        `Failed to send booking confirmation SMS for booking ${booking.id}: ${error?.message ?? String(error)}`,
+      );
+    }
   }
 
   private async creditBarberWallet(

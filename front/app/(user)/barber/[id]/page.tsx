@@ -40,7 +40,6 @@ export default function BookingWizard() {
     selectedServiceIds,
   );
 
-  const createBookingMutation = useCreateBooking();
   const payBookingMutation = usePayBooking();
 
   const toggleService = (sid: string) => {
@@ -110,9 +109,7 @@ export default function BookingWizard() {
           onSelectTime={setSelectedTime}
           onConfirm={handlePayment}
           onBack={() => setStep(1)}
-          isSubmitting={
-            createBookingMutation.isPending || payBookingMutation.isPending
-          }
+          isSubmitting={payBookingMutation.isPending}
         />
       )}
 

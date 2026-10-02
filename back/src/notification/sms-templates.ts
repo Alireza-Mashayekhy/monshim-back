@@ -75,7 +75,7 @@ export interface BarberParams {
 export interface DepositLinkParams {
   customerName: string;
   salonName: string;
-  paymentLink: string;
+  paymentToken: string;
 }
 
 /** پارامترهای مشترک قالب‌های نوبت */
@@ -109,6 +109,6 @@ export function depositLinkParams(params: DepositLinkParams) {
   return [
     { name: 'NAME', value: params.customerName },
     { name: 'SALON_NAME', value: params.salonName },
-    { name: 'PAYMENT_LINK', value: params.paymentLink },
+    { name: 'PAYMENT_LINK', value: params.paymentToken },
   ];
 }
