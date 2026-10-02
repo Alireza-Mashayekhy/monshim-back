@@ -654,7 +654,7 @@ export class BookingsService {
       status: BookingStatus.CONFIRMED,
       barberNote: dto.barberNote?.trim() || null,
       customerNote: dto.customerNote?.trim() || null,
-      sendDepositLink: dto.sendDepositLink ?? false,
+      sendDepositLink: sendDeposit,
       sendSmsReminder: smsEligible ? (dto.sendSmsReminder ?? false) : false,
       reminderHours:
         smsEligible && dto.sendSmsReminder ? (dto.reminderHours ?? null) : null,
@@ -663,8 +663,6 @@ export class BookingsService {
     const saved = await this.bookingRepo.save(booking);
 
     if (service) {
-      this.sendBookingConfirmedSms(saved, barber, service);
-
       const customer = await this.userRepo.findOne({
         where: { id: member.customerId },
       });

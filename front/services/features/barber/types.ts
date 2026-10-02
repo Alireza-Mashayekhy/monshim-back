@@ -26,6 +26,7 @@ export interface Barber {
   name: string;
   salonName: string;
   image: string | null;
+  profileImage: string | null;
   address: string;
   bio: string;
   rating: number;

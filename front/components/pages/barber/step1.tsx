@@ -55,7 +55,8 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
       <div className="fixed top-0 h-[340px] w-full">
         <Image
           src={
-            (barber.image ? IMG_BASE + barber.image : '') || '/placeholder.webp'
+            (barber.profileImage ? IMG_BASE + barber.profileImage : '') ||
+            '/placeholder.webp'
           }
           fill
           sizes="100vw"
