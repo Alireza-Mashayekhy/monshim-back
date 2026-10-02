@@ -105,7 +105,7 @@ export function GroupsDrawer({ open, onOpenChange }: GroupsDrawerProps) {
           </div>
 
           {/* لیست گروه‌ها */}
-          <div className="max-h-72 overflow-y-auto space-y-2">
+          <div className="max-h-72 overflow-y-auto overscroll-contain touch-pan-y space-y-2">
             {isLoading ? (
               Array.from({ length: 4 }).map((_, index) => (
                 <Skeleton key={index} className="h-10 w-full rounded-lg" />

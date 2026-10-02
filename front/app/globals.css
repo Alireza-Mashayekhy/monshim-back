@@ -58,9 +58,9 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: #f9f9f9;
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #0D9488;
-  --primary-2: #E6F9F6;
-  --primary-3: #F7FCFB;
+  --primary: #0d9488;
+  --primary-2: #e6f9f6;
+  --primary-3: #f7fcfb;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -95,9 +95,9 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: #f9f9f9;
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #0D9488;
-  --primary-2: #E6F9F6;
-  --primary-3: #F7FCFB;
+  --primary: #0d9488;
+  --primary-2: #e6f9f6;
+  --primary-3: #f7fcfb;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -122,6 +122,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+:root {
+  --vvh: 100dvh;
+  --vv-top: 0px;
+  --kb: 0px;
 }
 
 @layer base {
@@ -180,6 +186,16 @@ body {
   overflow-x: hidden;
 }
 
+@supports (-webkit-touch-callout: none) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not(
+      [type='color']
+    ),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 @layer components {
   .surface {
     @apply bg-white border border-slate-200 rounded-3xl shadow-sm;
@@ -217,4 +233,12 @@ body {
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+@utility overlay-fit {
+  max-height: min(85%, calc(var(--vvh, 100dvh) - 1rem));
+}
+
+@utility overlay-center {
+  top: calc(var(--vv-top, 0px) + var(--vvh, 100dvh) / 2);
 }

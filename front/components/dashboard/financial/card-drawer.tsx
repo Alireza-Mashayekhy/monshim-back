@@ -125,7 +125,7 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
         </DrawerHeader>
 
         {view === 'list' ? (
-          <div className="space-y-3 overflow-y-auto px-4 pb-4">
+          <div className="space-y-3 px-4 pb-4">
             {cardsLoading ? (
               [1, 2].map(i => (
                 <Skeleton key={i} className="h-20 w-full rounded-2xl" />

@@ -84,7 +84,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-sm rounded-3xl p-6">
+      <DialogContent className="max-w-sm overflow-visible rounded-3xl p-6">
         <DialogHeader className="flex flex-row justify-between items-center">
           <DialogTitle className="font-bold text-lg text-gray-800">
             ویرایش پروفایل

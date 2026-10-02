@@ -16,6 +16,7 @@ interface PersianDatePickerProps {
   placeholder?: string;
   required?: boolean;
   className?: string;
+  portalTarget?: HTMLElement | null;
 }
 
 export function PersianDatePicker({
@@ -24,6 +25,7 @@ export function PersianDatePicker({
   placeholder = 'انتخاب تاریخ',
   required = false,
   className,
+  portalTarget,
 }: PersianDatePickerProps) {
   const { setValue, control } = useFormContext();
   const formValue = useWatch({ name, control });
@@ -66,6 +68,8 @@ export function PersianDatePicker({
         calendar={persian}
         locale={persian_fa}
         calendarPosition="bottom-right"
+        portal={!!portalTarget}
+        portalTarget={portalTarget ?? undefined}
         onChange={handleDateChange}
         placeholder={placeholder}
         className="w-full"

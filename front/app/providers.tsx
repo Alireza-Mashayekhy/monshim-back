@@ -12,6 +12,7 @@ import NextTopLoader from 'nextjs-toploader';
 import PWAModal from '@/components/shared/pwa-modal';
 import { DirectionProvider } from '@/components/ui/direction';
 import { Toaster } from '@/components/ui/sonner';
+import { useViewportVars } from '@/hooks/use-viewport-vars';
 import { makeQueryClient } from '@/lib/query-client';
 
 let browserQueryClient: QueryClient | undefined;
@@ -41,6 +42,8 @@ export default function Providers({
   //       suspend because React will throw away the client on the initial
   //       render if it suspends and there is no boundary
   const queryClient = getQueryClient();
+
+  useViewportVars();
 
   return (
     <>

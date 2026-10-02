@@ -123,7 +123,7 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-4 pb-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="px-4 pb-4 space-y-4">
           {isLoading ? (
             <div className="space-y-3">
               {DAYS.map((_, i) => (

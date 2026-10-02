@@ -20,7 +20,6 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { getActivityTypeLabel } from '@/constants/activity-types';
-import { useVisualViewport } from '@/hooks/use-visual-viewport';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/api-error';
 import { type CallbackUrlValue, getAuthDestination } from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
@@ -60,10 +59,6 @@ export default function BarbaerStep5({
   const busy = useRef(false);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-
-  // هنگام باز شدن کیبورد، مودال در فضای واقعاً قابل‌مشاهده وسط‌چین می‌شود
-  const { height: viewportHeight, top: viewportTop } =
-    useVisualViewport(isOtpModalOpen);
 
   const registerMutation = useRegisterBarber();
   const sendOtpMutation = useSendOtp();
@@ -463,19 +458,7 @@ export default function BarbaerStep5({
         }}
       >
         {' '}
-        <DialogContent
-          className="sm:max-w-md overflow-y-auto transition-[top,max-height] duration-200 ease-out"
-          style={
-            viewportHeight > 0
-              ? {
-                  // وسطِ فضای واقعاً قابل‌مشاهده (بالای کیبورد)
-                  top: viewportTop + viewportHeight / 2,
-                  // مودال هیچ‌وقت از فضای قابل‌مشاهده بیرون نمی‌زند
-                  maxHeight: Math.max(viewportHeight - 16, 200),
-                }
-              : undefined
-          }
-        >
+        <DialogContent className="sm:max-w-md transition-[top,max-height] duration-200 ease-out">
           <DialogHeader>
             <DialogTitle>تأیید شماره موبایل</DialogTitle>
             <DialogDescription>

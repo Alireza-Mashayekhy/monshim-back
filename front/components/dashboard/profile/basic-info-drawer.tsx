@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -33,6 +33,7 @@ interface BasicInfoDrawerProps {
 }
 
 export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
+  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
   const { data: profile } = useMyBarberProfile();
   const updateMutation = useUpdateBarberProfile();
 
@@ -74,7 +75,7 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>
-      <DrawerContent>
+      <DrawerContent ref={setContentEl}>
         <DrawerHeader>
           <DrawerTitle className="text-center">ویرایش اطلاعات فردی</DrawerTitle>
           <DrawerDescription className="text-center text-sm">
@@ -88,7 +89,11 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
           className="px-4 pb-4 space-y-4"
         >
           <RHFInput name="fullName" label="نام و نام خانوادگی" isRequired />
-          <PersianDatePicker name="birthDate" label="تاریخ تولد" />
+          <PersianDatePicker
+            name="birthDate"
+            label="تاریخ تولد"
+            portalTarget={contentEl}
+          />
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
