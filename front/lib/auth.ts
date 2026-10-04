@@ -69,18 +69,32 @@ export function buildAuthHref(
   return query ? `${pathname}?${query}` : pathname;
 }
 
+export function isAuthPagePath(pathname: string) {
+  return AUTH_PAGE_PATHS.some(path => isPathWithin(pathname, path));
+}
+
 export function isPublicAuthPath(pathname: string) {
   return (
     pathname === '/' ||
-    isPathWithin(pathname, '/login') ||
-    isPathWithin(pathname, '/login-otp') ||
-    isPathWithin(pathname, '/register') ||
-    isPathWithin(pathname, '/barbaer-signup') ||
-    // صفحات لندینگ عمومی (سئو) — باید برای مهمان‌ها و موتورهای جست‌وجو آزاد باشند
+    isAuthPagePath(pathname) ||
+    // Discovery, approved barber profiles and data-backed city pages are public.
+    pathname === '/explore' ||
+    /^\/barber\/\d+$/.test(pathname) ||
+    isPathWithin(pathname, '/cities') ||
+    isPathWithin(pathname, '/privacy') ||
+    isPathWithin(pathname, '/terms') ||
+    // Public marketing pages.
     isPathWithin(pathname, '/barber-management') ||
     isPathWithin(pathname, '/online-barber-booking') ||
     isPathWithin(pathname, '/pricing')
   );
+}
+
+/** مسیر پیش‌فرض ورود با توجه به نقش اصلی کاربر */
+export function getRoleLandingPath(user: unknown) {
+  if (isAdmin(user)) return '/admin';
+  if (isBarber(user)) return '/dashboard';
+  return '/home';
 }
 
 export function canAccessPath(pathname: string, user: unknown) {

@@ -6,6 +6,8 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import type { ApiListResponse, ApiSingleResponse } from '@/services/api/types';
+
 import {
   barberList,
   createBarberReview,
@@ -23,22 +25,28 @@ import {
   uploadProfileImage,
 } from './api';
 import {
+  Barber,
+  BarberResponse,
+  BarberReview,
   CreateBarberReviewDto,
   UpdateBarberPortfolio,
   UpdateBarberProfile,
   WorkHours,
 } from './types';
 
-export const useBarberList = (params?: {
-  cityId?: number;
-  provinceId?: number;
-  search?: string;
-  sort?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  minRating?: number;
-  limit?: number;
-}) => {
+export const useBarberList = (
+  params?: {
+    cityId?: number;
+    provinceId?: number;
+    search?: string;
+    sort?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    minRating?: number;
+    limit?: number;
+  },
+  initialPage?: ApiListResponse<BarberResponse> | null,
+) => {
   return useInfiniteQuery({
     queryKey: ['barbers', params],
     queryFn: ({ pageParam = 1 }) =>
@@ -58,6 +66,9 @@ export const useBarberList = (params?: {
       return page < totalPages ? page + 1 : undefined;
     },
     initialPageParam: 1,
+    initialData: initialPage
+      ? { pages: [initialPage], pageParams: [1] }
+      : undefined,
     staleTime: 2 * 60 * 1000, // 2 دقیقه
   });
 };
@@ -91,11 +102,18 @@ export const useHomeBarberList = (params?: {
   });
 };
 
-export const useBarber = (id: number) => {
+export const useBarber = (id: number, initialBarber?: Barber) => {
   return useQuery({
     queryKey: ['barber', id],
     queryFn: () => getBarberById(id),
     enabled: !!id,
+    initialData: initialBarber
+      ? ({
+          status: 200,
+          message: '',
+          data: initialBarber,
+        } satisfies ApiSingleResponse<Barber>)
+      : undefined,
     staleTime: 5 * 60 * 1000,
   });
 };
@@ -198,20 +216,26 @@ export const useMyReferrals = () => {
 export const useBarberReviews = (
   barberId: number | string,
   params?: { page?: number; limit?: number },
+  initialData?: ApiListResponse<BarberReview> | null,
 ) => {
   return useQuery({
     queryKey: ['barber-reviews', barberId, params],
     queryFn: () => getBarberReviews(barberId, params),
     enabled: barberId !== undefined && barberId !== null && barberId !== '',
+    initialData: params?.page === 1 ? (initialData ?? undefined) : undefined,
     staleTime: 60 * 1000,
   });
 };
 
-export const useMyBarberReview = (barberId: number | string) => {
+export const useMyBarberReview = (
+  barberId: number | string,
+  enabled = true,
+) => {
   return useQuery({
     queryKey: ['my-barber-review', barberId],
     queryFn: () => getMyBarberReview(barberId),
-    enabled: barberId !== undefined && barberId !== null && barberId !== '',
+    enabled:
+      enabled && barberId !== undefined && barberId !== null && barberId !== '',
     staleTime: 60 * 1000,
   });
 };

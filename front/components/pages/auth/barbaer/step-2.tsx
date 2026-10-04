@@ -9,12 +9,14 @@ import { toast } from 'sonner';
 import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
+import { RHFImageUploader } from '@/components/form/rhf-image-uploader';
 import RHFInput from '@/components/form/rhf-input';
 import RHFSelect from '@/components/form/rhf-select';
 import RHFTextArea from '@/components/form/rhf-textarea';
 import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
 import { ACTIVITY_TYPES, ActivityTypeValue } from '@/constants/activity-types';
+import { getImageUploadError, IMAGE_SIZE_ERROR } from '@/lib/image-upload';
 import { cn } from '@/lib/utils';
 import {
   useCityList,
@@ -33,8 +35,15 @@ interface Step2Props {
 }
 
 export default function BarbaerStep2({ onSubmit }: Step2Props) {
-  const { shopName, activityType, provinceId, cityId, address, prevStep } =
-    useBarberSignupStore();
+  const {
+    shopName,
+    activityType,
+    provinceId,
+    cityId,
+    address,
+    image: storedImage,
+    prevStep,
+  } = useBarberSignupStore();
 
   const schema = z.object({
     shopName: z.string().trim().nonempty('نام آرایشگاه اجباری است'),
@@ -44,6 +53,14 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
     provinceId: z.string().trim().nonempty('انتخاب استان اجباری است'), // قبول کردن null
     cityId: z.string().trim().nonempty('انتخاب شهر اجباری است'),
     address: z.string().trim().nonempty('آدرس اجباری است'),
+    image: z
+      .instanceof(File, { message: 'فایل لوگوی برند معتبر نیست.' })
+      .superRefine((file, ctx) => {
+        const message = getImageUploadError(file);
+        if (message) ctx.addIssue({ code: 'custom', message });
+      })
+      .optional()
+      .or(z.string().nullable()),
   });
 
   type Step2FormValues = z.infer<typeof schema>;
@@ -59,6 +76,7 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
       provinceId: provinceId || '',
       cityId: cityId || '',
       address: address || '',
+      image: storedImage || undefined,
     },
     resolver: zodResolver(schema),
   });
@@ -81,7 +99,11 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
     }
   }, [selectedProvinceId, methods]);
 
-  const onFormSubmit = (data: any) => {
+  useEffect(() => {
+    if (storedImage) methods.setValue('image', storedImage);
+  }, [storedImage, methods]);
+
+  const onFormSubmit = async (data: Step2FormValues) => {
     const province = provinces?.data?.find(
       (p: any) => String(p.id) === String(data.provinceId),
     );
@@ -96,15 +118,37 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
       return;
     }
 
-    onSubmit({
-      shopName: data.shopName,
-      activityType: data.activityType,
-      provinceId: data.provinceId,
-      provinceName: province?.name || '',
-      cityId: data.cityId,
-      cityName: city?.name || '',
-      address: data.address,
-    });
+    try {
+      const imageFile = data.image;
+      let imageBase64 = typeof imageFile === 'string' ? imageFile : null;
+      if (imageFile instanceof File) {
+        imageBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === 'string') resolve(reader.result);
+            else reject(new Error('Failed to read image'));
+          };
+          reader.onerror = () => reject(reader.error);
+          reader.onabort = () => reject(new Error('Image read aborted'));
+          reader.readAsDataURL(imageFile);
+        });
+      }
+
+      onSubmit({
+        shopName: data.shopName,
+        activityType: data.activityType,
+        provinceId: data.provinceId,
+        provinceName: province.name || '',
+        cityId: data.cityId,
+        cityName: city.name || '',
+        address: data.address,
+        image: imageBase64,
+      });
+    } catch {
+      toast.error(
+        'خواندن یا ذخیره لوگوی برند انجام نشد. فضای مرورگر و فایل تصویر را بررسی کنید.',
+      );
+    }
   };
 
   // تبدیل لیست استان‌ها به فرمت مورد نیاز RHFSelect
@@ -128,6 +172,21 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
           isRequired
           startIcon={<MapPin className="w-4 h-4" />}
         />
+
+        <div className="flex flex-col items-center">
+          <RHFImageUploader
+            name="image"
+            label="لوگوی برند"
+            setValue={methods.setValue}
+            error={methods.formState.errors.image}
+            aspectRatio={1}
+            shape="square"
+            defaultValue={storedImage || undefined}
+          />
+          <p className="text-[11px] text-gray-400 font-medium mt-2">
+            {IMAGE_SIZE_ERROR} فرمت: JPEG، PNG، GIF و WebP
+          </p>
+        </div>
 
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-gray-700">

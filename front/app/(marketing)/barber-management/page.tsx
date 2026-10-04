@@ -6,7 +6,7 @@ import JsonLd from '@/components/marketing/json-ld';
 import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
 import FeatureRow from '@/components/marketing/shared/feature-row';
 import PageHero from '@/components/marketing/shared/page-hero';
-import { buildPageMetadata, JSONLD_URLS } from '@/lib/seo';
+import { buildPageMetadata, faqPageSchema, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 
 export const metadata: Metadata = buildPageMetadata({
@@ -15,17 +15,21 @@ export const metadata: Metadata = buildPageMetadata({
     'نرم افزار مدیریت آرایشگاه منشیم؛ تقویم نوبت‌ها، پرونده و باشگاه مشتریان، مدیریت مالی و گزارش درآمد آرایشگاه را یکجا داشته باشید. مدیریت آرایشگاه خود را هوشمند و بدون دفتر و کاغذ انجام دهید.',
   path: siteConfig.routes.barberManagement,
   imageUrl: `${siteConfig.url}/landing/og-management.png`,
-  keywords: [
-    'برنامه مدیریت آرایشگاه',
-    'نرم افزار سالن زیبایی',
-    'مدیریت نوبت آرایشگاه',
-    'سیستم مدیریت سالن',
-    'نرم افزار CRM آرایشگاه',
-  ],
 });
 
 /** داده ساخت‌یافته صفحه نرم افزار مدیریت آرایشگاه */
 const managementJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${JSONLD_URLS.management}#webpage`,
+    url: JSONLD_URLS.management,
+    name: 'نرم افزار مدیریت آرایشگاه | مدیریت حرفه‌ای سالن',
+    description:
+      'امکانات منشیم برای مدیریت نوبت‌ها، خدمات، مشتریان و امور مالی سالن.',
+    inLanguage: 'fa-IR',
+    isPartOf: { '@id': `${siteConfig.url}/#website` },
+  },
   {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -34,17 +38,11 @@ const managementJsonLd = [
     url: JSONLD_URLS.management,
     applicationCategory: 'BusinessApplication',
     applicationSubCategory: 'Salon & Spa Management Software',
-    operatingSystem: 'Web, Android, iOS',
+    operatingSystem: 'Web browser',
     inLanguage: 'fa-IR',
     description:
-      'نرم افزار مدیریت آرایشگاه و سالن زیبایی منشیم؛ تقویم نوبت، باشگاه مشتریان، مدیریت مالی و گزارش‌گیری.',
-    offers: {
-      '@type': 'Offer',
-      price: 0,
-      priceCurrency: 'IRR',
-      description: 'پلن رایگان برای شروع',
-      url: JSONLD_URLS.pricing,
-    },
+      'نرم افزار مدیریت آرایشگاه منشیم؛ تقویم نوبت‌ها، مدیریت مشتریان و پیگیری تراکنش‌های مالی.',
+    publisher: { '@id': `${siteConfig.url}/#organization` },
     featureList: [
       'تقویم هوشمند نوبت‌ها',
       'پرونده مشتریان و باشگاه مشتریان',
@@ -99,7 +97,7 @@ const BEFORE_AFTER = [
   },
 ] as const;
 
-const MANAGEMENT_FAQS = [
+export const MANAGEMENT_FAQS = [
   {
     question: 'نرم افزار مدیریت آرایشگاه منشیم چه کارهایی را خودکار می‌کند؟',
     answer:
@@ -119,14 +117,14 @@ const MANAGEMENT_FAQS = [
   {
     question: 'آیا اطلاعات مشتریان آرایشگاه در منشیم امن است؟',
     answer:
-      'بله؛ اطلاعات مشتریان شما فقط در حساب کاربری خودتان ذخیره می‌شود و قابل مشاهده توسط آرایشگاه‌های دیگر نیست. اطلاعات به صورت رمزنگاری‌شده نگهداری و به صورت روزانه پشتیبان‌گیری می‌شود.',
+      'اطلاعات مشتریان و رزروها در پنل مدیریت حساب شما نمایش داده می‌شود. دسترسی به بخش‌های مدیریتی نیازمند ورود به حساب است؛ برای جزئیات نگهداری و پردازش اطلاعات، سیاست حریم خصوصی منشیم را مطالعه کنید.',
   },
 ];
 
 export default function BarberManagementPage() {
   return (
     <>
-      <JsonLd data={managementJsonLd} />
+      <JsonLd data={[...managementJsonLd, faqPageSchema(MANAGEMENT_FAQS)]} />
 
       <Breadcrumbs
         items={[

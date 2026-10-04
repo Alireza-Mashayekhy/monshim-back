@@ -19,9 +19,13 @@ export default function BarberCard({
       : `${process.env.NEXT_PUBLIC_IMAGE_URL || ''}${barber.profileImage}`
     : null;
 
-  const minPriceFormatted = barber?.minPrice
-    ? Number(barber?.minPrice).toLocaleString('en-US')
-    : '۱۵۰,۰۰۰';
+  const hasPrice =
+    barber?.minPrice !== undefined &&
+    barber?.minPrice !== null &&
+    Number.isFinite(Number(barber.minPrice));
+  const minPriceFormatted = hasPrice
+    ? Number(barber.minPrice).toLocaleString('fa-IR')
+    : null;
 
   if (variant === 'vertical') {
     return (
@@ -43,12 +47,9 @@ export default function BarberCard({
           )}
         </div>
         <div className="mt-2 space-y-0.5 text-right">
-          <h4 className="text-xs sm:text-sm font-black text-gray-900 truncate">
+          <h3 className="text-xs sm:text-sm font-black text-gray-900 truncate">
             {barber.salonName}
-          </h4>
-          <p className="text-[10px] sm:text-xs text-gray-500 truncate">
-            مدیریت: {barber.fullName}
-          </p>
+          </h3>
           <div className="pt-1 flex items-center justify-between text-[10px] text-gray-400">
             {barber.cityName && (
               <span className="flex items-center gap-0.5 truncate">
@@ -57,7 +58,7 @@ export default function BarberCard({
               </span>
             )}
             <span className="font-bold text-[#0D9488]">
-              از {minPriceFormatted} تومان
+              {hasPrice ? `از ${minPriceFormatted} تومان` : 'مشاهده خدمات'}
             </span>
           </div>
         </div>
@@ -88,9 +89,6 @@ export default function BarberCard({
           <h3 className="text-sm sm:text-base font-black text-gray-900 tracking-tight truncate group-hover:text-[#0D9488] transition-colors">
             {barber.salonName}
           </h3>
-          <p className="text-[11px] sm:text-xs text-gray-500 font-normal truncate">
-            مدیریت: {barber.fullName}
-          </p>
           {barber.cityName && (
             <div className="flex items-center gap-1 text-[10px] text-gray-400 pt-0.5">
               <MapPin size={11} className="text-gray-400" />
@@ -104,7 +102,7 @@ export default function BarberCard({
 
         <div className="pt-3">
           <span className="text-xs sm:text-sm font-bold text-[#0D9488]">
-            از {minPriceFormatted} تومان
+            {hasPrice ? `از ${minPriceFormatted} تومان` : 'مشاهده خدمات'}
           </span>
         </div>
       </div>

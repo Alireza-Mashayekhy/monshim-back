@@ -134,6 +134,18 @@ export class BarberReviewService implements OnModuleInit {
   // =========================================================
   async listApprovedForBarber(barberIdParam: string | number, query: QueryDto) {
     const profile = await this.resolveBarberProfile(barberIdParam);
+    const publicProfile = await this.profileRepo
+      .createQueryBuilder('profile')
+      .innerJoin('profile.user', 'user', 'user.isActive = :userActive', {
+        userActive: true,
+      })
+      .where('profile.id = :profileId', { profileId: profile.id })
+      .andWhere('profile.isApproved = :isApproved', { isApproved: true })
+      .getOne();
+
+    if (!publicProfile) {
+      throw new NotFoundException('آرایشگاه یافت نشد');
+    }
 
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
@@ -153,7 +165,7 @@ export class BarberReviewService implements OnModuleInit {
     const [data, total] = await qb.getManyAndCount();
 
     return {
-      data: data.map(review => this.sanitize(review)),
+      data: data.map(review => this.sanitizePublic(review)),
       pagination: {
         page,
         limit,
@@ -324,6 +336,17 @@ export class BarberReviewService implements OnModuleInit {
     for (const row of rows) {
       await this.recalcBarberRating(row.barberId);
     }
+  }
+
+  // Public review output deliberately omits account identifiers and moderation
+  // fields; the public endpoint only serves approved reviews.
+  private sanitizePublic(review: BarberReview) {
+    return {
+      id: review.id,
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt,
+    };
   }
 
   // =========================================================

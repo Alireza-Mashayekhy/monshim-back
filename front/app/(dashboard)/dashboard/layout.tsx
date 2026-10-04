@@ -9,6 +9,11 @@ export const metadata: Metadata = {
     template: '%s | منشیم',
   },
   description: 'داشبورد مدیریت آرایشگاه منشیم',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

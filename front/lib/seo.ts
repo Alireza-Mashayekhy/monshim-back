@@ -3,55 +3,55 @@ import type { Metadata } from 'next';
 import { siteConfig } from '@/lib/site-config';
 
 interface PageSeoInput {
-  /** عنوان کوتاه صفحه (بدون نام برند — به صورت خودکار اضافه می‌شود) */
+  /** عنوان صفحه بدون نام برند؛ الگوی نام برند از layout اضافه می‌شود. */
   title: string;
-  /** عنوان کامل و نهایی؛ الگوی «%s | منشیم» را نادیده می‌گیرد (برای صفحه اصلی) */
+  /** عنوان کامل و مستقل از template، برای نمونه صفحهٔ اصلی. */
   absoluteTitle?: string;
-  /** توضیح متا؛ ۱۲۰ تا ۱۶۰ کاراکتر توصیه می‌شود */
   description: string;
   /** مسیر نسبی صفحه، مثلاً /pricing */
   path: string;
-  /** کلیدواژه‌های اختصاصی صفحه (به کلیدواژه‌های برند اضافه می‌شوند) */
-  keywords?: readonly string[];
-  /** تصویر Open Graph مطلق؛ پیش‌فرض بنر برند شده صفحه اصلی است */
+  /** تصویر Open Graph مطلق؛ پیش‌فرض تصویر صفحهٔ اصلی است. */
   imageUrl?: string;
-  /** برای صفحات وبلاگ/مقالات */
   type?: 'website' | 'article';
+  noIndex?: boolean;
 }
 
-/** ایندکس پایه: عنوان با الگوی «عنوان صفحه | منشیم» */
 export const TITLE_TEMPLATE = `%s | ${siteConfig.name}`;
 
-/**
- * سازنده متادیتای استاندارد صفحات لندینگ.
- * شامل: title/description، canonical، Open Graph، Twitter Card و robots.
- */
+/** Shared canonical, social-card and crawler metadata for public pages. */
 export function buildPageMetadata({
   title,
   absoluteTitle,
   description,
   path,
-  keywords,
   imageUrl,
   type = 'website',
+  noIndex = false,
 }: PageSeoInput): Metadata {
-  const url = `${siteConfig.url}${path}`;
+  const url = path === '/' ? siteConfig.url : `${siteConfig.url}${path}`;
   const image = imageUrl ?? `${siteConfig.url}/landing/og-home.png`;
-  const finalTitle = absoluteTitle ?? title;
-  const ogTitle = `${title} | ${siteConfig.name}`;
+  const finalTitle = absoluteTitle ?? `${title} | ${siteConfig.name}`;
+  const robots = {
+    index: !noIndex,
+    follow: true,
+    googleBot: {
+      index: !noIndex,
+      follow: true,
+      'max-image-preview': 'large' as const,
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  };
 
   return {
-    title: finalTitle,
+    title: absoluteTitle ? { absolute: absoluteTitle } : title,
     description,
-    keywords: [...siteConfig.keywords, ...(keywords ?? [])],
-    alternates: {
-      canonical: url,
-    },
+    alternates: { canonical: url },
     openGraph: {
       type,
       url,
       siteName: `${siteConfig.name} | ${siteConfig.nameEn}`,
-      title: ogTitle,
+      title: finalTitle,
       description,
       locale: siteConfig.locale,
       images: [
@@ -65,27 +65,33 @@ export function buildPageMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title: ogTitle,
+      title: finalTitle,
       description,
       images: [image],
-      site: siteConfig.twitter,
     },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        'max-image-preview': 'large',
-        'max-snippet': -1,
-        'max-video-preview': -1,
+    robots,
+  };
+}
+
+export function faqPageSchema(
+  items: readonly { question: string; answer: string }[],
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map(item => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: item.answer,
       },
-    },
+    })),
   };
 }
 
 export const JSONLD_URLS = {
-  home: siteConfig.url + siteConfig.routes.home,
+  home: siteConfig.url,
   management: siteConfig.url + siteConfig.routes.barberManagement,
   booking: siteConfig.url + siteConfig.routes.onlineBooking,
   pricing: siteConfig.url + siteConfig.routes.pricing,

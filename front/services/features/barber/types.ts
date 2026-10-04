@@ -1,41 +1,73 @@
 import { CityResponse, ProvinceResponse } from '../locations/types';
 
 export interface BarberResponse {
-  id: string;
+  id: number;
   barberProfile?: BarberProfile;
   cityName: string | null;
+  citySlug?: string | null;
   provinceName: string | null;
-  fullName: string;
+  fullName?: string;
   profileImage: string | null;
   salonName: string;
   activityType?: string | null;
   minPrice?: number | null;
   rating?: number | null;
+  reviewCount?: number | null;
 }
 
 export interface Service {
   id: string;
   name: string;
   price: number;
-  depositePrice?: number | null;
+  depositPrice?: number | null;
   durationMinutes: number;
 }
 
 export interface Barber {
   id: number;
-  name: string;
+  name?: string;
+  fullName?: string;
   salonName: string;
   image: string | null;
   profileImage: string | null;
+  activityType?: string | null;
   address: string;
-  bio: string;
+  bio: string | null;
   rating: number;
   reviewCount: number;
   services: Service[];
   portfolio: string[];
-  city: CityResponse;
-  province: ProvinceResponse;
-  userId: number;
+  city: Pick<CityResponse, 'id' | 'name' | 'slug' | 'provinceId'> | null;
+  province: Pick<ProvinceResponse, 'id' | 'name' | 'slug'> | null;
+  userId?: number;
+}
+
+export interface PublicCityDirectoryEntry {
+  slug: string;
+  name: string;
+  provinceName: string | null;
+  activeBarberCount: number;
+}
+
+export interface PublicDirectoryResponse {
+  barbers: { id: number }[];
+  cities: PublicCityDirectoryEntry[];
+}
+
+export interface PublicCityResponse {
+  city: {
+    id: number;
+    name: string;
+    slug: string;
+    provinceName: string | null;
+  };
+  barbers: BarberResponse[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface BarberProfile {
@@ -140,16 +172,16 @@ export type BarberReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export interface BarberReview {
   id: string;
-  barberId: string;
-  customerId: number;
+  barberId?: string;
+  customerId?: number;
   rating: number;
   comment: string | null;
-  status: BarberReviewStatus;
+  status?: BarberReviewStatus;
   adminNote?: string | null;
   reviewedAt?: string | null;
   createdAt: string;
   customer?: {
-    id: number;
+    id?: number;
     fullName: string;
   };
   barber?: {

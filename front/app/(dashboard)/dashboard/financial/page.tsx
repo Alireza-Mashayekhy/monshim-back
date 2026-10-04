@@ -101,15 +101,40 @@ export default function FinancialPage() {
                   <span className="text-xs text-gray-400">
                     {new Date(t.createdAt).toLocaleDateString('fa-IR')}
                   </span>
+                  {t.type === 'REFUND' && (
+                    <span
+                      className={`mt-1 block text-xs font-medium ${
+                        t.status === 'PENDING'
+                          ? 'text-amber-600'
+                          : t.status === 'COMPLETED'
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                      }`}
+                    >
+                      {t.status === 'PENDING'
+                        ? 'در انتظار واریز دستی به حساب شما'
+                        : t.status === 'COMPLETED'
+                          ? 'واریز دستی به حساب شما ثبت شده است'
+                          : 'واریز بازپرداخت ناموفق بوده است'}
+                    </span>
+                  )}
                 </div>
                 <span
                   className={`text-sm font-bold ${
-                    t.type === 'DEPOSIT' || t.type === 'INCOME'
-                      ? 'text-green-600'
-                      : 'text-red-500'
+                    t.type === 'REFUND' && t.status === 'PENDING'
+                      ? 'text-amber-600'
+                      : t.type === 'DEPOSIT' ||
+                          t.type === 'INCOME' ||
+                          t.type === 'REFUND'
+                        ? 'text-green-600'
+                        : 'text-red-500'
                   }`}
                 >
-                  {t.type === 'DEPOSIT' || t.type === 'INCOME' ? '+' : '-'}
+                  {t.type === 'DEPOSIT' ||
+                  t.type === 'INCOME' ||
+                  t.type === 'REFUND'
+                    ? '+'
+                    : '-'}
                   {formatPrice(t.amount)}
                 </span>
               </AppCard>

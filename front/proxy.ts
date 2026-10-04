@@ -1,7 +1,14 @@
 import { jwtVerify } from 'jose';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { buildAuthHref, canAccessPath, isPublicAuthPath } from './lib/auth';
+import {
+  buildAuthHref,
+  canAccessPath,
+  getAuthDestination,
+  getRoleLandingPath,
+  isAuthPagePath,
+  isPublicAuthPath,
+} from './lib/auth';
 import { normalizeRoles } from './lib/roles';
 
 export async function proxy(request: NextRequest) {
@@ -27,6 +34,16 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Keep auth pages public for guests, but don't show them to authenticated users.
+  // A valid callback still wins; the role landing page is the default destination.
+  if (user && isAuthPagePath(pathname)) {
+    const destination = getAuthDestination(
+      request.nextUrl.searchParams.get('callbackUrl'),
+      getRoleLandingPath(user),
+    );
+    return NextResponse.redirect(new URL(destination, request.url));
+  }
+
   // Public pages stay reachable with stale/invalid cookies. Only /auth/me on the
   // client decides whether to redirect; a refresh cookie is NOT authentication.
   if (isPublicAuthPath(pathname)) return next();
@@ -36,7 +53,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
   if (user && !canAccessPath(pathname, user)) {
-    return NextResponse.redirect(new URL('/home', request.url));
+    return NextResponse.redirect(
+      new URL(getRoleLandingPath(user), request.url),
+    );
   }
   return next();
 }

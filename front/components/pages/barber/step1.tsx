@@ -6,7 +6,12 @@ import { useState } from 'react';
 import { BackButton } from '@/components/shared/back-button';
 import { Button } from '@/components/ui/button';
 import { formatPrice } from '@/lib/utils';
-import { Barber, Service } from '@/services/features/barber/types';
+import type { ApiListResponse } from '@/services/api/types';
+import type {
+  Barber,
+  BarberReview,
+  Service,
+} from '@/services/features/barber/types';
 
 import { ReviewsSection } from './reviews-section';
 
@@ -16,6 +21,7 @@ interface Step1ProfileProps {
   onToggleService: (id: string) => void;
   onContinue: () => void;
   onImageClick: (img: string) => void;
+  initialReviews?: ApiListResponse<BarberReview> | null;
 }
 
 type Tab = 'services' | 'about' | 'reviews';
@@ -27,12 +33,21 @@ function toFa(s: string) {
   return String(s).replace(/\d/g, d => map[Number(d)]);
 }
 
+function getImageUrl(path?: string | null) {
+  if (!path) return '/placeholder.webp';
+  if (/^https?:\/\//i.test(path)) return path;
+  const base = IMG_BASE.replace(/\/+$/, '');
+  const imagePath = path.replace(/^\/+/, '');
+  return base ? `${base}/${imagePath}` : `/${imagePath}`;
+}
+
 export const Step1Profile: React.FC<Step1ProfileProps> = ({
   barber,
   selectedServiceIds,
   onToggleService,
   onContinue,
   onImageClick,
+  initialReviews,
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('services');
   const [favorited, setFavorited] = useState(false);
@@ -54,14 +69,11 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
       {/* Hero Image */}
       <div className="fixed top-0 h-[340px] w-full">
         <Image
-          src={
-            (barber.profileImage ? IMG_BASE + barber.profileImage : '') ||
-            '/placeholder.webp'
-          }
+          src={getImageUrl(barber.profileImage)}
           fill
           sizes="100vw"
           className="object-cover"
-          alt={barber.salonName}
+          alt={`لوگوی برند سالن ${barber.salonName}`}
           priority
         />
         {/* Top action buttons */}
@@ -112,10 +124,20 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="mt-6 border-b border-gray-200 flex items-end justify-between gap-2">
+        <div
+          role="tablist"
+          aria-label="اطلاعات آرایشگاه"
+          className="mt-6 border-b border-gray-200 flex items-end justify-between gap-2"
+        >
           {tabs.map(tab => (
             <button
               key={tab.key}
+              type="button"
+              role="tab"
+              id={`barber-tab-${tab.key}`}
+              aria-controls={`barber-panel-${tab.key}`}
+              aria-selected={activeTab === tab.key}
+              tabIndex={activeTab === tab.key ? 0 : -1}
               onClick={() => setActiveTab(tab.key)}
               className={`relative pb-3 px-2 text-center flex-1 text-[15px] font-semibold transition-colors ${
                 activeTab === tab.key
@@ -131,64 +153,86 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
           ))}
         </div>
 
-        {/* Tab Content */}
+        {/* Tab panels stay in the server HTML; the selected tab controls visibility. */}
         <div className="pt-5">
-          {activeTab === 'services' && (
-            <>
-              <ServicesTab
-                services={barber.services || []}
-                selectedServiceIds={selectedServiceIds}
-                onToggleService={onToggleService}
-                selectedCount={selectedCount}
-              />
-              <Button
-                onClick={onContinue}
-                disabled={!hasSelection}
-                size="lg"
-                className="w-full mt-2"
-              >
-                ادامه و انتخاب زمان
-              </Button>
-            </>
-          )}
+          <section
+            role="tabpanel"
+            id="barber-panel-services"
+            aria-labelledby="barber-tab-services"
+            hidden={activeTab !== 'services'}
+          >
+            <ServicesTab
+              services={barber.services || []}
+              selectedServiceIds={selectedServiceIds}
+              onToggleService={onToggleService}
+              selectedCount={selectedCount}
+            />
+            <Button
+              onClick={onContinue}
+              disabled={!hasSelection}
+              size="lg"
+              className="w-full mt-2"
+            >
+              ادامه و انتخاب زمان
+            </Button>
+          </section>
 
-          {activeTab === 'about' && (
-            <div className="space-y-4">
+          <section
+            role="tabpanel"
+            id="barber-panel-about"
+            aria-labelledby="barber-tab-about"
+            hidden={activeTab !== 'about'}
+            className="space-y-4"
+          >
+            {barber.bio && (
               <p className="text-gray-700 leading-8 text-justify">
                 {barber.bio}
               </p>
-              {barber.portfolio && barber.portfolio.length > 0 && (
-                <div>
-                  <h3 className="font-bold text-gray-800 mb-3 text-sm">
-                    نمونه کارها
-                  </h3>
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                    {barber.portfolio.map((img, idx) => (
-                      <div
-                        key={idx}
-                        className="min-w-[90px] w-[90px] aspect-square rounded-xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer"
-                        onClick={() => onImageClick(img)}
-                      >
-                        <img
-                          src={img}
-                          className="w-full h-full object-cover"
-                          alt={`نمونه کار ${idx + 1}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
+            )}
+            {barber.portfolio.length > 0 ? (
+              <div>
+                <h3 className="font-bold text-gray-800 mb-3 text-sm">
+                  نمونه‌کارهای {barber.salonName}
+                </h3>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                  {barber.portfolio.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="min-w-[90px] w-[90px] aspect-square rounded-xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer"
+                      onClick={() => onImageClick(img)}
+                    >
+                      <img
+                        src={getImageUrl(img)}
+                        width={90}
+                        height={90}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                        alt={`نمونه‌کار سالن ${barber.salonName}، تصویر ${idx + 1}`}
+                      />
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            ) : (
+              <p className="text-sm leading-7 text-muted-foreground">
+                توضیحات یا نمونه‌کاری برای این سالن ثبت نشده است.
+              </p>
+            )}
+          </section>
 
-          {activeTab === 'reviews' && (
+          <section
+            role="tabpanel"
+            id="barber-panel-reviews"
+            aria-labelledby="barber-tab-reviews"
+            hidden={activeTab !== 'reviews'}
+          >
             <ReviewsSection
               barberId={barber.userId ?? barber.id}
               rating={ratingValue}
               reviewCount={reviewCount}
+              initialReviews={initialReviews}
             />
-          )}
+          </section>
         </div>
       </div>
     </div>
