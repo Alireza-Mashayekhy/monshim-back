@@ -15,6 +15,7 @@ export interface PageHeaderProps {
   showBackButton?: boolean;
   rightAction?: React.ReactNode;
   leftAction?: React.ReactNode;
+  headingLevel?: 1 | 2;
   className?: string;
 }
 
@@ -25,6 +26,7 @@ export function PageHeader({
   showBackButton = true,
   rightAction,
   leftAction,
+  headingLevel = 1,
   className,
 }: PageHeaderProps) {
   const router = useRouter();
@@ -66,9 +68,15 @@ export function PageHeader({
       </div>
 
       {/* عنوان در وسط */}
-      <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight text-center truncate px-2">
-        {title}
-      </h1>
+      {headingLevel === 2 ? (
+        <h2 className="text-base sm:text-lg font-black text-gray-900 tracking-tight text-center truncate px-2">
+          {title}
+        </h2>
+      ) : (
+        <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight text-center truncate px-2">
+          {title}
+        </h1>
+      )}
 
       {/* سمت چپ: اکشن دلخواه یا فاصله‌گذار برای حفظ تقارن عنوان */}
       <div className="flex items-center justify-end min-w-10">

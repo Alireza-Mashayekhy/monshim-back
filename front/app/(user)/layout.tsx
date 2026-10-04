@@ -8,6 +8,11 @@ export const metadata: Metadata = {
     template: '%s | منشیم',
   },
   description: 'سامانه رزرو آنلاین آرایشگاه منشیم',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
 };
 
 interface UserLayoutProps {

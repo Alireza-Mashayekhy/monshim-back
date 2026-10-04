@@ -81,7 +81,7 @@ export default function Users() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
                         onClick={() => {
-                          setSelectedBarberId(barber.id);
+                          setSelectedBarberId(String(barber.id));
                           setReviewDialogOpen(true);
                         }}
                       >

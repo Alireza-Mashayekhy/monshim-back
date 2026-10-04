@@ -11,7 +11,6 @@ import {
   Phone,
   Plus,
   Search,
-  Star,
   Users,
   Wallet,
   XCircle,
@@ -24,41 +23,45 @@ import { DesktopAppFrame, PhoneAppFrame, ShotHeader } from './app-frame';
  *
  * به‌جای ایلاستریشن کارتونی، خودِ UI محصول با markup واقعی و همان توکن‌های
  * رنگی/برچسب‌های وضعیت پنل واقعی (pending/confirmed/completed و ...) رندر
- * می‌شود. نمونه‌داده‌ها فقط برای پرکردن قاب‌اند و هیچ ادعای آماری ندارند.
+ * می‌شود. قاب‌ها پیش‌نمایش‌اند؛ آمار و ارقام واقعی سالن‌ها در آن‌ها نمایش داده نمی‌شود.
  */
 
 const DASHBOARD_STATS = [
-  { label: 'نوبت‌های امروز', value: '۱۲', sub: '۳ در انتظار تأیید' },
-  { label: 'درآمد امروز', value: '۸٬۴۰۰٬۰۰۰', sub: 'تومان' },
-  { label: 'مشتریان باشگاه', value: '۱۴۸', sub: '+۶ این هفته' },
+  {
+    label: 'نوبت‌های امروز',
+    value: '—',
+    sub: 'با ثبت نوبت نمایش داده می‌شود',
+  },
+  { label: 'درآمد امروز', value: '—', sub: 'وابسته به رزروهای سالن' },
+  { label: 'مشتریان باشگاه', value: '—', sub: 'اطلاعات حساب شما' },
 ] as const;
 
 const TODAY_BOOKINGS = [
   {
     time: '۱۰:۰۰',
-    name: 'علی محمدی',
-    service: 'اصلاح مو و ریش',
+    name: 'مشتری نمونه',
+    service: 'خدمت ثبت‌شده',
     status: 'تأیید شده',
     tone: 'confirmed' as const,
   },
   {
     time: '۱۱:۳۰',
-    name: 'محمد رضایی',
-    service: 'اصلاح مو',
+    name: 'مشتری نمونه',
+    service: 'خدمت ثبت‌شده',
     status: 'در انتظار',
     tone: 'pending' as const,
   },
   {
     time: '۱۳:۰۰',
-    name: 'رضا کریمی',
-    service: 'پکیج داماد',
+    name: 'مشتری نمونه',
+    service: 'خدمت ثبت‌شده',
     status: 'تأیید شده',
     tone: 'confirmed' as const,
   },
   {
     time: '۱۵:۳۰',
-    name: 'سینا احمدی',
-    service: 'رنگ و اصلاح',
+    name: 'مشتری نمونه',
+    service: 'خدمت ثبت‌شده',
     status: 'انجام شده',
     tone: 'completed' as const,
   },
@@ -78,11 +81,9 @@ export function DashboardShot({ className = '' }: { className?: string }) {
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-black text-gray-900">
-              سلام، سالن آرا ✂️
+              سلام، سالن شما ✂️
             </p>
-            <p className="text-[11px] text-gray-400">
-              شنبه ۱۴ شهریور • ۱۲ نوبت امروز
-            </p>
+            <p className="text-[11px] text-gray-400">پیش‌نمایش رابط کاربری</p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-[11px] font-bold text-white">
             <Plus className="size-3.5" aria-hidden="true" />
@@ -204,15 +205,30 @@ export function CalendarShot({ className = '' }: { className?: string }) {
 }
 
 const CLUB_CUSTOMERS = [
-  { name: 'علی محمدی', visits: '۲۴ مراجعه', last: '۳ روز پیش', group: 'VIP' },
   {
-    name: 'محمد رضایی',
-    visits: '۱۱ مراجعه',
-    last: 'هفته پیش',
+    name: 'مشتری نمونه ۱',
+    visits: 'سابقهٔ مراجعه',
+    last: 'زمان آخرین مراجعه',
+    group: 'VIP',
+  },
+  {
+    name: 'مشتری نمونه ۲',
+    visits: 'سابقهٔ مراجعه',
+    last: 'زمان آخرین مراجعه',
     group: 'وفادار',
   },
-  { name: 'رضا کریمی', visits: '۳ مراجعه', last: 'دیروز', group: 'جدید' },
-  { name: 'سینا احمدی', visits: '۱۸ مراجعه', last: '۲ هفته پیش', group: 'VIP' },
+  {
+    name: 'مشتری نمونه ۳',
+    visits: 'سابقهٔ مراجعه',
+    last: 'زمان آخرین مراجعه',
+    group: 'جدید',
+  },
+  {
+    name: 'مشتری نمونه ۴',
+    visits: 'سابقهٔ مراجعه',
+    last: 'زمان آخرین مراجعه',
+    group: 'VIP',
+  },
 ];
 
 const GROUP_TONE: Record<string, string> = {
@@ -227,7 +243,7 @@ export function CustomersShot({ className = '' }: { className?: string }) {
     <DesktopAppFrame title="باشگاه مشتریان" className={className}>
       <ShotHeader
         title="باشگاه مشتریان"
-        subtitle="۱۴۸ مشتری ثبت‌شده • گروه‌بندی و ارسال پیشنهاد"
+        subtitle="پیش‌نمایش سوابق و گروه‌بندی مشتریان"
         action="مشتری جدید"
       />
       <div className="border-t border-gray-50 px-4 py-3">
@@ -250,7 +266,7 @@ export function CustomersShot({ className = '' }: { className?: string }) {
                 {customer.name}
               </span>
               <span className="block truncate text-[11px] text-gray-400">
-                {customer.visits} • آخرین مراجعه {customer.last}
+                {customer.visits} • {customer.last}
               </span>
             </span>
             <span
@@ -266,9 +282,9 @@ export function CustomersShot({ className = '' }: { className?: string }) {
 }
 
 const WALLET_TX = [
-  { title: 'بیعانه نوبت — علی محمدی', amount: '+۱۵۰٬۰۰۰', income: true },
-  { title: 'تسویه وجه به کارت', amount: '−۲٬۰۰۰٬۰۰۰', income: false },
-  { title: 'بیعانه نوبت — رضا کریمی', amount: '+۳۶۰٬۰۰۰', income: true },
+  { title: 'دریافت بیعانهٔ نوبت', amount: '—', income: true },
+  { title: 'تسویه وجه به کارت', amount: '—', income: false },
+  { title: 'تراکنش رزرو', amount: '—', income: true },
 ];
 
 /** کیف پول و گزارش مالی */
@@ -277,7 +293,7 @@ export function WalletShot({ className = '' }: { className?: string }) {
     <DesktopAppFrame title="کیف پول و درآمد" className={className}>
       <div className="bg-gradient-to-bl from-primary to-teal-700 px-4 py-5 text-white">
         <p className="text-[11px] text-white/80">موجودی قابل برداشت</p>
-        <p className="mt-1 text-2xl font-black">۴٬۸۷۰٬۰۰۰</p>
+        <p className="mt-1 text-2xl font-black">—</p>
         <p className="text-[11px] text-white/75">تومان</p>
         <span className="mt-3 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[11px] font-bold text-primary">
           <ArrowUpRight className="size-3.5" aria-hidden="true" />
@@ -288,11 +304,11 @@ export function WalletShot({ className = '' }: { className?: string }) {
       <div className="grid grid-cols-2 divide-x divide-x-reverse divide-gray-100 border-y border-gray-50">
         <div className="p-3.5">
           <p className="text-[10px] font-bold text-gray-500">درآمد این ماه</p>
-          <p className="mt-1 text-base font-black text-gray-900">۳۲٬۵۰۰٬۰۰۰</p>
+          <p className="mt-1 text-base font-black text-gray-900">—</p>
         </div>
         <div className="p-3.5">
           <p className="text-[10px] font-bold text-gray-500">نوبت‌های ماه</p>
-          <p className="mt-1 text-base font-black text-gray-900">۲۱۴</p>
+          <p className="mt-1 text-base font-black text-gray-900">—</p>
         </div>
       </div>
 
@@ -331,9 +347,24 @@ export function WalletShot({ className = '' }: { className?: string }) {
 }
 
 const BOOKING_SERVICES = [
-  { name: 'اصلاح مو تخصصی', minutes: 30, price: '۲۵۰٬۰۰۰', selected: true },
-  { name: 'اصلاح صورت و ریش', minutes: 15, price: '۱۲۰٬۰۰۰', selected: true },
-  { name: 'پکیج داماد', minutes: 90, price: '۱٬۲۰۰٬۰۰۰', selected: false },
+  {
+    name: 'خدمت نمونه ۱',
+    minutes: null,
+    price: 'قیمت ثبت‌شده',
+    selected: true,
+  },
+  {
+    name: 'خدمت نمونه ۲',
+    minutes: null,
+    price: 'قیمت ثبت‌شده',
+    selected: true,
+  },
+  {
+    name: 'خدمت نمونه ۳',
+    minutes: null,
+    price: 'قیمت ثبت‌شده',
+    selected: false,
+  },
 ];
 
 const BOOKING_SLOTS = [
@@ -353,19 +384,15 @@ export function BookingShot({ className = '' }: { className?: string }) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-sm font-black text-gray-900">
-              سالن آرا
+              آرایشگاه نمونه
             </p>
             <p className="mt-1 flex items-center gap-1 text-[10px] text-gray-500">
               <MapPin className="size-3 text-primary" aria-hidden="true" />
-              تهران، سعادت‌آباد
+              موقعیت ثبت‌شدهٔ سالن
             </p>
           </div>
-          <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-gray-700">
-            <Star
-              className="size-3.5 fill-amber-400 text-amber-400"
-              aria-hidden="true"
-            />
-            ۴.۹
+          <span className="shrink-0 rounded-md bg-white px-2 py-1 text-[9px] font-bold text-primary">
+            پیش‌نمایش
           </span>
         </div>
       </div>
@@ -400,14 +427,16 @@ export function BookingShot({ className = '' }: { className?: string }) {
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-gray-400">
                   <Clock className="size-2.5" aria-hidden="true" />
-                  {service.minutes} دقیقه
+                  {service.minutes ? `${service.minutes} دقیقه` : 'مدت ثبت‌شده'}
                 </span>
               </span>
               <span className="shrink-0 text-left">
                 <span className="block text-[11px] font-black text-primary">
                   {service.price}
                 </span>
-                <span className="block text-[9px] text-gray-400">تومان</span>
+                <span className="block text-[9px] text-gray-400">
+                  توسط سالن
+                </span>
               </span>
             </li>
           ))}
@@ -415,7 +444,7 @@ export function BookingShot({ className = '' }: { className?: string }) {
 
         <p className="mt-4 flex items-center gap-1.5 text-[11px] font-bold text-gray-700">
           <CalendarDays className="size-3.5 text-primary" aria-hidden="true" />
-          ساعت‌های خالی شنبه ۱۴ شهریور
+          ساعت‌های انتخابی در تقویم رزرو
         </p>
         <div className="mt-2 grid grid-cols-3 gap-1.5">
           {BOOKING_SLOTS.map(slot => (
@@ -436,7 +465,7 @@ export function BookingShot({ className = '' }: { className?: string }) {
           ادامه و پرداخت آنلاین
         </span>
         <p className="mt-2 text-center text-[9px] leading-4 text-gray-400">
-          یادآوری پیامکی پیش از موعد نوبت ارسال می‌شود
+          یادآوری پیامکی در صورت فعال‌بودن برای نوبت ارسال می‌شود
         </p>
       </div>
     </PhoneAppFrame>
@@ -452,7 +481,7 @@ export function WalletMobileShot({ className = '' }: { className?: string }) {
           <Wallet className="size-3.5" aria-hidden="true" />
           کیف پول منشیم
         </span>
-        <p className="mt-2 text-2xl font-black">۴٬۸۷۰٬۰۰۰</p>
+        <p className="mt-2 text-2xl font-black">—</p>
         <p className="text-[11px] text-white/75">تومان • قابل برداشت</p>
       </div>
       <ul className="divide-y divide-gray-50">
@@ -483,29 +512,29 @@ const APPT_SUMMARY = [
   {
     icon: CalendarDays,
     label: 'نوبت‌های امروز',
-    value: '۱',
-    sub: 'شامل همه نوبت‌های فعال',
+    value: '—',
+    sub: 'نمایش بر اساس رزروهای سالن',
     tone: 'teal',
   },
   {
     icon: Wallet,
     label: 'درآمد امروز',
-    value: '۵۰۰۰۰۰',
-    sub: 'تومان — نوبت‌های فعال',
+    value: '—',
+    sub: 'وابسته به رزروهای سالن',
     tone: 'teal',
   },
   {
     icon: Hourglass,
     label: 'در انتظار تایید',
-    value: '۱',
-    sub: 'نیاز به بررسی شما',
+    value: '—',
+    sub: 'نمایش بر اساس وضعیت رزرو',
     tone: 'amber',
   },
   {
     icon: Clock3,
     label: 'نوبت بعدی',
-    value: '۰۹:۰۰',
-    sub: 'علیرضا',
+    value: '—',
+    sub: 'با ثبت نوبت نمایش داده می‌شود',
     tone: 'teal',
   },
 ] as const;
@@ -701,18 +730,18 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
       {/* گروه روز اول — تایید شده */}
       <div className="mt-4 flex items-center justify-between text-[10px] font-bold">
         <span className="rounded-md bg-primary-2 px-2 py-1 text-primary">
-          جمعه ۲۷ شهریور ۱۴۰۵
+          روز نمونه — رزرو ثبت‌شده
         </span>
-        <span className="text-gray-400">۱ نوبت</span>
+        <span className="text-gray-400">نمایش روزانه</span>
       </div>
       <div className="mt-2">
         <AppointmentRow
           time="۰۹:۰۰"
           duration="۲۰′"
-          name="علیرضا نعمتی"
-          phone="۰۹۳۹۵۲۷۳۱۱۹"
+          name="مشتری نمونه"
+          phone="اطلاعات تماس در حساب سالن"
           service="پیرایش"
-          price="۵۰۰٬۰۰۰"
+          price="—"
           status="confirmed"
           isToday
         />
@@ -721,18 +750,18 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
       {/* گروه روز دوم — در انتظار تایید */}
       <div className="mt-4 flex items-center justify-between text-[10px] font-bold">
         <span className="rounded-md bg-primary-2 px-2 py-1 text-primary">
-          پنجشنبه ۲۶ شهریور ۱۴۰۵
+          روز نمونه — رزرو در انتظار
         </span>
-        <span className="text-gray-400">۳ نوبت</span>
+        <span className="text-gray-400">نمایش روزانه</span>
       </div>
       <div className="mt-2">
         <AppointmentRow
           time="۱۰:۳۰"
           duration="۲۰′"
-          name="سینا کریمی"
-          phone="۰۹۹۵۲۷۳۱۱۹"
+          name="مشتری نمونه"
+          phone="اطلاعات تماس در حساب سالن"
           service="پیرایش"
-          price="۵۰۰٬۰۰۰"
+          price="—"
           status="pending"
         />
       </div>

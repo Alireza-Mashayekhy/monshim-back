@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Eye,
   EyeOff,
@@ -23,11 +24,14 @@ import RHFPhoneInput from '@/components/form/rhf-phone-input';
 import { Button } from '@/components/ui/button';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
+  authKeys,
   buildAuthHref,
   type CallbackUrlValue,
   getAuthDestination,
+  getRoleLandingPath,
 } from '@/lib/auth';
 import { normalizePhone, phoneSchema } from '@/lib/phone';
+import { extractUser } from '@/lib/roles';
 import { useLoginWithPassword } from '@/services/features/auth/hooks';
 
 const loginSchema = z.object({
@@ -44,6 +48,7 @@ export default function LoginPasswordForm({
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const loginMutation = useLoginWithPassword();
 
   const methods = useForm<LoginFormValues>({
@@ -62,7 +67,8 @@ export default function LoginPasswordForm({
       });
 
       toast.success('ورود با موفقیت انجام شد. خوش آمدید!');
-      router.replace(getAuthDestination(callbackUrl));
+      const user = extractUser(queryClient.getQueryData(authKeys.me));
+      router.replace(getAuthDestination(callbackUrl, getRoleLandingPath(user)));
       router.refresh();
     } catch (error) {
       toast.error(

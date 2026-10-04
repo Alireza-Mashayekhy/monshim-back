@@ -8,6 +8,8 @@ import { StarRating } from '@/components/shared/star-rating';
 import { Button } from '@/components/ui/button';
 import { toFa } from '@/lib/jalali';
 import { cn } from '@/lib/utils';
+import type { ApiListResponse } from '@/services/api/types';
+import { useCurrentUser } from '@/services/features/auth/hooks';
 import {
   useBarberReviews,
   useMyBarberReview,
@@ -88,13 +90,16 @@ interface ReviewsSectionProps {
   barberId: number | string;
   rating?: number | null;
   reviewCount?: number | null;
+  initialReviews?: ApiListResponse<BarberReview> | null;
 }
 
 export function ReviewsSection({
   barberId,
   rating,
   reviewCount,
+  initialReviews,
 }: ReviewsSectionProps) {
+  const { user } = useCurrentUser();
   const [rateOpen, setRateOpen] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -102,10 +107,16 @@ export function ReviewsSection({
     data: reviewsData,
     isLoading: reviewsLoading,
     isError: reviewsError,
-  } = useBarberReviews(barberId, { page, limit: REVIEWS_PAGE_SIZE });
+  } = useBarberReviews(
+    barberId,
+    { page, limit: REVIEWS_PAGE_SIZE },
+    initialReviews,
+  );
 
-  const { data: myReviewData, isLoading: myReviewLoading } =
-    useMyBarberReview(barberId);
+  const { data: myReviewData, isLoading: myReviewLoading } = useMyBarberReview(
+    barberId,
+    Boolean(user),
+  );
 
   const reviews = reviewsData?.data ?? [];
   const total = reviewsData?.pagination?.total ?? reviewCount ?? 0;
@@ -133,7 +144,7 @@ export function ReviewsSection({
           </p>
         </div>
 
-        {!myReviewLoading && canReview && (
+        {user && !myReviewLoading && canReview && (
           <Button size="sm" onClick={() => setRateOpen(true)}>
             <Star size={14} className="fill-current" />
             ثبت نظر
@@ -142,7 +153,7 @@ export function ReviewsSection({
       </div>
 
       {/* وضعیت نظر من */}
-      {!myReviewLoading && myReview && (
+      {user && !myReviewLoading && myReview && (
         <MyReviewStatusBadge review={myReview} />
       )}
 

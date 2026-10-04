@@ -1,15 +1,12 @@
-import { Check, Clock, Heart, MapPin, Star } from 'lucide-react';
+import { Check, Clock, Heart, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
 import SectionHeading from '@/components/marketing/section-heading';
 
 /**
- * بخش «نمونه واقعی منشیم» — بازسازی دقیق ظاهر صفحه اختصاصی آرایشگاه در اپ
- * (components/pages/barber/step1.tsx):
- * تصویر سالن با دکمه علاقه‌مندی، شیت سفید با نام + امتیاز، آدرس • شهر،
- * تب‌های خدمات / درباره ما / نظرات، لیست خدمات با چک‌باکس + مدت + قیمت تومان
- * و دکمه «ادامه و انتخاب زمان».
+ * پیش‌نمایش نمایشی صفحهٔ اختصاصی آرایشگاه. نام سالن، نشانی و قیمت‌های زیر
+ * صرفاً دادهٔ نمونه‌اند و به یک کسب‌وکار واقعی نسبت داده نمی‌شوند.
  */
 
 const SAMPLE_SERVICES = [
@@ -21,7 +18,7 @@ const SAMPLE_SERVICES = [
 const TABS = [
   { label: 'خدمات', active: true },
   { label: 'درباره ما', active: false },
-  { label: 'نظرات (۱۲)', active: false },
+  { label: 'نظرات', active: false },
 ] as const;
 
 export default function HomePreview() {
@@ -39,7 +36,7 @@ export default function HomePreview() {
         />
 
         <p className="mx-auto mt-4 w-fit rounded-full border border-dashed border-primary-300 bg-white px-4 py-1.5 text-[11px] font-bold text-primary">
-          نمونهٔ نمایشی — داده‌ها ساختگی است
+          نمونهٔ نمایشی — اطلاعات سالن و خدمات، دادهٔ واقعی نیست
         </p>
 
         <figure className="mx-auto mt-8 max-w-md">
@@ -65,18 +62,11 @@ export default function HomePreview() {
             <div className="-mt-6 rounded-t-[24px] bg-primary-3 px-5 pt-5 pb-5 relative z-[2]">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-xl font-black text-foreground">
-                  سالن آرا
+                  سالن نمونه
                   <span className="mr-2 align-middle rounded-md bg-primary-2 px-2 py-0.5 text-[10px] font-bold text-primary">
                     نمونهٔ نمایشی
                   </span>{' '}
                 </h3>
-                <p className="flex items-center gap-1 text-sm font-bold text-foreground/80">
-                  <Star
-                    className="size-4 fill-yellow-400 text-yellow-400"
-                    aria-hidden="true"
-                  />
-                  ۴.۹
-                </p>
               </div>
 
               <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">

@@ -7,8 +7,10 @@ import { cookies } from 'next/headers';
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
 import MicrosoftClarity from '@/components/analytics/MicrosoftClarity';
 import { iranSans } from '@/components/font';
+import JsonLd from '@/components/marketing/json-ld';
 import { makeQueryClient } from '@/lib/query-client';
 import { extractUser } from '@/lib/roles';
+import { siteConfig } from '@/lib/site-config';
 import { cn } from '@/lib/utils';
 import AuthProvider from '@/providers/auth.provider';
 import { authKeys } from '@/services/features/auth/hooks';
@@ -18,15 +20,38 @@ import { UserResponse } from '@/services/features/auth/types';
 import Providers from './providers';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://monshiim.ir'),
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: 'منشیم | سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه',
-    template: '%s | منشیم',
+    default: 'رزرو آنلاین آرایشگاه و مدیریت سالن',
+    template: `%s | ${siteConfig.name}`,
   },
-  description:
-    'منشیم (Monshim) سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه است؛ نوبت دهی آنلاین ۲۴ ساعته، باشگاه مشتریان، مدیریت مالی و گزارش درآمد آرایشگاه را یکجا داشته باشید.',
-  applicationName: 'منشیم',
+  description: siteConfig.description,
+  applicationName: siteConfig.name,
 };
+
+const globalStructuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': `${siteConfig.url}/#organization`,
+    name: siteConfig.name,
+    alternateName: siteConfig.nameEn,
+    url: siteConfig.url,
+    logo: `${siteConfig.url}/logo/logo.png`,
+    email: 'info@monshiim.ir',
+    sameAs: ['https://www.instagram.com/monshiim', 'https://t.me/monshiim'],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${siteConfig.url}/#website`,
+    name: siteConfig.name,
+    alternateName: siteConfig.nameEn,
+    url: siteConfig.url,
+    inLanguage: 'fa-IR',
+    publisher: { '@id': `${siteConfig.url}/#organization` },
+  },
+];
 
 /** Only authoritative API data is hydrated; never fall back to request headers. */
 async function resolveUser(): Promise<{
@@ -81,6 +106,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-primary-3">
         <GoogleAnalytics />
         <MicrosoftClarity />
+        <JsonLd data={globalStructuredData} />
 
         <Providers dehydratedState={buildDehydratedState(user, known)}>
           <AuthProvider>{children}</AuthProvider>

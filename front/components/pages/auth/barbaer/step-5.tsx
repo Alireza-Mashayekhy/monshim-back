@@ -210,13 +210,13 @@ export default function BarbaerStep5({
       }
       formData.append('data', JSON.stringify(payload));
 
-      // عکس پروفایل
+      // لوگوی برند با نام فیلد سازگار با API فعلی ارسال می‌شود.
       if (image) {
         const imageBlob = base64ToBlob(image);
         formData.append(
           'profileImage',
           imageBlob,
-          `profile.${imageBlob.type.split('/')[1]}`,
+          `brand-logo.${imageBlob.type.split('/')[1]}`,
         );
       }
 
@@ -236,7 +236,7 @@ export default function BarbaerStep5({
       setIsOtpModalOpen(false);
       setOtpCode('');
       store.reset();
-      router.replace(getAuthDestination(callbackUrl, '/dashboard/profile'));
+      router.replace(getAuthDestination(callbackUrl, '/dashboard'));
       router.refresh();
     } catch (error) {
       toast.error(
@@ -277,18 +277,6 @@ export default function BarbaerStep5({
               <span className="text-gray-500 shrink-0">تاریخ تولد</span>
               <span className="font-medium text-left">{birthDate || '—'}</span>
             </div>
-            <div className="flex justify-between items-center gap-2">
-              <span className="text-gray-500 shrink-0">عکس پروفایل</span>
-              {image ? (
-                <img
-                  src={image}
-                  alt="پروفایل"
-                  className="w-10 h-10 rounded-full object-cover border"
-                />
-              ) : (
-                <span className="text-gray-400">انتخاب نشده</span>
-              )}
-            </div>
           </div>
         </div>
 
@@ -299,6 +287,18 @@ export default function BarbaerStep5({
             <h3 className="font-bold text-sm">اطلاعات سالن</h3>
           </div>
           <div className="space-y-2.5 text-sm">
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-gray-500 shrink-0">لوگوی برند</span>
+              {image ? (
+                <img
+                  src={image}
+                  alt="لوگوی برند"
+                  className="w-10 h-10 rounded-xl object-cover border"
+                />
+              ) : (
+                <span className="text-gray-400">انتخاب نشده</span>
+              )}
+            </div>
             <div className="flex justify-between items-start gap-2">
               <span className="text-gray-500 shrink-0">نام آرایشگاه</span>
               <span className="font-medium text-left">{shopName || '—'}</span>

@@ -1,10 +1,13 @@
 import { ShieldCheck } from 'lucide-react';
-import { Metadata } from 'next';
 
-export const metadata: Metadata = {
+import { buildPageMetadata } from '@/lib/seo';
+import { siteConfig } from '@/lib/site-config';
+
+export const metadata = buildPageMetadata({
   title: 'سیاست حریم خصوصی',
-  description: 'سیاست حریم خصوصی سامانه نوبت‌دهی منشیم',
-};
+  description: 'سیاست حریم خصوصی و نحوهٔ پردازش اطلاعات در سامانه منشیم.',
+  path: siteConfig.routes.privacy,
+});
 
 export default function PrivacyPage() {
   return (

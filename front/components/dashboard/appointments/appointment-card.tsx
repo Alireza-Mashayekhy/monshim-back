@@ -2,6 +2,7 @@
 'use client';
 
 import {
+  AlertTriangle,
   BellRing,
   Check,
   CheckCheck,
@@ -11,7 +12,18 @@ import {
   StickyNote,
   XCircle,
 } from 'lucide-react';
+import { useState } from 'react';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +42,7 @@ interface AppointmentCardProps {
 export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const { customer, service, time, status, price } = booking;
   const updateStatus = useUpdateBookingStatus();
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const handleCall = () => {
     if (customer?.phone) window.location.href = `tel:${customer.phone}`;
@@ -217,6 +230,17 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                     <XCircle size={13} className="ml-1" />
                     رد
                   </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 rounded-lg text-[11px] font-bold text-red-500 hover:bg-red-50 hover:text-red-600"
+                    onClick={() => setCancelOpen(true)}
+                    disabled={updateStatus.isPending}
+                  >
+                    <XCircle size={13} className="ml-1" />
+                    لغو
+                  </Button>
                 </>
               )}
 
@@ -236,7 +260,7 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                     size="sm"
                     variant="outline"
                     className="h-8 rounded-lg text-[11px] font-bold text-red-500 hover:bg-red-50 hover:text-red-600"
-                    onClick={() => handleStatus('canceled')}
+                    onClick={() => setCancelOpen(true)}
                     disabled={updateStatus.isPending}
                   >
                     <XCircle size={13} className="ml-1" />
@@ -248,6 +272,51 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
           </div>
         )}
       </div>
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent dir="rtl" className="max-w-md rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>لغو رزرو</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 leading-6">
+              <p>
+                آیا از لغو نوبت {customer?.fullName || 'این مشتری'} در تاریخ{' '}
+                {booking.date} ساعت {time} مطمئن هستید؟
+              </p>
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800">
+                <AlertTriangle className="mt-0.5 shrink-0" size={15} />
+                <span>
+                  اگر این رزرو پرداخت شده باشد، مبلغ قابل بازپرداخت از کیف پول
+                  شما کسر و در صف ادمین ثبت می‌شود. در لغو کامل پرداخت آنلاین،
+                  این مبلغ شامل کمیسیون نیز هست. بخش‌هایی که مشتری قبلاً لغو
+                  کرده باشد بازپرداخت نمی‌شود؛ رزروهای بدون پرداخت نیز کسر
+                  ندارند.
+                </span>
+              </div>
+              <p className="text-xs font-semibold text-rose-700">
+                اگر موجودی کیف پول برای کسر کامل مبلغ کافی نباشد، لغو انجام
+                نمی‌شود.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateStatus.isPending}>
+              بازگشت
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={updateStatus.isPending}
+              onClick={event => {
+                event.preventDefault();
+                updateStatus.mutate(
+                  { id: booking.id, status: 'canceled' },
+                  { onSuccess: () => setCancelOpen(false) },
+                );
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {updateStatus.isPending ? 'در حال لغو…' : 'تأیید و لغو'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

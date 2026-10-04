@@ -68,6 +68,10 @@ export default function HomeProduct() {
               >
                 <figure className={flipped ? 'lg:order-2' : 'lg:order-1'}>
                   <item.Shot />
+                  <figcaption className="mt-3 text-center text-xs leading-6 text-muted-foreground">
+                    پیش‌نمایش رابط کاربری با دادهٔ نمونه؛ اعداد، تراکنش‌ها و
+                    پرونده‌های نمایشی، اطلاعات واقعی سالن‌ها نیستند.
+                  </figcaption>
                 </figure>
 
                 <div

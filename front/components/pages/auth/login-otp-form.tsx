@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
   KeyRound,
@@ -27,11 +28,14 @@ import {
 } from '@/components/ui/input-otp';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
+  authKeys,
   buildAuthHref,
   type CallbackUrlValue,
   getAuthDestination,
+  getRoleLandingPath,
 } from '@/lib/auth';
 import { normalizePhone, onlyDigits, phoneSchema } from '@/lib/phone';
+import { extractUser } from '@/lib/roles';
 import { useLogin, useSendOtp } from '@/services/features/auth/hooks';
 
 const phoneFormSchema = z.object({
@@ -55,6 +59,7 @@ export default function LoginOtpForm({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const router = useRouter();
+  const queryClient = useQueryClient();
   const sendOtpMutation = useSendOtp();
   const loginMutation = useLogin();
 
@@ -141,7 +146,8 @@ export default function LoginOtpForm({
       }
 
       toast.success('ورود با موفقیت انجام شد. خوش آمدید!');
-      router.replace(getAuthDestination(callbackUrl));
+      const user = extractUser(queryClient.getQueryData(authKeys.me));
+      router.replace(getAuthDestination(callbackUrl, getRoleLandingPath(user)));
       router.refresh();
     } catch (error) {
       toast.error(
