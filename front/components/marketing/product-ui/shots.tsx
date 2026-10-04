@@ -595,7 +595,7 @@ function AppointmentRow({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h4 className="text-sm font-black text-gray-900">{name}</h4>
+              <span className="text-sm font-black text-gray-900">{name}</span>
               <span
                 className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${
                   pending
@@ -667,7 +667,7 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
     >
       {/* سربرگ صفحه */}
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h3 className="text-base font-black text-gray-900">نوبت‌ها</h3>
+        <span className="text-base font-black text-gray-900">نوبت‌ها</span>
         <span className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-[11px] font-black text-white">
           <CalendarPlus size={14} aria-hidden="true" />
           ثبت نوبت دستی
