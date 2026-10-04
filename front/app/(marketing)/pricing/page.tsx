@@ -10,7 +10,7 @@ import PricingFaq, {
 } from '@/components/marketing/pricing/pricing-faq';
 import PricingPlans from '@/components/marketing/pricing/pricing-plans';
 import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
-import { buildPageMetadata, JSONLD_URLS } from '@/lib/seo';
+import { buildPageMetadata, faqPageSchema, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 
 export const metadata: Metadata = buildPageMetadata({
@@ -19,37 +19,46 @@ export const metadata: Metadata = buildPageMetadata({
     'تعرفه پلن‌های منشیم از ماهانه ۵۹ هزار تومان؛ همه امکانات نوبت دهی آنلاین آرایشگاه و مدیریت آرایشگاه در همه پلن‌ها فعال است و تفاوت فقط در سهمیه پیامک ماهانه است.',
   path: siteConfig.routes.pricing,
   imageUrl: `${siteConfig.url}/landing/og-pricing.png`,
-  keywords: [
-    'قیمت نرم افزار آرایشگاه',
-    'تعرفه نوبت دهی آنلاین',
-    'پلن اشتراک منشیم',
-    'خرید اشتراک منشیم',
-  ],
 });
 
 /**
  * داده ساخت‌یافته صفحه تعرفه — قیمت‌ها عیناً از
  * back/src/subscription/constants.ts (تومان × ۱۰ = ریال).
  */
+const planPricesInRial = PRICING_PLANS.map(plan => plan.monthlyPrice * 10);
+
 const pricingJsonLd = [
   {
     '@context': 'https://schema.org',
-    '@type': 'Product',
+    '@type': 'WebPage',
+    '@id': `${JSONLD_URLS.pricing}#webpage`,
+    url: JSONLD_URLS.pricing,
+    name: 'تعرفه و قیمت نرم افزار مدیریت آرایشگاه منشیم',
+    description: 'قیمت‌ها و سهمیهٔ پیامک پلن‌های اشتراک ۳۰روزهٔ منشیم.',
+    inLanguage: 'fa-IR',
+    isPartOf: { '@id': `${siteConfig.url}/#website` },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
     name: 'منشیم | نرم افزار مدیریت آرایشگاه و رزرو آنلاین',
     description:
-      'سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه منشیم با پلن‌های آغاز، پایه، رشد، حرفه‌ای و ویژه.',
-    brand: { '@type': 'Brand', name: 'منشیم (Monshim)' },
+      'سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه منشیم با پنج پلن اشتراک ۳۰روزه.',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web browser',
+    inLanguage: 'fa-IR',
+    publisher: { '@id': `${siteConfig.url}/#organization` },
     url: JSONLD_URLS.pricing,
     offers: {
       '@type': 'AggregateOffer',
       priceCurrency: 'IRR',
-      lowPrice: 590000,
-      highPrice: 15490000,
-      offerCount: 5,
+      lowPrice: Math.min(...planPricesInRial),
+      highPrice: Math.max(...planPricesInRial),
+      offerCount: PRICING_PLANS.length,
       url: JSONLD_URLS.pricing,
       offers: PRICING_PLANS.map(plan => ({
         '@type': 'Offer',
-        name: `${plan.name} (${plan.smsCount} پیامک ماهانه)`,
+        name: `${plan.name}؛ ${plan.smsCount} پیامک برای ۳۰ روز`,
         price: plan.monthlyPrice * 10,
         priceCurrency: 'IRR',
         availability: 'https://schema.org/InStock',
@@ -57,18 +66,7 @@ const pricingJsonLd = [
       })),
     },
   },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: PRICING_FAQS.map(faq => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer,
-      },
-    })),
-  },
+  faqPageSchema(PRICING_FAQS),
 ];
 
 const GUARANTEES = [
@@ -84,8 +82,9 @@ const GUARANTEES = [
   },
   {
     icon: Wallet,
-    title: 'تسویه سریع درآمد',
-    description: 'بیعانه نوبت‌ها در کیف پول شما می‌نشیند و قابل برداشت است.',
+    title: 'پیگیری مالی در پنل',
+    description:
+      'موجودی کیف پول و تراکنش‌های مرتبط با نوبت‌ها را از پنل مالی پیگیری کنید.',
   },
 ] as const;
 
@@ -115,8 +114,9 @@ export default function PricingPage() {
             منشیم
           </h1>
           <p className="mt-5 leading-8 text-muted-foreground">
-            اشتراک ماهانه از ۵۹ هزار تومان؛ همه امکانات در همه پلن‌ها فعال است و
-            تفاوت فقط در سهمیه پیامک ماهانه است. شفاف و بدون هزینه پنهان.
+            اشتراک‌ها ۳۰روزه‌اند و تفاوت پلن‌ها در سهمیه پیامک است. مبلغ اشتراک
+            هر پلن مشخص است؛ کارمزد درگاه و کمیسیون پرداخت آنلاین رزرو نیز پیش
+            از تأیید پرداخت نمایش داده می‌شود.
           </p>
         </div>
 

@@ -12,6 +12,11 @@ import { ClubService } from 'src/club/club.service';
 import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { getPagination } from 'src/common/query';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
+import {
+  Payment,
+  PaymentPurpose,
+  PaymentStatus,
+} from 'src/payment/entities/payment.entity';
 import { ReferralService } from 'src/referral/referral.service';
 import { Service } from 'src/services/entities/service.entity';
 import {
@@ -20,7 +25,8 @@ import {
 } from 'src/subscription/entities/user-subscription.entity';
 import { UserSubscriptionService } from 'src/subscription/user-subscription.service';
 import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
+import { WalletService } from 'src/wallet/wallet.service';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -51,6 +57,8 @@ export class BookingsService {
     @InjectRepository(User)
     private userRepo: Repository<User>,
 
+    private readonly dataSource: DataSource,
+    private readonly walletService: WalletService,
     private referralService: ReferralService,
     private clubService: ClubService,
     private userSubscriptionService: UserSubscriptionService,
@@ -438,12 +446,363 @@ export class BookingsService {
   // UPDATE BOOKING STATUS
   // =========================================================
 
+  private async cancelByBarberOrAdmin(
+    id: string,
+    userId: number,
+    roles: string[],
+  ): Promise<Booking> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    const canceledBookingIds: string[] = [];
+
+    try {
+      const bookingRepo = queryRunner.manager.getRepository(Booking);
+      const initialBooking = await bookingRepo.findOne({
+        where: { id },
+        relations: { barber: true },
+      });
+      if (!initialBooking) {
+        throw new NotFoundException('رزرو یافت نشد');
+      }
+
+      const isBarber = initialBooking.barber?.userId === userId;
+      const isAdmin = roles?.includes('admin');
+      if (!isBarber && !isAdmin) {
+        throw new ForbiddenException(
+          'فقط آرایشگر یا ادمین می‌توانند وضعیت را تغییر دهند',
+        );
+      }
+
+      const paymentCandidates = await queryRunner.manager
+        .getRepository(Payment)
+        .createQueryBuilder('payment')
+        .where('payment.purpose = :purpose', {
+          purpose: PaymentPurpose.BOOKING,
+        })
+        .andWhere('payment.status = :status', {
+          status: PaymentStatus.PAID,
+        })
+        .andWhere(
+          '(payment.purposeId = :bookingId OR payment.metadata LIKE :bookingPattern OR (payment.userId = :customerId AND payment.metadata LIKE :datePattern))',
+          {
+            bookingId: id,
+            bookingPattern: `%${id}%`,
+            customerId: initialBooking.customerId,
+            datePattern: `%${initialBooking.date}%`,
+          },
+        )
+        .orderBy('payment.id', 'ASC')
+        .setLock('pessimistic_write')
+        .getMany();
+      const paidPayments = paymentCandidates.filter(payment =>
+        this.paymentReferencesBooking(payment, initialBooking),
+      );
+      const bookingIds = new Set<string>([id]);
+      for (const payment of paidPayments) {
+        for (const bookingId of await this.resolvePaymentBookingIds(
+          queryRunner.manager,
+          payment,
+          initialBooking,
+        )) {
+          bookingIds.add(bookingId);
+        }
+      }
+
+      const lockedBookings = await bookingRepo
+        .createQueryBuilder('booking')
+        .where('booking.id IN (:...bookingIds)', {
+          bookingIds: [...bookingIds].sort(),
+        })
+        .orderBy('booking.id', 'ASC')
+        .setLock('pessimistic_write')
+        .getMany();
+      const booking = lockedBookings.find(item => item.id === id);
+      if (!booking) {
+        throw new NotFoundException('رزرو یافت نشد');
+      }
+      if (
+        booking.status !== BookingStatus.PENDING &&
+        booking.status !== BookingStatus.CONFIRMED
+      ) {
+        throw new BadRequestException(
+          booking.status === BookingStatus.CANCELED
+            ? 'رزرو لغو شده قابل تغییر نیست'
+            : 'فقط رزروهای در انتظار یا تاییدشده قابل لغو هستند',
+        );
+      }
+      if (
+        lockedBookings.some(item => item.status === BookingStatus.COMPLETED)
+      ) {
+        throw new BadRequestException(
+          'چون یکی از نوبت‌های این پرداخت انجام شده است، لغو و بازپرداخت گروهی ممکن نیست.',
+        );
+      }
+      if (
+        lockedBookings.some(
+          item =>
+            item.status !== BookingStatus.PENDING &&
+            item.status !== BookingStatus.CONFIRMED &&
+            item.status !== BookingStatus.CANCELED,
+        )
+      ) {
+        throw new BadRequestException(
+          'وضعیت یکی از نوبت‌های این پرداخت اجازهٔ بازپرداخت گروهی نمی‌دهد.',
+        );
+      }
+
+      if (paidPayments.length) {
+        const barberUserId = initialBooking.barber?.userId;
+        if (!barberUserId) {
+          throw new BadRequestException(
+            'حساب آرایشگر برای ثبت بازپرداخت پیدا نشد.',
+          );
+        }
+
+        for (const payment of paidPayments) {
+          const refundAmount = this.getCancellationRefundAmount(
+            payment,
+            lockedBookings,
+          );
+          if (refundAmount > 0) {
+            await this.walletService.debitBarberAndQueueRefund(
+              queryRunner.manager,
+              {
+                barberUserId,
+                customerUserId: booking.customerId,
+                bookingId: id,
+                paymentId: payment.id,
+                amount: refundAmount,
+              },
+            );
+          }
+        }
+      }
+
+      const canceledAt = new Date();
+      const canceledBy = isBarber ? 'barber' : 'admin';
+      const changedBookings = lockedBookings.filter(
+        item => item.status !== BookingStatus.CANCELED,
+      );
+      for (const item of changedBookings) {
+        item.status = BookingStatus.CANCELED;
+        item.canceledBy = canceledBy;
+        item.canceledAt = canceledAt;
+        canceledBookingIds.push(item.id);
+      }
+      await bookingRepo.save(changedBookings);
+      await queryRunner.commitTransaction();
+
+      for (const bookingId of canceledBookingIds) {
+        this.sendBookingCanceledSms(bookingId);
+      }
+
+      return (
+        (await this.bookingRepo.findOne({
+          where: { id },
+          relations: { customer: true, barber: true, service: true },
+        })) ?? booking
+      );
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  private paymentReferencesBooking(payment: Payment, booking: Booking) {
+    if (payment.purposeId === booking.id) return true;
+    if (this.getPaymentBookingIds(payment).includes(booking.id)) return true;
+
+    const metadata = this.parsePaymentMetadata(payment);
+    if (!metadata) return false;
+    if (metadata.bookingId === booking.id) return true;
+    if (
+      Number(metadata.customerId ?? payment.userId) !== booking.customerId ||
+      this.metadataString(metadata.barberProfileId) !== booking.barberId ||
+      this.normalizeBookingDate(metadata.date) !==
+        this.normalizeBookingDate(booking.date)
+    ) {
+      return false;
+    }
+
+    if (Array.isArray(metadata.items)) {
+      return metadata.items.some(item =>
+        this.paymentItemMatchesBooking(item, booking),
+      );
+    }
+
+    return this.paymentItemMatchesBooking(metadata, booking);
+  }
+
+  private async resolvePaymentBookingIds(
+    manager: EntityManager,
+    payment: Payment,
+    referenceBooking: Booking,
+  ): Promise<string[]> {
+    const bookingIds = new Set(this.getPaymentBookingIds(payment));
+    if (bookingIds.size) return [...bookingIds];
+
+    const metadata = this.parsePaymentMetadata(payment);
+    if (!metadata) return [];
+    const descriptors = Array.isArray(metadata.items)
+      ? metadata.items
+      : metadata.serviceId
+        ? [metadata]
+        : [];
+    if (!descriptors.length) return [];
+
+    const customerId = Number(metadata.customerId ?? payment.userId);
+    const barberId = this.metadataString(metadata.barberProfileId);
+    const date = this.normalizeBookingDate(metadata.date);
+    if (
+      customerId !== referenceBooking.customerId ||
+      barberId !== referenceBooking.barberId ||
+      date !== this.normalizeBookingDate(referenceBooking.date)
+    ) {
+      return [];
+    }
+
+    const relatedBookings = await manager
+      .getRepository(Booking)
+      .createQueryBuilder('booking')
+      .where('booking.customerId = :customerId', { customerId })
+      .andWhere('booking.barberId = :barberId', { barberId })
+      .andWhere('booking.date = :date', { date })
+      .getMany();
+
+    for (const relatedBooking of relatedBookings) {
+      if (
+        descriptors.some(descriptor =>
+          this.paymentItemMatchesBooking(descriptor, relatedBooking),
+        )
+      ) {
+        bookingIds.add(relatedBooking.id);
+      }
+    }
+    return [...bookingIds];
+  }
+
+  private paymentItemMatchesBooking(item: unknown, booking: Booking) {
+    if (!item || typeof item !== 'object') return false;
+    const descriptor = item as Record<string, unknown>;
+    if (this.metadataString(descriptor.serviceId) !== booking.serviceId) {
+      return false;
+    }
+    if (
+      this.normalizeBookingTime(descriptor.time) !==
+      this.normalizeBookingTime(booking.time)
+    ) {
+      return false;
+    }
+
+    if (descriptor.price !== undefined && descriptor.price !== null) {
+      const price = Number(descriptor.price);
+      if (Number.isFinite(price) && price !== Number(booking.price)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private parsePaymentMetadata(
+    payment: Payment,
+  ):
+    | (Record<string, unknown> & { bookingId?: unknown; items?: unknown })
+    | null {
+    if (!payment.metadata) return null;
+    try {
+      const metadata: unknown = JSON.parse(payment.metadata);
+      return metadata && typeof metadata === 'object'
+        ? (metadata as Record<string, unknown> & {
+            bookingId?: unknown;
+            items?: unknown;
+          })
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private getPaymentBookingIds(payment: Payment): string[] {
+    const metadata = this.parsePaymentMetadata(payment);
+    if (!metadata) return [];
+    const ids = Array.isArray(metadata.bookingIds)
+      ? metadata.bookingIds.filter(
+          (bookingId): bookingId is string => typeof bookingId === 'string',
+        )
+      : [];
+    if (typeof metadata.bookingId === 'string') ids.push(metadata.bookingId);
+    return [...new Set(ids)];
+  }
+
+  private getCancellationRefundAmount(
+    payment: Payment,
+    linkedBookings: Booking[],
+  ) {
+    const paidAmount = Number(payment.amount);
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) return 0;
+
+    const metadata = this.parsePaymentMetadata(payment);
+    const isDepositLink =
+      metadata?.depositLink === true ||
+      String(metadata?.depositLink).toLowerCase() === 'true';
+    if (isDepositLink) return paidAmount;
+
+    const customerCanceledBookings = linkedBookings.filter(
+      booking => booking.canceledBy === 'customer',
+    );
+    if (!customerCanceledBookings.length) return paidAmount;
+
+    const metadataTotal = Number(metadata?.totalPrice);
+    const totalServiceAmount =
+      Number.isFinite(metadataTotal) && metadataTotal >= 0
+        ? metadataTotal
+        : linkedBookings.reduce(
+            (total, booking) => total + Number(booking.price || 0),
+            0,
+          );
+    const customerCanceledAmount = customerCanceledBookings.reduce(
+      (total, booking) => total + Number(booking.price || 0),
+      0,
+    );
+
+    // Keep the customer-canceled service and the one-time site commission;
+    // only refund services that the barber is canceling.
+    return Number(
+      Math.max(0, totalServiceAmount - customerCanceledAmount).toFixed(2),
+    );
+  }
+
+  private metadataString(value: unknown) {
+    return typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+      ? String(value)
+      : '';
+  }
+
+  private normalizeBookingTime(value: unknown) {
+    return this.metadataString(value).slice(0, 5);
+  }
+
+  private normalizeBookingDate(value: unknown) {
+    return this.metadataString(value).slice(0, 10);
+  }
+
   async updateStatus(
     id: string,
     userId: number,
     roles: string[],
     dto: UpdateBookingStatusDto,
   ): Promise<Booking> {
+    if (dto.status === BookingStatus.CANCELED) {
+      return this.cancelByBarberOrAdmin(id, userId, roles);
+    }
+
     const booking = await this.findOne(id, userId, roles);
 
     const isBarber = booking.barber?.userId === userId;
@@ -537,14 +896,6 @@ export class BookingsService {
         barberId: booking.barberId,
         customerId: booking.customerId,
       });
-    }
-
-    // اگر رزرو لغو شد توسط آرایشگر، پیامک لغو ارسال بشه
-    if (
-      newStatus === BookingStatus.CANCELED &&
-      previousStatus !== BookingStatus.CANCELED
-    ) {
-      this.sendBookingCanceledSms(booking.id);
     }
 
     // اگر رزرو رد شد، پیامک رد به مشتری ارسال بشه
@@ -734,25 +1085,48 @@ export class BookingsService {
   // =========================================================
 
   async cancelByCustomer(id: string, userId: number): Promise<Booking> {
-    const booking = await this.findOne(id, userId, []);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    let saved: Booking;
 
-    if (booking.customerId !== userId) {
-      throw new ForbiddenException('شما اجازه لغو این رزرو را ندارید');
+    try {
+      const bookingRepo = queryRunner.manager.getRepository(Booking);
+      const booking = await bookingRepo
+        .createQueryBuilder('booking')
+        .where('booking.id = :id', { id })
+        .setLock('pessimistic_write')
+        .getOne();
+      if (!booking) throw new NotFoundException('رزرو یافت نشد');
+      if (booking.customerId !== userId) {
+        throw new ForbiddenException('شما اجازه لغو این رزرو را ندارید');
+      }
+      if (
+        booking.status !== BookingStatus.PENDING &&
+        booking.status !== BookingStatus.CONFIRMED
+      ) {
+        throw new BadRequestException(
+          'فقط رزروهای در انتظار یا تاییدشده قابل لغو هستند',
+        );
+      }
+
+      booking.status = BookingStatus.CANCELED;
+      booking.canceledBy = 'customer';
+      booking.canceledAt = new Date();
+      saved = await bookingRepo.save(booking);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
 
-    if (booking.status !== BookingStatus.PENDING) {
-      throw new BadRequestException(
-        'فقط رزروهای در انتظار تایید قابل لغو هستند',
-      );
-    }
-
-    booking.status = BookingStatus.CANCELED;
-
-    const saved = await this.bookingRepo.save(booking);
-
-    // ❌ پیامک لغو به مشتری (403504) و آرایشگر (312735) — رایگان
+    // لغو توسط مشتری بازپرداخت ایجاد نمی‌کند؛ مبلغ پرداخت‌شده برای آرایشگر می‌ماند.
     this.sendBookingCanceledSms(saved.id);
-
+    this.sanitizeForCustomer(saved);
     return saved;
   }
 

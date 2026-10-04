@@ -10,10 +10,11 @@ import {
   buildAuthHref,
   canAccessPath,
   getAuthDestination,
+  getRoleLandingPath,
+  isAuthPagePath,
   isPublicAuthPath,
   SESSION_EXPIRED_EVENT,
 } from '@/lib/auth';
-import { isBarber } from '@/lib/roles';
 import { clearSessionCache } from '@/lib/session-cache';
 import { useMe } from '@/services/features/auth/hooks';
 import { useAuthStore } from '@/store/auth.store';
@@ -31,22 +32,16 @@ export default function AuthProvider({
   const user = data?.data ?? null;
   const isPublic = isPublicAuthPath(pathname);
   const denied = user && !canAccessPath(pathname, user);
-  const isAuthPage =
-    pathname === '/login' ||
-    pathname === '/login-otp' ||
-    pathname === '/barbaer-signup' ||
-    pathname === '/register';
+  const isAuthPage = isAuthPagePath(pathname);
 
   const destination =
     !isPending && !isFetching && !isError
       ? !user && !isPublic
         ? '/login'
         : denied
-          ? '/home'
+          ? getRoleLandingPath(user)
           : user && isAuthPage
-            ? pathname === '/barbaer-signup' && isBarber(user)
-              ? '/dashboard/profile'
-              : '/home'
+            ? getRoleLandingPath(user)
             : null
       : null;
 

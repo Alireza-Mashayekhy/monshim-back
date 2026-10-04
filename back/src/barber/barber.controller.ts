@@ -33,7 +33,6 @@ import { BarberProfile } from './entities/barber.entity';
 import { WorkHoursService } from './work-hours.service';
 
 @Controller('barber')
-@UseGuards(AuthGuard)
 export class BarberController {
   constructor(
     private readonly barberService: BarberService,
@@ -42,6 +41,16 @@ export class BarberController {
     @InjectRepository(BarberProfile)
     private barberProfileRepo: Repository<BarberProfile>,
   ) {}
+
+  @Get('public-directory')
+  getPublicDirectory() {
+    return this.barberService.getPublicDirectory();
+  }
+
+  @Get('public/cities/:slug')
+  getPublicCity(@Param('slug') slug: string) {
+    return this.barberService.findPublicCityBySlug(slug);
+  }
 
   // ---- مسیرهای عمومی ----
   @Get()
@@ -66,23 +75,30 @@ export class BarberController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.barberService.findOne(+id);
+    const numericId = Number(id);
+    if (!Number.isInteger(numericId) || numericId < 1) {
+      throw new NotFoundException('آرایشگاه یافت نشد');
+    }
+    return this.barberService.findPublicOne(numericId);
   }
 
   // ---- مسیرهای مربوط به پروفایل کاربر جاری ----
   @Get('profile/me')
+  @UseGuards(AuthGuard)
   getMyProfile(@Req() req: any) {
     const user = req.user;
     return this.barberService.findOneByUserId(user.id);
   }
 
   @Patch('profile/me')
+  @UseGuards(AuthGuard)
   updateMyProfile(@Req() req: any, @Body() dto: UpdateBarberDto) {
     const user = req.user;
     return this.barberService.update(user.id, dto);
   }
 
   @Post('profile/image')
+  @UseGuards(AuthGuard)
   @UseInterceptors(
     FileInterceptor('image', {
       storage: memoryStorage(),
@@ -108,6 +124,7 @@ export class BarberController {
   }
 
   @Patch('profile/portfolio')
+  @UseGuards(AuthGuard)
   @UseInterceptors(
     FilesInterceptor('portfolio', MAX_BARBER_PORTFOLIO_IMAGES, {
       storage: memoryStorage(),
@@ -197,6 +214,7 @@ export class BarberController {
   }
 
   @Post('profile/work-hours')
+  @UseGuards(AuthGuard)
   async setWorkHours(
     @Req() req: any,
     @Body()
@@ -221,6 +239,7 @@ export class BarberController {
   }
 
   @Get('profile/work-hours')
+  @UseGuards(AuthGuard)
   async getWorkHours(@Req() req: any) {
     const user = req.user;
 
@@ -236,6 +255,7 @@ export class BarberController {
 
   // دریافت کد معرف کاربر
   @Get('profile/referral-code')
+  @UseGuards(AuthGuard)
   async getMyReferralCode(@Req() req: any) {
     const user = req.user;
     const referralInfo = await this.barberService.getReferralInfo(user.id);

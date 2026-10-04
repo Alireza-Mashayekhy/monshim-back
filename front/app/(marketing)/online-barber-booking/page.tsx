@@ -8,25 +8,29 @@ import JsonLd from '@/components/marketing/json-ld';
 import SectionHeading from '@/components/marketing/section-heading';
 import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
 import FeatureRow from '@/components/marketing/shared/feature-row';
-import { buildPageMetadata, JSONLD_URLS } from '@/lib/seo';
+import { buildPageMetadata, faqPageSchema, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'رزرو آنلاین آرایشگاه | نوبت دهی اینترنتی',
   description:
-    'رزرو آنلاین آرایشگاه مردانه و سالن زیبایی با منشیم؛ روز، ساعت و آرایشگر دلخواه خود را انتخاب کنید و بدون تماس تلفنی نوبت بگیرید. نوبت دهی آرایشگاه ۲۴ ساعته، رایگان و با یادآوری خودکار.',
+    'در منشیم آرایشگاه‌های تأییدشده را ببینید، خدمات و قیمت‌ها را مقایسه کنید و زمان دلخواه را برای رزرو انتخاب کنید. ورود فقط برای نهایی‌کردن رزرو لازم است.',
   path: siteConfig.routes.onlineBooking,
   imageUrl: `${siteConfig.url}/landing/og-booking.png`,
-  keywords: [
-    'رزرو اینترنتی آرایشگاه',
-    'نوبت آرایشگاه آنلاین',
-    'رزرو آرایشگاه مردانه',
-    'رزرو نوبت آرایشگاه',
-    'رزرو سالن زیبایی',
-  ],
 });
 
 const bookingJsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${JSONLD_URLS.booking}#webpage`,
+    url: JSONLD_URLS.booking,
+    name: 'رزرو آنلاین آرایشگاه در منشیم',
+    description:
+      'راهنمای جست‌وجوی سالن، مشاهدهٔ خدمات و انتخاب زمان برای نهایی‌کردن رزرو.',
+    inLanguage: 'fa-IR',
+    isPartOf: { '@id': `${siteConfig.url}/#website` },
+  },
   {
     '@context': 'https://schema.org',
     '@type': 'Service',
@@ -39,19 +43,9 @@ const bookingJsonLd = [
       name: 'منشیم (Monshim)',
       url: JSONLD_URLS.home,
     },
-    areaServed: {
-      '@type': 'Country',
-      name: 'Iran',
-    },
     inLanguage: 'fa-IR',
     description:
-      'سامانه رزرو آنلاین آرایشگاه و نوبت دهی اینترنتی آرایشگاه مردانه و سالن زیبایی در منشیم؛ انتخاب روز، ساعت و آرایشگر بدون تماس تلفنی.',
-    offers: {
-      '@type': 'Offer',
-      price: 0,
-      priceCurrency: 'IRR',
-      description: 'رزرو آرایشگاه برای مشتریان رایگان است',
-    },
+      'جست‌وجوی آرایشگاه‌های تأییدشده و امکان مشاهده خدمات و قیمت‌ها پیش از انتخاب زمان رزرو در منشیم.',
   },
   {
     '@context': 'https://schema.org',
@@ -79,7 +73,7 @@ const BOOKING_STEPS = [
     icon: CalendarSearch,
     title: 'آرایشگاه را پیدا کنید',
     description:
-      'در صفحه جست‌وجوی منشیم، آرایشگاه‌های نزدیک خود را بر اساس منطقه، امتیاز و خدمات پیدا کنید.',
+      'در صفحهٔ جست‌وجوی منشیم، آرایشگاه‌ها را بر اساس شهر، نام سالن و قیمت خدمات پیدا کنید.',
   },
   {
     icon: ReceiptText,
@@ -91,11 +85,11 @@ const BOOKING_STEPS = [
     icon: Star,
     title: 'نوبتتان را قطعی کنید',
     description:
-      'رزرو را تأیید کنید؛ بلافاصله نوبت شما ثبت می‌شود و پیش از موعد هم یادآوری می‌شود.',
+      'برای نهایی‌کردن رزرو وارد حساب شوید، مبلغ قابل پرداخت را بررسی کنید و پرداخت لازم را انجام دهید. وضعیت نوبت در پنل نمایش داده می‌شود؛ یادآوری پیامکی در صورت فعال‌بودن گزینه برای آن رزرو ارسال خواهد شد.',
   },
 ] as const;
 
-const BOOKING_FAQS = [
+export const BOOKING_FAQS = [
   {
     question: 'رزرو آنلاین آرایشگاه در منشیم چگونه است؟',
     answer:
@@ -104,12 +98,12 @@ const BOOKING_FAQS = [
   {
     question: 'آیا رزرو آرایشگاه در منشیم هزینه دارد؟',
     answer:
-      'استفاده از منشیم و رزرو برای مشتریان رایگان است؛ فقط هزینه خدمت انتخابی را پرداخت می‌کنید. پرداخت به صورت آنلاین از طریق درگاه پرداخت امن انجام می‌شود و در برخی خدمات ممکن است فقط بیعانه دریافت شود و باقی هزینه در حضور تسویه گردد.',
+      'جست‌وجوی آرایشگاه‌ها و دیدن پروفایل عمومی رایگان و بدون ورود به حساب است. هنگام نهایی‌کردن رزرو، مبلغ خدمات و هر هزینهٔ مربوط به پرداخت آنلاین پیش از تأیید نمایش داده می‌شود. بعضی سالن‌ها بیعانه می‌گیرند و باقی مبلغ در محل پرداخت می‌شود.',
   },
   {
     question: 'اگر بخواهم نوبتم را لغو کنم چه کار کنم؟',
     answer:
-      'از بخش نوبت‌های من در پنل کاربری منشیم می‌توانید نوبت‌های خود را ببینید و نوبت‌های جاری (در انتظار تأیید یا تأیید شده) را تا پیش از زمان رزرو لغو کنید. آرایشگاه هم بلافاصله از لغو نوبت باخبر می‌شود.',
+      'از بخش نوبت‌های من می‌توانید نوبت را لغو کنید. طبق سیاست فعلی، در لغو از سوی مشتری مبلغ پرداخت‌شده به آرایشگاه می‌ماند و کمیسیون سامانه حفظ می‌شود؛ بازپرداخت خودکار به مشتری انجام نمی‌شود. جزئیات نهایی را پیش از ثبت رزرو بررسی کنید.',
   },
   {
     question: 'چطور مطمئن شوم نوبتم ثبت شده است؟',
@@ -118,10 +112,12 @@ const BOOKING_FAQS = [
   },
 ];
 
+const bookingStructuredData = [...bookingJsonLd, faqPageSchema(BOOKING_FAQS)];
+
 export default function OnlineBarberBookingPage() {
   return (
     <>
-      <JsonLd data={bookingJsonLd} />
+      <JsonLd data={bookingStructuredData} />
 
       <Breadcrumbs
         items={[
@@ -139,7 +135,7 @@ export default function OnlineBarberBookingPage() {
           <div className="text-center lg:text-start">
             <p className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary-200/60 bg-white px-4 py-1.5 text-xs font-bold text-primary shadow-sm">
               <MapPin className="size-3.5" aria-hidden="true" />
-              سامانه رزرو آرایشگاه در سراسر ایران
+              جست‌وجو و انتخاب خدمات سالن
             </p>
 
             <h1 className="text-[1.6rem] font-black leading-[1.7] text-foreground sm:text-3xl sm:leading-[1.6] lg:text-[2.35rem] lg:leading-[1.6]">
@@ -148,10 +144,10 @@ export default function OnlineBarberBookingPage() {
             </h1>
 
             <p className="mx-auto mt-5 max-w-xl leading-8 text-muted-foreground lg:mx-0">
-              با منشیم، نوبت دهی آرایشگاه آنلاین شده است؛ آرایشگاه مردانه یا
-              سالن زیبایی موردنظرتان را پیدا کنید، قیمت خدمات را ببینید و در
-              کمتر از یک دقیقه روز و ساعت دلخواه را رزرو کنید. رایگان و ۲۴
-              ساعته.
+              با منشیم، آرایشگاه‌های تأییدشده را جست‌وجو کنید، خدمات و قیمت‌ها
+              را ببینید و زمان مناسب را انتخاب کنید. مشاهدهٔ پروفایل‌ها بدون
+              ورود به حساب ممکن است؛ برای نهایی‌کردن رزرو باید وارد شوید و مبلغ
+              قابل پرداخت را پیش از تأیید بررسی کنید.
             </p>
 
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">

@@ -99,6 +99,12 @@ export const endpoints = {
     update: '/admin/settings',
   },
 
+  adminTransactions: {
+    list: '/admin/transactions',
+    export: '/admin/transactions/export',
+    settleRefund: (id: string) => `/admin/transactions/${id}/settle-refund`,
+  },
+
   ticket: {
     create: '/ticket',
     list: '/ticket',

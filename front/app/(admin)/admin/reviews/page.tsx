@@ -208,7 +208,7 @@ export default function AdminReviewsPage() {
               </TableRow>
             ) : (
               data?.data?.map((review: BarberReview) => {
-                const badge = STATUS_BADGE[review.status];
+                const badge = STATUS_BADGE[review.status ?? 'pending'];
                 return (
                   <TableRow key={review.id}>
                     <TableCell className="font-medium">

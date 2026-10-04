@@ -8,7 +8,7 @@ export const metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
     default: `${siteConfig.name} | سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه`,
-    template: '%s | منشیم',
+    template: `%s | ${siteConfig.name}`,
   },
   applicationName: `${siteConfig.name} - ${siteConfig.nameEn}`,
   authors: [{ name: siteConfig.nameEn, url: siteConfig.url }],

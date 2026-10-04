@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Calendar,
+  ArrowLeftRight,
   Check,
   Headphones,
   MessageSquareText,
@@ -34,8 +34,8 @@ const items = [
   },
   {
     link: '/admin/wallet',
-    icon: Calendar,
-    name: 'تراکنش ها',
+    icon: ArrowLeftRight,
+    name: 'تراکنش‌ها',
   },
   {
     link: '/admin/approvals',

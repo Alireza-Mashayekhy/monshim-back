@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  CalendarCheck2,
-  Scissors,
-  Search,
-  Star,
-  UserRound,
-} from 'lucide-react';
+import { CalendarCheck2, Scissors, Search, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -15,12 +9,6 @@ import {
   BookingShot,
 } from '@/components/marketing/product-ui/shots';
 import { Button } from '@/components/ui/button';
-
-const HERO_STATS = [
-  { value: '+۲٬۶۰۰', label: 'سالن و آرایشگاه فعال' },
-  { value: '+۳۵٬۰۰', label: 'نوبت ثبت‌شده' },
-  { value: '۴.۹ از ۵', label: 'رضایت کاربران منشیم' },
-] as const;
 
 type Audience = 'barber' | 'customer';
 
@@ -157,28 +145,6 @@ export default function HomeHero() {
               </Link>
             </Button>
           </div>
-
-          <dl className="mt-9 grid max-w-md grid-cols-3 gap-4 max-lg:mx-auto">
-            {HERO_STATS.map(stat => (
-              <div key={stat.label} className="text-center lg:text-start">
-                <dd className="text-xl font-black text-primary sm:text-2xl">
-                  {stat.value}
-                </dd>
-                <dt className="mt-1 text-[11px] leading-5 text-muted-foreground sm:text-xs">
-                  {stat.label}
-                </dt>
-              </div>
-            ))}
-          </dl>
-
-          <p className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground lg:justify-start">
-            <span aria-hidden="true" className="flex text-amber-400">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="size-3.5 fill-current" />
-              ))}
-            </span>
-            امتیاز کاربران منشیم در صفحات آرایشگاه‌ها
-          </p>
         </div>
 
         {/* به‌جای عکس مفهومی، خودِ رابط کاربری محصول */}
@@ -188,6 +154,9 @@ export default function HomeHero() {
           ) : (
             <BookingShot className="mx-auto w-[17.5rem] lg:w-[19rem]" />
           )}
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            پیش‌نمایش محصول؛ اطلاعات داخل محیط نمایشی، دادهٔ واقعی رزروها نیست.
+          </p>
         </div>
       </div>
     </section>

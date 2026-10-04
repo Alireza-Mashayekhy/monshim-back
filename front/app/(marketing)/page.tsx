@@ -6,73 +6,65 @@ import HomeFeatures from '@/components/marketing/home/home-features';
 import HomeHero from '@/components/marketing/home/home-hero';
 import HomeHowItWorks from '@/components/marketing/home/home-how-it-works';
 import HomePreview from '@/components/marketing/home/home-preview';
+import HomeRoleSummary from '@/components/marketing/home/home-role-summary';
 import JsonLd from '@/components/marketing/json-ld';
-import { buildPageMetadata, JSONLD_URLS } from '@/lib/seo';
+import { PRICING_PLANS } from '@/components/marketing/pricing/plans-data';
+import { buildPageMetadata, faqPageSchema, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'منشیم | سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه',
-  absoluteTitle:
-    'منشیم | سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه',
+  title: 'رزرو آنلاین آرایشگاه و مدیریت سالن',
+  absoluteTitle: 'منشیم | رزرو آنلاین آرایشگاه و مدیریت سالن',
   description:
-    'منشیم (Monshim) سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه است؛ نوبت دهی آنلاین ۲۴ ساعته، باشگاه مشتریان، مدیریت مالی و گزارش درآمد آرایشگاه را یکجا داشته باشید. ثبت‌نام رایگان.',
+    'در منشیم آرایشگاه‌های تأییدشده را جست‌وجو کنید، خدمات و قیمت‌ها را ببینید و برای رزرو اقدام کنید؛ سالن‌داران هم نوبت‌ها و مشتریان را در پنل مدیریت می‌کنند.',
   path: siteConfig.routes.home,
 });
 
-/** داده ساخت‌یافته صفحه اصلی: SoftwareApplication + WebSite + FAQPage */
+const planPricesInRial = PRICING_PLANS.map(plan => plan.monthlyPrice * 10);
+
 const homeJsonLd = [
   {
     '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    '@id': `${JSONLD_URLS.home}#webpage`,
+    url: JSONLD_URLS.home,
+    name: 'رزرو آنلاین آرایشگاه و مدیریت سالن | منشیم',
+    description:
+      'جست‌وجوی آرایشگاه‌های تأییدشده برای مشتریان و ابزار مدیریت نوبت و مشتری برای سالن‌داران.',
+    inLanguage: 'fa-IR',
+    isPartOf: { '@id': `${siteConfig.url}/#website` },
+  },
+  {
+    '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'منشیم (Monshim)',
-    alternateName: 'Monshim',
+    '@id': `${JSONLD_URLS.home}#application`,
+    name: 'منشیم',
+    alternateName: siteConfig.nameEn,
     url: JSONLD_URLS.home,
     applicationCategory: 'BusinessApplication',
-    applicationSubCategory: 'Booking & Appointment Scheduling Software',
-    operatingSystem: 'Web, Android, iOS',
+    operatingSystem: 'Web browser',
     inLanguage: 'fa-IR',
     description:
-      'منشیم، سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه؛ شامل نوبت دهی آنلاین، باشگاه مشتریان، یادآوری پیامکی و کیف پول.',
+      'سامانهٔ رزرو آنلاین آرایشگاه برای مشتریان و مدیریت نوبت، خدمات، پیامک و امور مالی سالن برای آرایشگران.',
+    publisher: { '@id': `${siteConfig.url}/#organization` },
     offers: {
       '@type': 'AggregateOffer',
       priceCurrency: 'IRR',
-      lowPrice: 590000,
-      highPrice: 15490000,
-      offerCount: 5,
+      lowPrice: Math.min(...planPricesInRial),
+      highPrice: Math.max(...planPricesInRial),
+      offerCount: PRICING_PLANS.length,
       url: JSONLD_URLS.pricing,
     },
     featureList: [
-      'رزرو آنلاین آرایشگاه',
-      'نوبت دهی آنلاین ۲۴ ساعته',
-      'تقویم هوشمند نوبت‌ها',
-      'یادآوری پیامکی نوبت',
-      'پرداخت آنلاین و کیف پول',
-      'باشگاه مشتریان',
-      'صفحه اختصاصی آرایشگاه',
+      'مدیریت نوبت‌های سالن',
+      'مدیریت خدمات و ساعات کاری',
+      'پرونده و گروه‌بندی مشتریان',
+      'یادآوری پیامکی',
+      'مدیریت پرداخت‌ها و کیف پول',
+      'صفحهٔ عمومی سالن برای مشاهده و رزرو خدمات',
     ],
   },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'منشیم | Monshim',
-    alternateName: 'Monshim',
-    url: JSONLD_URLS.home,
-    inLanguage: 'fa-IR',
-    description:
-      'سامانه رزرو آنلاین آرایشگاه و نرم افزار مدیریت آرایشگاه و سالن زیبایی',
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: HOME_FAQS.map(faq => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer,
-      },
-    })),
-  },
+  faqPageSchema(HOME_FAQS),
 ];
 
 export default function HomePage() {
@@ -80,9 +72,10 @@ export default function HomePage() {
     <>
       <JsonLd data={homeJsonLd} />
       <HomeHero />
+      <HomeRoleSummary />
       <div id="features" className="scroll-mt-32">
         <HomeFeatures />
-      </div>{' '}
+      </div>
       <HomeHowItWorks />
       <HomePreview />
       <HomeFaq />

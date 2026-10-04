@@ -1,10 +1,13 @@
 import { ScrollText } from 'lucide-react';
-import { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'قوانین و شرایط استفاده ',
-  description: 'قوانین و شرایط استفاده از سامانه نوبت‌دهی منشیم',
-};
+import { buildPageMetadata } from '@/lib/seo';
+import { siteConfig } from '@/lib/site-config';
+
+export const metadata = buildPageMetadata({
+  title: 'قوانین و شرایط استفاده',
+  description: 'قوانین و شرایط استفاده از سامانه رزرو و مدیریت سالن منشیم.',
+  path: siteConfig.routes.terms,
+});
 
 export default function TermsPage() {
   return (

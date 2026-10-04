@@ -276,7 +276,9 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
               <div className="flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl p-3 text-xs text-red-600 font-medium leading-5">
                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                 <span>
-                  با لغو نوبت، بیعانه پرداخت‌شده به شما بازگردانده نمی‌شود.
+                  اگر مبلغی پرداخت کرده‌اید، با لغو از طرف شما بازپرداختی انجام
+                  نمی‌شود؛ سهم آرایشگاه نزد آرایشگاه می‌ماند و کمیسیون سامانه
+                  نیز حفظ می‌شود.
                 </span>
               </div>
             </AlertDialogDescription>

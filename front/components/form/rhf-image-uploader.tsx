@@ -22,6 +22,7 @@ interface RHFImageUploaderProps<T extends FieldValues> {
   error?: { message?: string };
   defaultValue?: string | null;
   aspectRatio?: number;
+  shape?: 'circle' | 'square';
   className?: string;
 }
 
@@ -32,6 +33,7 @@ export function RHFImageUploader<T extends FieldValues>({
   error,
   defaultValue = null,
   aspectRatio,
+  shape = 'circle',
   className,
 }: RHFImageUploaderProps<T>) {
   // مقدار اولیه preview همان defaultValue است
@@ -91,7 +93,8 @@ export function RHFImageUploader<T extends FieldValues>({
       <div
         {...getRootProps()}
         className={cn(
-          'w-32 h-32 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 hover:border-primary-300 transition-all relative overflow-hidden group bg-gray-50',
+          'w-32 h-32 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-500 cursor-pointer hover:bg-gray-50 hover:border-primary-300 transition-all relative overflow-hidden group bg-gray-50',
+          shape === 'circle' ? 'rounded-full' : 'rounded-2xl',
           error?.message && 'border-red-500 dark:border-red-500',
         )}
       >
