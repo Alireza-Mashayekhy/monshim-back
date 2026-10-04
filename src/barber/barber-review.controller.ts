@@ -15,7 +15,6 @@ import { BarberReviewService } from './barber-review.service';
 import { CreateBarberReviewDto } from './dto/create-barber-review.dto';
 
 @Controller('barber')
-@UseGuards(AuthGuard)
 export class BarberReviewController {
   constructor(private readonly reviewService: BarberReviewService) {}
 
@@ -27,12 +26,14 @@ export class BarberReviewController {
 
   // نظر من + امکان ثبت نظر برای این آرایشگر
   @Get(':id/reviews/my')
+  @UseGuards(AuthGuard)
   getMyReview(@Param('id') id: string, @Req() req: any) {
     return this.reviewService.getMyReviewForBarber(req.user.id, id);
   }
 
   // ثبت نظر و امتیاز (فقط برای کاربرانی که قبلاً رزرو کرده‌اند)
   @Post(':id/reviews')
+  @UseGuards(AuthGuard)
   create(
     @Param('id') id: string,
     @Req() req: any,

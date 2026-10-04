@@ -9,8 +9,11 @@ import { SiteSettings } from 'src/settings/entities/setting.entity';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
 import { UserSubscription } from 'src/subscription/entities/user-subscription.entity';
 import { User } from 'src/users/entities/user.entity';
+import { Transaction } from 'src/wallet/entities/transaction.entity';
 import { WalletModule } from 'src/wallet/wallet.module';
 
+import { AdminTransactionsController } from './admin-transactions.controller';
+import { AdminTransactionsService } from './admin-transactions.service';
 import { Payment } from './entities/payment.entity';
 import { PaymentController } from './payment.controller';
 import { PaymentService } from './payment.service';
@@ -27,12 +30,13 @@ import { PaymentService } from './payment.service';
       Service,
       Booking,
       SiteSettings,
+      Transaction,
     ]),
     NotificationModule,
     WalletModule,
   ],
-  controllers: [PaymentController],
-  providers: [PaymentService],
+  controllers: [PaymentController, AdminTransactionsController],
+  providers: [PaymentService, AdminTransactionsService],
   exports: [PaymentService],
 })
 export class PaymentModule {}

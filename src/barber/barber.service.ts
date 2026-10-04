@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
+import { City } from 'src/locations/entities/city.entity';
+import { Service } from 'src/services/entities/service.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Brackets, EntityManager, Repository } from 'typeorm';
 
@@ -21,6 +23,9 @@ export class BarberService {
 
     @InjectRepository(BarberProfile)
     private profileRepository: Repository<BarberProfile>,
+
+    @InjectRepository(City)
+    private cityRepository: Repository<City>,
   ) {}
 
   // src/barber/barber.service.ts
@@ -123,6 +128,13 @@ export class BarberService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const qb = this.userRepo.createQueryBuilder('user');
+    const minActiveServicePrice = qb
+      .subQuery()
+      .select('MIN(priceService.price)')
+      .from(Service, 'priceService')
+      .where('priceService.barberId = user.id')
+      .andWhere('priceService.isActive = :priceServiceActive')
+      .getQuery();
 
     qb.where('user.roles LIKE :role', { role: '%Barber%' });
 
@@ -130,7 +142,12 @@ export class BarberService {
     qb.leftJoinAndSelect('user.barberProfile', 'profile')
       .leftJoinAndSelect('profile.city', 'city')
       .leftJoinAndSelect('profile.province', 'province')
-      .leftJoinAndSelect('user.services', 'services');
+      .leftJoinAndSelect(
+        'user.services',
+        'services',
+        notApproved ? undefined : 'services.isActive = :serviceActive',
+        notApproved ? undefined : { serviceActive: true },
+      );
 
     if (notApproved) {
       qb.andWhere('profile.isApproved != :isApproved', {
@@ -139,7 +156,9 @@ export class BarberService {
     } else {
       qb.andWhere('profile.isApproved = :isApproved', {
         isApproved: true,
-      });
+      })
+        .andWhere('user.isActive = :userActive', { userActive: true })
+        .andWhere('services.id IS NOT NULL');
     }
 
     if (filters?.cityId) {
@@ -173,6 +192,24 @@ export class BarberService {
       );
     }
 
+    if (filters?.minPrice !== undefined) {
+      qb.andWhere(`${minActiveServicePrice} >= :minPrice`, {
+        minPrice: filters.minPrice,
+      });
+      qb.setParameter('priceServiceActive', true);
+    }
+    if (filters?.maxPrice !== undefined) {
+      qb.andWhere(`${minActiveServicePrice} <= :maxPrice`, {
+        maxPrice: filters.maxPrice,
+      });
+      qb.setParameter('priceServiceActive', true);
+    }
+    if (filters?.minRating !== undefined) {
+      qb.andWhere('profile.rating >= :minRating', {
+        minRating: filters.minRating,
+      });
+    }
+
     // مرتب‌سازی
     if (query.sort) {
       const [field, order] = query.sort.split(':');
@@ -190,6 +227,13 @@ export class BarberService {
         case 'createdAt':
           qb.orderBy('user.createdAt', direction);
           break;
+        case 'price':
+          qb.orderBy(minActiveServicePrice, direction).addOrderBy(
+            'user.id',
+            'DESC',
+          );
+          qb.setParameter('priceServiceActive', true);
+          break;
         default:
           qb.orderBy('user.id', direction);
       }
@@ -203,47 +247,26 @@ export class BarberService {
     const [rawData, total] = await qb.getManyAndCount();
 
     // نگاشت به فرمت دلخواه همراه با محاسبه قیمت شروع
-    let data = rawData.map((user: any) => {
+    const data = rawData.map((user: any) => {
       const services = user.services || [];
       const prices = services
         .map((s: any) => Number(s.price))
-        .filter((p: number) => !isNaN(p) && p > 0);
-      const minPrice = prices.length > 0 ? Math.min(...prices) : 150000;
+        .filter((p: number) => Number.isFinite(p) && p >= 0);
+      const minPrice = prices.length > 0 ? Math.min(...prices) : null;
 
       return {
         id: user.id,
-        fullName: user.fullName,
         salonName: user.barberProfile?.salonName || '',
         profileImage: user.barberProfile?.profileImage || null,
         activityType: user.barberProfile?.activityType || null,
         cityName: user.barberProfile?.city?.name || null,
+        citySlug: user.barberProfile?.city?.slug || null,
         provinceName: user.barberProfile?.province?.name || null,
         minPrice,
         rating: Number(user.barberProfile?.rating || 0),
         reviewCount: Number(user.barberProfile?.reviewCount || 0),
       };
     });
-
-    // مرتب‌سازی بر اساس قیمت در صورت نیاز
-    if (query.sort?.startsWith('price:')) {
-      const direction = query.sort.split(':')[1]?.toLowerCase();
-      data.sort((a, b) =>
-        direction === 'desc'
-          ? b.minPrice - a.minPrice
-          : a.minPrice - b.minPrice,
-      );
-    }
-
-    // فیلتر بر اساس حداقل یا حداکثر قیمت
-    if (filters?.minPrice !== undefined) {
-      data = data.filter(d => d.minPrice >= filters.minPrice!);
-    }
-    if (filters?.maxPrice !== undefined) {
-      data = data.filter(d => d.minPrice <= filters.maxPrice!);
-    }
-    if (filters?.minRating !== undefined) {
-      data = data.filter(d => d.rating >= filters.minRating!);
-    }
 
     return {
       data,
@@ -253,6 +276,174 @@ export class BarberService {
         total,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  /**
+   * The intentionally public profile response. Never spread User or BarberProfile
+   * entities here: those entities also contain credentials and private account
+   * fields. Only approved, active accounts and active services are public.
+   */
+  async findPublicOne(id: number) {
+    const user = await this.userRepo
+      .createQueryBuilder('user')
+      .innerJoinAndSelect('user.barberProfile', 'profile')
+      .leftJoinAndSelect('profile.city', 'city')
+      .leftJoinAndSelect('profile.province', 'province')
+      .leftJoinAndSelect(
+        'user.services',
+        'services',
+        'services.isActive = :serviceActive',
+        { serviceActive: true },
+      )
+      .where('user.id = :id', { id })
+      .andWhere('(user.roles LIKE :roleLower OR user.roles LIKE :roleUpper)', {
+        roleLower: '%barber%',
+        roleUpper: '%Barber%',
+      })
+      .andWhere('user.isActive = :userActive', { userActive: true })
+      .andWhere('profile.isApproved = :isApproved', { isApproved: true })
+      .getOne();
+
+    if (!user?.barberProfile) {
+      throw new NotFoundException('آرایشگاه یافت نشد');
+    }
+
+    const profile = user.barberProfile;
+    return {
+      id: user.id,
+      salonName: profile.salonName,
+      activityType: profile.activityType,
+      profileImage: profile.profileImage,
+      image: profile.profileImage,
+      address: profile.address,
+      bio: profile.bio,
+      rating: Number(profile.rating || 0),
+      reviewCount: Number(profile.reviewCount || 0),
+      portfolio: profile.portfolioImages ?? [],
+      services: (user.services ?? []).map(service => ({
+        id: service.id,
+        name: service.name,
+        price: Number(service.price),
+        depositPrice:
+          service.depositPrice == null ? null : Number(service.depositPrice),
+        durationMinutes: service.durationMinutes,
+      })),
+      city: profile.city
+        ? {
+            id: profile.city.id,
+            name: profile.city.name,
+            slug: profile.city.slug,
+            provinceId: profile.city.provinceId,
+          }
+        : null,
+      province: profile.province
+        ? {
+            id: profile.province.id,
+            name: profile.province.name,
+            slug: profile.province.slug,
+          }
+        : null,
+    };
+  }
+
+  /** Public IDs/cities for sitemap and indexable city routes; requires an
+   * approved profile, an active account, and at least one active service. */
+  async getPublicDirectory() {
+    const rows = await this.profileRepository
+      .createQueryBuilder('profile')
+      .innerJoin('profile.user', 'user')
+      .innerJoin(
+        'user.services',
+        'service',
+        'service.isActive = :serviceActive',
+        { serviceActive: true },
+      )
+      .leftJoin('profile.city', 'city')
+      .leftJoin('profile.province', 'province')
+      .where('profile.isApproved = :isApproved', { isApproved: true })
+      .andWhere('user.isActive = :userActive', { userActive: true })
+      .select('profile.userId', 'userId')
+      .addSelect('city.slug', 'citySlug')
+      .addSelect('city.name', 'cityName')
+      .addSelect('province.name', 'provinceName')
+      .addSelect('profile.address', 'address')
+      .distinct(true)
+      .getRawMany<{
+        userId: number;
+        citySlug: string | null;
+        cityName: string | null;
+        provinceName: string | null;
+        address: string | null;
+      }>();
+
+    const barberIds = new Set<number>();
+    const cities = new Map<
+      string,
+      {
+        slug: string;
+        name: string;
+        provinceName: string | null;
+        activeBarberCount: number;
+      }
+    >();
+
+    for (const row of rows) {
+      const userId = Number(row.userId);
+      if (Number.isInteger(userId) && (row.address?.trim() || row.citySlug)) {
+        barberIds.add(userId);
+      }
+
+      if (!row.citySlug || !row.cityName) continue;
+      const city = cities.get(row.citySlug) ?? {
+        slug: row.citySlug,
+        name: row.cityName,
+        provinceName: row.provinceName,
+        activeBarberCount: 0,
+      };
+      city.activeBarberCount += 1;
+      cities.set(row.citySlug, city);
+    }
+
+    return {
+      barbers: [...barberIds].map(id => ({ id })),
+      cities: [...cities.values()].sort((a, b) =>
+        a.name.localeCompare(b.name, 'fa'),
+      ),
+    };
+  }
+
+  async findPublicCityBySlug(slug: string) {
+    const city = await this.cityRepository
+      .createQueryBuilder('city')
+      .leftJoinAndSelect('city.province', 'province')
+      .where('city.slug = :slug', { slug: slug.trim() })
+      .getOne();
+
+    if (!city) {
+      throw new NotFoundException('شهر یافت نشد');
+    }
+
+    const result = await this.findAll(
+      { page: 1, limit: 100, sort: 'salonName:asc' },
+      { cityId: city.id },
+    );
+
+    if (result.pagination.total === 0) {
+      throw new NotFoundException('آرایشگاه فعالی در این شهر یافت نشد');
+    }
+
+    return {
+      data: {
+        city: {
+          id: city.id,
+          name: city.name,
+          slug: city.slug,
+          provinceName: city.province?.name ?? null,
+        },
+        barbers: result.data,
+      },
+      pagination: result.pagination,
     };
   }
 

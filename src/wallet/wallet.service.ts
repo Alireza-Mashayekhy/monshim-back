@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getPagination } from 'src/common/query';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { CreateCardDto } from './dto/create-card.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
@@ -18,6 +18,10 @@ import {
   TransactionType,
 } from './entities/transaction.entity';
 import { Wallet } from './entities/wallet.entity';
+import {
+  BARBER_CANCELLATION_DEBIT_PREFIX,
+  CUSTOMER_REFUND_PENDING_PREFIX,
+} from './refund.constants';
 
 @Injectable()
 export class WalletService {
@@ -153,6 +157,194 @@ export class WalletService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async depositOnceWithManager(
+    manager: EntityManager,
+    params: {
+      userId: number;
+      amount: number;
+      description: string;
+      paymentId: string;
+      legacyReference?: string | null;
+    },
+  ): Promise<Transaction | null> {
+    const amount = Number(params.amount.toFixed(2));
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+
+    const wallet = await this.getOrCreateWalletWithManager(
+      manager,
+      params.userId,
+    );
+    const referenceIds = [params.paymentId, params.legacyReference].filter(
+      (reference): reference is string => Boolean(reference),
+    );
+    const transactionRepo = manager.getRepository(Transaction);
+    const existingDeposit = await transactionRepo
+      .createQueryBuilder('transaction')
+      .where('transaction.walletId = :walletId', { walletId: wallet.id })
+      .andWhere('transaction.type = :type', { type: TransactionType.DEPOSIT })
+      .andWhere('transaction.referenceId IN (:...referenceIds)', {
+        referenceIds,
+      })
+      .getOne();
+    if (existingDeposit) return existingDeposit;
+
+    wallet.balance = Number(wallet.balance) + amount;
+    await manager.getRepository(Wallet).save(wallet);
+    return transactionRepo.save(
+      transactionRepo.create({
+        walletId: wallet.id,
+        amount,
+        type: TransactionType.DEPOSIT,
+        status: TransactionStatus.COMPLETED,
+        description: params.description,
+        referenceId: params.paymentId,
+      }),
+    );
+  }
+
+  async debitBarberAndQueueRefund(
+    manager: EntityManager,
+    params: {
+      barberUserId: number;
+      customerUserId: number;
+      bookingId: string;
+      paymentId: string;
+      amount: number;
+    },
+  ): Promise<void> {
+    const amount = Number(params.amount.toFixed(2));
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    const customerWallet = await this.getOrCreateWalletWithManager(
+      manager,
+      params.customerUserId,
+    );
+    const transactionRepo = manager.getRepository(Transaction);
+    const existingRefund = await transactionRepo.findOne({
+      where: {
+        walletId: customerWallet.id,
+        type: TransactionType.REFUND,
+        referenceId: params.paymentId,
+      },
+    });
+    if (existingRefund) return;
+
+    const walletRepo = manager.getRepository(Wallet);
+    const barberWallet = await walletRepo.findOne({
+      where: { userId: params.barberUserId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const currentBalance = Number(barberWallet?.balance ?? 0);
+    if (!barberWallet || currentBalance < amount) {
+      throw new BadRequestException(
+        'موجودی کیف پول آرایشگر برای بازپرداخت کامل به مشتری کافی نیست؛ لغو انجام نشد.',
+      );
+    }
+
+    barberWallet.balance = currentBalance - amount;
+    await walletRepo.save(barberWallet);
+    await transactionRepo.save(
+      transactionRepo.create({
+        walletId: barberWallet.id,
+        amount,
+        type: TransactionType.WITHDRAWAL,
+        status: TransactionStatus.COMPLETED,
+        description: `${BARBER_CANCELLATION_DEBIT_PREFIX} ${params.bookingId}`,
+        referenceId: params.paymentId,
+      }),
+    );
+
+    await this.createPendingCustomerRefund(manager, customerWallet, params);
+  }
+
+  async queueCustomerRefund(params: {
+    customerUserId: number;
+    bookingId: string;
+    paymentId: string;
+    amount: number;
+  }): Promise<Transaction> {
+    return this.dataSource.transaction(manager =>
+      this.queueCustomerRefundWithManager(manager, params),
+    );
+  }
+
+  async queueCustomerRefundWithManager(
+    manager: EntityManager,
+    params: {
+      customerUserId: number;
+      bookingId: string;
+      paymentId: string;
+      amount: number;
+    },
+  ): Promise<Transaction> {
+    const customerWallet = await this.getOrCreateWalletWithManager(
+      manager,
+      params.customerUserId,
+    );
+    return this.createPendingCustomerRefund(manager, customerWallet, params);
+  }
+
+  private async getOrCreateWalletWithManager(
+    manager: EntityManager,
+    userId: number,
+  ): Promise<Wallet> {
+    const walletRepo = manager.getRepository(Wallet);
+    await manager
+      .createQueryBuilder()
+      .insert()
+      .into(Wallet)
+      .values({ userId, balance: 0 })
+      .orIgnore()
+      .execute();
+
+    const wallet = await walletRepo.findOne({
+      where: { userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!wallet) {
+      throw new BadRequestException(
+        'کیف پول مشتری برای ثبت بازپرداخت یافت نشد.',
+      );
+    }
+    return wallet;
+  }
+
+  private async createPendingCustomerRefund(
+    manager: EntityManager,
+    customerWallet: Wallet,
+    params: {
+      bookingId: string;
+      paymentId: string;
+      amount: number;
+    },
+  ): Promise<Transaction> {
+    const amount = Number(params.amount.toFixed(2));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('مبلغ بازپرداخت نامعتبر است.');
+    }
+
+    const transactionRepo = manager.getRepository(Transaction);
+    const existingRefund = await transactionRepo.findOne({
+      where: {
+        walletId: customerWallet.id,
+        type: TransactionType.REFUND,
+        referenceId: params.paymentId,
+      },
+    });
+    if (existingRefund) return existingRefund;
+
+    return transactionRepo.save(
+      transactionRepo.create({
+        walletId: customerWallet.id,
+        amount,
+        type: TransactionType.REFUND,
+        status: TransactionStatus.PENDING,
+        description: `${CUSTOMER_REFUND_PENDING_PREFIX} | رزرو ${params.bookingId}`,
+        referenceId: params.paymentId,
+      }),
+    );
   }
 
   // ==================== برداشت ====================

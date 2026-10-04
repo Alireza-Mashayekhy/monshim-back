@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Booking } from 'src/booking/entities/booking.entity';
 import { FilesModule } from 'src/files/files.module';
+import { City } from 'src/locations/entities/city.entity';
 import { User } from 'src/users/entities/user.entity';
 
 import { BarberAdminController } from './barber.admin.controller';
@@ -26,6 +27,7 @@ import { WorkHoursService } from './work-hours.service';
       Booking,
       User,
       BarberWorkHours,
+      City,
     ]),
     FilesModule,
   ],

@@ -110,6 +110,12 @@ export class Booking {
   })
   reminderSentAt: Date | null;
 
+  @Column({ name: 'canceled_by', type: 'varchar', length: 16, nullable: true })
+  canceledBy: 'customer' | 'barber' | 'admin' | null;
+
+  @Column({ name: 'canceled_at', type: 'datetime', nullable: true })
+  canceledAt: Date | null;
+
   // توکن تصادفی لینک عمومی پرداخت بیعانه (وقتی آرایشگر لینک بیعانه می‌فرستد)
   @Column({
     name: 'deposit_token',
