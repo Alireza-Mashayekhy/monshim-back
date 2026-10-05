@@ -7,11 +7,9 @@ import {
   type QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
-import NextTopLoader from 'nextjs-toploader';
+import dynamic from 'next/dynamic';
 
-import PWAModal from '@/components/shared/pwa-modal';
 import { DirectionProvider } from '@/components/ui/direction';
-import { Toaster } from '@/components/ui/sonner';
 import { useViewportVars } from '@/hooks/use-viewport-vars';
 import { makeQueryClient } from '@/lib/query-client';
 
@@ -28,6 +26,27 @@ function getQueryClient() {
 
   return browserQueryClient;
 }
+
+/**
+ * این سه کامپوننت فقط برای تعامل‌های بعد از لود شدن صفحه لازم‌اند (نوار
+ * پیشرفت navigation، نوتیفیکیشن toast، و پیشنهاد نصب PWA که خودش ۵ ثانیه تأخیر
+ * دارد). با بارگذاری تنبل (و بدون SSR) حدود ۶۰ کیلوبایت JavaScriptِ مربوط به
+ * sonner / next-themes / Radix Dialog و چند request از مسیر criticalِ اولیهٔ
+ * همهٔ صفحه‌ها حذف می‌شود.
+ */
+const NextTopLoader = dynamic(
+  () => import('nextjs-toploader').then(mod => mod.default),
+  { ssr: false },
+);
+
+const PWAModal = dynamic(() => import('@/components/shared/pwa-modal'), {
+  ssr: false,
+});
+
+const Toaster = dynamic(
+  () => import('@/components/ui/sonner').then(mod => mod.Toaster),
+  { ssr: false },
+);
 
 export default function Providers({
   children,
@@ -54,7 +73,7 @@ export default function Providers({
       <QueryClientProvider client={queryClient}>
         <HydrationBoundary state={dehydratedState}>
           <DirectionProvider dir="rtl">{children}</DirectionProvider>
-        </HydrationBoundary>{' '}
+        </HydrationBoundary>
       </QueryClientProvider>
     </>
   );

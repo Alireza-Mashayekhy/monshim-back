@@ -1,7 +1,7 @@
 'use client';
 
 import { Download } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,6 +16,46 @@ import {
 const PWA_DISMISSED_KEY = 'pwa-dismissed';
 const SHOW_DELAY = 5000;
 const DISMISS_DAYS = 7;
+const NARROW_VIEWPORT_QUERY = '(max-width: 768px)';
+
+let narrowViewportQuery: MediaQueryList | null = null;
+
+function getNarrowViewportQuery() {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.matchMedia !== 'function'
+  ) {
+    return null;
+  }
+  if (!narrowViewportQuery) {
+    narrowViewportQuery = window.matchMedia(NARROW_VIEWPORT_QUERY);
+  }
+  return narrowViewportQuery;
+}
+
+/**
+ * تشخیص عرض کم با `matchMedia` به‌جای خواندن `window.innerWidth`.
+ *
+ * `innerWidth` در حین رندر/افکت باعث forced reflow می‌شود و گوش دادن به رویداد
+ * `resize` برای به‌روزرسانی state هم در هر فریمِ تغییر اندازه یک re-render و یک
+ * reflow تحمیل می‌کرد. `matchMedia` هیچ layoutای را مجبور نمی‌کند و فقط هنگام
+ * عبور از مرز ۷۶۸px تغییر می‌کند.
+ */
+function subscribeToNarrowViewport(onChange: () => void) {
+  const query = getNarrowViewportQuery();
+  if (!query) return () => {};
+
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+function getNarrowViewportSnapshot() {
+  return getNarrowViewportQuery()?.matches ?? false;
+}
+
+function getNarrowViewportServerSnapshot() {
+  return false;
+}
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -28,21 +68,11 @@ export default function PWAModal() {
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 0,
+  const isNarrowViewport = useSyncExternalStore(
+    subscribeToNarrowViewport,
+    getNarrowViewportSnapshot,
+    getNarrowViewportServerSnapshot,
   );
-
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
 
   const userAgent = useMemo(() => {
     if (typeof navigator === 'undefined') return '';
@@ -59,8 +89,8 @@ export default function PWAModal() {
         userAgent,
       );
 
-    return mobileUA || windowWidth <= 768;
-  }, [userAgent, windowWidth]);
+    return mobileUA || isNarrowViewport;
+  }, [userAgent, isNarrowViewport]);
 
   const isStandalone = useMemo(() => {
     if (typeof window === 'undefined') return false;
