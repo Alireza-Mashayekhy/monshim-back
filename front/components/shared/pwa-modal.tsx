@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const PWA_DISMISSED_KEY = 'pwa-dismissed';
 const SHOW_DELAY = 5000;

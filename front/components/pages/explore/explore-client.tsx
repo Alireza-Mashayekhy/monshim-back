@@ -144,8 +144,14 @@ export default function ExploreClient({
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // استخراج تمام آرایشگاه‌ها از صفحات
+  // فقط `data` آرایه‌ای پذیرفته می‌شود: اگر پاسخ API ساختار لیست را نداشته
+  // باشد (مثلاً HTML خطای پروکسی)، به‌جای رندر کارت‌های نامعتبر/کرش، فهرست
+  // خالی نشان داده می‌شود.
   const barbers = useMemo(
-    () => data?.pages.flatMap(page => page.data) || [],
+    () =>
+      data?.pages.flatMap(page =>
+        Array.isArray(page?.data) ? page.data : [],
+      ) || [],
     [data],
   );
 

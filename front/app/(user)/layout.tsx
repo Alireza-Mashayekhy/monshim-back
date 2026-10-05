@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 
 import UserLayoutClient from '@/components/layout/public/client';
+import SessionHydration from '@/components/shared/session-hydration';
+import AuthProvider from '@/providers/auth.provider';
 
 export const metadata: Metadata = {
   title: {
@@ -24,5 +26,11 @@ export default function UserLayout({
   children,
   showNav = true,
 }: UserLayoutProps) {
-  return <UserLayoutClient showNav={showNav}>{children}</UserLayoutClient>;
+  return (
+    <SessionHydration>
+      <AuthProvider>
+        <UserLayoutClient showNav={showNav}>{children}</UserLayoutClient>
+      </AuthProvider>
+    </SessionHydration>
+  );
 }

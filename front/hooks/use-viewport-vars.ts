@@ -33,6 +33,13 @@ export function useViewportVars() {
 
     const root = document.documentElement;
     let frame = 0;
+    // مقدار آخرین نوشته‌شده؛ اگر تغییر نکرده باشد دیگر استایل را invalidate
+    // نمی‌کنیم. بدون این محافظ، هر رویداد scroll/resize یک write روی
+    // documentElement انجام می‌داد و مرورگر مجبور می‌شد در همان فریم
+    // دوباره layout/style را حساب کند (Forced Reflow).
+    let lastHeight = -1;
+    let lastTop = -1;
+    let lastKeyboard = -1;
 
     const sync = () => {
       if (frame) return;

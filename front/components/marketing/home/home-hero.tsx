@@ -2,12 +2,8 @@
 
 import { CalendarCheck2, Scissors, Search, UserRound } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
-import {
-  AppointmentsShot,
-  BookingShot,
-} from '@/components/marketing/product-ui/shots';
 import { Button } from '@/components/ui/button';
 
 type Audience = 'barber' | 'customer';
@@ -67,7 +63,20 @@ const AUDIENCES: Record<
   },
 };
 
-export default function HomeHero() {
+/**
+ * نکته‌ی پرفورمنس: پیش‌نمایش‌های محصول (shots) به‌جای import مستقیم، از سمت
+ * سرور به‌صورت prop می‌آیند. چون این کامپوننت کلاینت است، هر import مستقیم
+ * باعث می‌شد کل markup و آیکون‌های اسکرین‌شات‌ها (~۷۷۰ خط) وارد باندل کلاینت
+ * شود و در مسیر رندر اولیه هزینه بدهد؛ با prop شدن، سمت سرور رندر می‌شوند و
+ * فقط DOM ضروری به کلاینت می‌رسد (LCP/کاهش حجم JS).
+ */
+export default function HomeHero({
+  barberShot,
+  customerShot,
+}: {
+  barberShot: ReactNode;
+  customerShot: ReactNode;
+}) {
   const [audience, setAudience] = useState<Audience>('barber');
   const active = AUDIENCES[audience];
 
@@ -149,11 +158,7 @@ export default function HomeHero() {
 
         {/* به‌جای عکس مفهومی، خودِ رابط کاربری محصول */}
         <div className="relative order-2">
-          {audience === 'barber' ? (
-            <AppointmentsShot className="mx-auto max-w-lg lg:max-w-none" />
-          ) : (
-            <BookingShot className="mx-auto w-[17.5rem] lg:w-[19rem]" />
-          )}
+          {audience === 'barber' ? barberShot : customerShot}
           <p className="mt-3 text-center text-xs text-muted-foreground">
             پیش‌نمایش محصول؛ اطلاعات داخل محیط نمایشی، دادهٔ واقعی رزروها نیست.
           </p>

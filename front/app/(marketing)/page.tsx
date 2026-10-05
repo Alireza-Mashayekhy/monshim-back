@@ -9,6 +9,10 @@ import HomePreview from '@/components/marketing/home/home-preview';
 import HomeRoleSummary from '@/components/marketing/home/home-role-summary';
 import JsonLd from '@/components/marketing/json-ld';
 import { PRICING_PLANS } from '@/components/marketing/pricing/plans-data';
+import {
+  AppointmentsShot,
+  BookingShot,
+} from '@/components/marketing/product-ui/shots';
 import { buildPageMetadata, faqPageSchema, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 
@@ -71,7 +75,15 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={homeJsonLd} />
-      <HomeHero />
+      {/* اسکرین‌شات‌ها سمت سرور رندر می‌شوند و به‌عنوان prop به Hero کلاینت می‌روند */}
+      <HomeHero
+        barberShot={
+          <AppointmentsShot className="mx-auto max-w-lg lg:max-w-none" />
+        }
+        customerShot={
+          <BookingShot className="mx-auto w-[17.5rem] lg:w-[19rem]" />
+        }
+      />
       <HomeRoleSummary />
       <div id="features" className="scroll-mt-32">
         <HomeFeatures />

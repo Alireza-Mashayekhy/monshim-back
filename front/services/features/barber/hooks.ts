@@ -62,7 +62,14 @@ export const useBarberList = (
         minRating: params?.minRating,
       }),
     getNextPageParam: lastPage => {
-      const { page, totalPages } = lastPage.pagination;
+      // اگر پاسخ API ساختار لیست استاندارد را نداشته باشد (مثلاً یک صفحه‌ی
+      // HTML خطا با کد ۲۰۰ از سمت پروکسی/CDN بیاید)، نبودِ `pagination`
+      // باعث کرش کل صفحه‌ی عمومی /explore می‌شد. این‌جا «صفحه‌ی بعدی
+      // نامشخص» را به‌معنای «همین‌جا تمام» می‌گیریم؛ برای پاسخ سالم هیچ
+      // تفاوتی در رفتار ایجاد نمی‌کند.
+      const pagination = lastPage?.pagination;
+      if (!pagination) return undefined;
+      const { page, totalPages } = pagination;
       return page < totalPages ? page + 1 : undefined;
     },
     initialPageParam: 1,
