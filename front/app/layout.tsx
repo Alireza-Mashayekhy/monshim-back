@@ -104,6 +104,15 @@ export default async function RootLayout({
       className={cn('h-full', 'antialiased', 'font-sans', iranSans.className)}
     >
       <body className="min-h-full flex flex-col bg-primary-3">
+        {/*
+          تنها دو origin ثالثِ واقعاً ضروری (آنالیتیکس). چون این اسکریپت‌ها
+          lazy/idle بارگذاری می‌شوند، `dns-prefetch` کافی است: فقط DNS را از قبل
+          حل می‌کند بدون اینکه کانکشنی باز کند که با منابع critical رقابت کند
+          (برخلاف `preconnect` که برای این دو مورد زیاده‌روی است).
+        */}
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.clarity.ms" />
+
         <GoogleAnalytics />
         <MicrosoftClarity />
         <JsonLd data={globalStructuredData} />

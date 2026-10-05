@@ -10,23 +10,33 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#0d8cf4',
+    // قبلاً هر سه اندازه به یک فایل ۱ مگابایتی (logo.png با ابعاد 1254x1254)
+    // اشاره می‌کردند و مرورگر هنگام پردازش manifest آن را دانلود می‌کرد. حالا
+    // برای هر اندازه یک فایل واقعی و کوچک تولید شده است (با نسخهٔ webp برای
+    // مرورگرهایی که پشتیبانی می‌کنند).
     icons: [
       {
-        src: '/logo/logo.png',
-        sizes: '98x98',
-        type: 'image/png',
-        purpose: 'any',
-      },
-      {
-        src: '/logo/logo.png',
+        src: '/logo/icon-192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/logo/logo.png',
+        src: '/logo/icon-512.png',
         sizes: '512x512',
         type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/logo/icon-192.webp',
+        sizes: '192x192',
+        type: 'image/webp',
+        purpose: 'any',
+      },
+      {
+        src: '/logo/icon-512.webp',
+        sizes: '512x512',
+        type: 'image/webp',
         purpose: 'any',
       },
     ],

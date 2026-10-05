@@ -39,15 +39,21 @@ export function useViewportVars() {
       frame = window.requestAnimationFrame(() => {
         frame = 0;
 
+        // «همهٔ خواندن‌ها اول، همهٔ نوشتن‌ها آخر».
+        // اگر بین نوشتنِ style و خواندنِ `window.innerHeight` جابه‌جا شویم،
+        // مرورگر مجبور می‌شود در همان فریم یک layout اجباری (forced reflow)
+        // انجام بدهد؛ در iOS این تابع هنگام باز/بسته شدن کیبورد ده‌ها بار در
+        // ثانیه اجرا می‌شود و هزینه‌اش چند برابر می‌شود.
         const height = Math.round(viewport.height);
         const top = Math.round(viewport.offsetTop);
+        const keyboard = Math.max(
+          0,
+          Math.round(window.innerHeight - height - top),
+        );
 
         root.style.setProperty(VAR_HEIGHT, `${height}px`);
         root.style.setProperty(VAR_TOP, `${top}px`);
-        root.style.setProperty(
-          VAR_KEYBOARD,
-          `${Math.max(0, Math.round(window.innerHeight - height - top))}px`,
-        );
+        root.style.setProperty(VAR_KEYBOARD, `${keyboard}px`);
       });
     };
 

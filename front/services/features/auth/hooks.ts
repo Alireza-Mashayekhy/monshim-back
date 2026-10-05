@@ -24,11 +24,18 @@ export { authKeys } from '@/lib/auth';
 /**
  * تنها منبع حقیقی اطلاعات کاربر در سمت کلاینت.
  * بعد از لاگین/ثبت‌نام/تغییر نقش، کش آن باطل می‌شود تا همه‌جا به‌روزرسانی شود.
+ *
+ * `enabled: false` برای صفحات عمومی (صفحهٔ اصلی، صفحات مارکتینگ، صفحات ورود و ...)
+ * استفاده می‌شود: آن صفحات به اطلاعات کاربر نیازی ندارند، بنابراین درخواست
+ * `/auth/me` در ابتدای بارگذاری آن‌ها حذف می‌شود تا یک request کمتر با منابع
+ * critical رقابت کند. به‌محض اینکه کاربر به مسیر غیرعمومی برود، کوئری فعال
+ * می‌شود (و اگر داده در کش باشد همان لحظه در دسترس است).
  */
-export const useMe = () =>
+export const useMe = (options?: { enabled?: boolean }) =>
   useQuery({
     queryKey: authKeys.me,
     queryFn: ({ signal }) => fetchMe(signal),
+    enabled: options?.enabled,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
     retry: (count, error) =>

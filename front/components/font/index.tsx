@@ -1,51 +1,29 @@
 import localFont from 'next/font/local';
 
+/**
+ * فونت اصلی سایت (وزیرمتن).
+ *
+ * از نسخهٔ variable فونت (`Vazirmatn[wght].woff2`) استفاده می‌شود تا به‌جای ۹ فایل
+ * مجزا برای ۹ وزن (حدود ۴۵۰ کیلوبایت که همگی با `rel=preload` در header درخواست
+ * می‌شدند) تنها یک فایل ~۱۱۱ کیلوبایتی لود شود؛ وزن‌های ۱۰۰ تا ۹۰۰ همچنان دقیقاً
+ * مثل قبل در دسترس‌اند و هیچ تغییری در ظاهر متن‌ها ایجاد نمی‌شود.
+ *
+ * این کار سه مشکل PageSpeed را همزمان حل می‌کند:
+ * - حجم منابع critical و تعداد requestهای اولیه (۹ فایل → ۱ فایل)
+ * - کوتاه شدن Critical Request Chain
+ * - کاهش زمان render شدن متن Hero (کاندیدای اصلی LCP)
+ *
+ * `display: 'swap'` نگه داشته شده تا متن منتظر فونت نماند و `adjustFontFallback`
+ * (پیش‌فرض) همچنان متریک‌های fallback را تنظیم می‌کند تا CLS ایجاد نشود.
+ */
 export const iranSans = localFont({
   src: [
     {
-      path: './vazirmatn/Vazirmatn-Thin.woff2',
-      weight: '100',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-ExtraLight.woff2',
-      weight: '200',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-Light.woff2',
-      weight: '300',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-Regular.woff2',
-      weight: '400',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-Medium.woff2',
-      weight: '500',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-SemiBold.woff2',
-      weight: '600',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-Bold.woff2',
-      weight: '700',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-ExtraBold.woff2',
-      weight: '800',
-      style: 'normal',
-    },
-    {
-      path: './vazirmatn/Vazirmatn-Black.woff2',
-      weight: '900',
+      path: './vazirmatn/Vazirmatn[wght].woff2',
+      weight: '100 900',
       style: 'normal',
     },
   ],
+  display: 'swap',
+  preload: true,
 });
