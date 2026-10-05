@@ -33,6 +33,13 @@ export function useViewportVars() {
 
     const root = document.documentElement;
     let frame = 0;
+    // مقدار آخرین نوشته‌شده؛ اگر تغییر نکرده باشد دیگر استایل را invalidate
+    // نمی‌کنیم. بدون این محافظ، هر رویداد scroll/resize یک write روی
+    // documentElement انجام می‌داد و مرورگر مجبور می‌شد در همان فریم
+    // دوباره layout/style را حساب کند (Forced Reflow).
+    let lastHeight = -1;
+    let lastTop = -1;
+    let lastKeyboard = -1;
 
     const sync = () => {
       if (frame) return;
@@ -41,13 +48,23 @@ export function useViewportVars() {
 
         const height = Math.round(viewport.height);
         const top = Math.round(viewport.offsetTop);
-
-        root.style.setProperty(VAR_HEIGHT, `${height}px`);
-        root.style.setProperty(VAR_TOP, `${top}px`);
-        root.style.setProperty(
-          VAR_KEYBOARD,
-          `${Math.max(0, Math.round(window.innerHeight - height - top))}px`,
+        const keyboard = Math.max(
+          0,
+          Math.round(window.innerHeight - height - top),
         );
+
+        if (height !== lastHeight) {
+          lastHeight = height;
+          root.style.setProperty(VAR_HEIGHT, `${height}px`);
+        }
+        if (top !== lastTop) {
+          lastTop = top;
+          root.style.setProperty(VAR_TOP, `${top}px`);
+        }
+        if (keyboard !== lastKeyboard) {
+          lastKeyboard = keyboard;
+          root.style.setProperty(VAR_KEYBOARD, `${keyboard}px`);
+        }
       });
     };
 

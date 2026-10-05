@@ -1,23 +1,32 @@
 import './globals.css';
 
-import { dehydrate } from '@tanstack/react-query';
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
 import MicrosoftClarity from '@/components/analytics/MicrosoftClarity';
 import { iranSans } from '@/components/font';
 import JsonLd from '@/components/marketing/json-ld';
-import { makeQueryClient } from '@/lib/query-client';
-import { extractUser } from '@/lib/roles';
 import { siteConfig } from '@/lib/site-config';
 import { cn } from '@/lib/utils';
-import AuthProvider from '@/providers/auth.provider';
-import { authKeys } from '@/services/features/auth/hooks';
-import { getMe } from '@/services/features/auth/server.api';
-import { UserResponse } from '@/services/features/auth/types';
 
 import Providers from './providers';
+
+/**
+ * با preconnect به origin واقعی API، هندشیک DNS/TLS قبل از اولین XHR
+ * کلاینتی (`/auth/me`) انجام می‌شود و یک رفت‌وبرگشت شبکه ذخیره می‌شود.
+ * اگر API روی همان دامنه سایت باشد، لینک اضافه‌ای تولید نمی‌کنیم.
+ */
+function apiOriginPreconnect(): string | null {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) return null;
+
+  try {
+    const origin = new URL(apiUrl).origin;
+    return origin === new URL(siteConfig.url).origin ? null : origin;
+  } catch {
+    return null;
+  }
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -53,49 +62,12 @@ const globalStructuredData = [
   },
 ];
 
-/** Only authoritative API data is hydrated; never fall back to request headers. */
-async function resolveUser(): Promise<{
-  user: UserResponse | null;
-  known: boolean;
-}> {
-  const cookieStore = await cookies();
-  if (!cookieStore.has('access_token')) {
-    // No access token at all: if there's also no refresh token, this is
-    // definitively a logged-out guest — no need to ask the API to confirm it.
-    const hasRefreshToken = cookieStore.has('refresh_token');
-    return { user: null, known: !hasRefreshToken };
-  }
-  try {
-    return { user: extractUser(await getMe()), known: true };
-  } catch {
-    return { user: null, known: false };
-  }
-}
-
-/**
- * کاربر را از سرور می‌گیریم و در کش react-query می‌گذاریم تا
- * در اولین رندر مرورگر هم در دسترس باشد (بدون پرش/خالی ماندن منوها).
- */
-function buildDehydratedState(user: UserResponse | null, known: boolean) {
-  const queryClient = makeQueryClient();
-
-  if (known) {
-    queryClient.setQueryData(authKeys.me, {
-      status: user ? 200 : 401,
-      message: '',
-      data: user,
-    });
-  }
-
-  return dehydrate(queryClient);
-}
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { user, known } = await resolveUser();
+  const preconnectOrigin = apiOriginPreconnect();
 
   return (
     <html
@@ -103,14 +75,21 @@ export default async function RootLayout({
       dir="rtl"
       className={cn('h-full', 'antialiased', 'font-sans', iranSans.className)}
     >
+      <head>
+        {preconnectOrigin ? (
+          <link
+            rel="preconnect"
+            href={preconnectOrigin}
+            crossOrigin="anonymous"
+          />
+        ) : null}
+      </head>
       <body className="min-h-full flex flex-col bg-primary-3">
         <GoogleAnalytics />
         <MicrosoftClarity />
         <JsonLd data={globalStructuredData} />
 
-        <Providers dehydratedState={buildDehydratedState(user, known)}>
-          <AuthProvider>{children}</AuthProvider>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

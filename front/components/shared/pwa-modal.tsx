@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const PWA_DISMISSED_KEY = 'pwa-dismissed';
 const SHOW_DELAY = 5000;
@@ -28,21 +29,9 @@ export default function PWAModal() {
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 0,
-  );
-
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
+  // `useIsMobile` با matchMedia کار می‌کند: نه در رندر اولیه `innerWidth`
+  // می‌خواند و نه برای هر resize باعث re-render می‌شود (منبع Forced Reflow).
+  const isMobileViewport = useIsMobile();
 
   const userAgent = useMemo(() => {
     if (typeof navigator === 'undefined') return '';
@@ -59,8 +48,8 @@ export default function PWAModal() {
         userAgent,
       );
 
-    return mobileUA || windowWidth <= 768;
-  }, [userAgent, windowWidth]);
+    return mobileUA || isMobileViewport;
+  }, [userAgent, isMobileViewport]);
 
   const isStandalone = useMemo(() => {
     if (typeof window === 'undefined') return false;

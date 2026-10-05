@@ -34,9 +34,11 @@ export default function MarketingHeader() {
 
       <div className="custom-container flex h-16 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-6 lg:gap-8">
-          <Link href="/" aria-label="منشیم | صفحه اصلی" className="shrink-0">
-            <Logo />
-          </Link>
+          {/* لوگو خودش یک لینک به صفحه اصلی است؛ این wrapper نباید Link باشد
+              وگرنه HTML نامعتبر (<a> داخل <a>) و خطای hydration می‌سازد. */}
+          <div className="shrink-0">
+            <Logo label="منشیم | صفحه اصلی" />
+          </div>
 
           <nav aria-label="منوی اصلی" className="hidden lg:block">
             <ul className="flex items-center gap-1">

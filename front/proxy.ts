@@ -62,6 +62,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api(?:/|$)|_next/|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|mov|mp4|txt)$).*)',
+    // `monitoring` تونل Sentry است (rewrite در next.config)؛ اگر از proxy رد شود،
+    // کاربر مهمان با ۳۰۷ به /login می‌رود و خطاهای سمت کلاینت گم می‌شوند.
+    '/((?!api(?:/|$)|_next/|monitoring(?:/|$)|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|mov|mp4|txt)$).*)',
   ],
 };

@@ -1,9 +1,7 @@
 'use client';
 
 import {
-  type DehydratedState,
   environmentManager,
-  HydrationBoundary,
   type QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
@@ -29,14 +27,7 @@ function getQueryClient() {
   return browserQueryClient;
 }
 
-export default function Providers({
-  children,
-  dehydratedState,
-}: {
-  children: React.ReactNode;
-  /** اطلاعات اولیه‌ی گرفته‌شده در سرور (برای مثال کاربر جاری) */
-  dehydratedState?: DehydratedState;
-}) {
+export default function Providers({ children }: { children: React.ReactNode }) {
   // NOTE: Avoid useState when initializing the query client if you don't
   //       have a suspense boundary between this and the code that may
   //       suspend because React will throw away the client on the initial
@@ -52,9 +43,7 @@ export default function Providers({
       <Toaster theme="light" richColors position="top-right" />
 
       <QueryClientProvider client={queryClient}>
-        <HydrationBoundary state={dehydratedState}>
-          <DirectionProvider dir="rtl">{children}</DirectionProvider>
-        </HydrationBoundary>{' '}
+        <DirectionProvider dir="rtl">{children}</DirectionProvider>
       </QueryClientProvider>
     </>
   );
