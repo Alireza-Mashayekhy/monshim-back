@@ -1,48 +1,29 @@
 import localFont from 'next/font/local';
 
 /**
- * فونت Vazirmatn به‌صورت variable font بارگذاری می‌شود (یک فایل، وزن‌های ۱۰۰ تا ۹۰۰).
+ * فونت اصلی سایت (وزیرمتن).
  *
- * چرا؟ قبلاً ۹ فایل static جداگانه ثبت شده بود و next/font برای هر ۹ وزن یک
- * `<link rel="preload" as="font">` تولید می‌کرد (حدود ۴۶۰ کیلوبایت فونت در
- * مسیر بحرانی). آن ۹ درخواست با CSS/JS و تصویر LCP برای پهنای باند رقابت
- * می‌کردند و متن Hero (وزن 900 = font-black) تا رسیدن فایل خودش با فونت
- * fallback نمایش داده می‌شد (PageSpeed: «Element render delay» و
- * «Critical request chain»).
+ * از نسخهٔ variable فونت (`Vazirmatn[wght].woff2`) استفاده می‌شود تا به‌جای ۹ فایل
+ * مجزا برای ۹ وزن (حدود ۴۵۰ کیلوبایت که همگی با `rel=preload` در header درخواست
+ * می‌شدند) تنها یک فایل ~۱۱۱ کیلوبایتی لود شود؛ وزن‌های ۱۰۰ تا ۹۰۰ همچنان دقیقاً
+ * مثل قبل در دسترس‌اند و هیچ تغییری در ظاهر متن‌ها ایجاد نمی‌شود.
  *
- * با variable font فقط یک فایل (~۱۱۱KB) preload می‌شود و همه‌ی وزن‌های ۱۰۰..۹۰۰
- * بدون تغییر ظاهری در دسترس‌اند. فایل‌های static قبلی در همین پوشه می‌مانند
- * تا اگر جایی لازم شد، بدون تغییر دیگری قابل استفاده باشند.
+ * این کار سه مشکل PageSpeed را همزمان حل می‌کند:
+ * - حجم منابع critical و تعداد requestهای اولیه (۹ فایل → ۱ فایل)
+ * - کوتاه شدن Critical Request Chain
+ * - کاهش زمان render شدن متن Hero (کاندیدای اصلی LCP)
  *
- * نکته درباره‌ی نام فایل: نام فایل نباید `[` یا `]` داشته باشد. با نام قبلی
- * (`Vazirmatn[wght].woff2`) لینک preload با URL کدشده (`%5Bwght%5D`) ساخته
- * می‌شد ولی `url()` داخل CSS با براکت خام؛ مرورگر این دو را دو آدرس متفاوت
- * می‌دید، preload هیچ‌وقت با درخواست واقعی فونت تطبیق نمی‌خورد و همان فایل
- * دوبار دانلود می‌شد (هدر رفتن پهنای باند + هشدار «preloaded but not used»).
- *
- * `display: 'optional'` انتخاب آگاهانه است: فونت هیچ‌وقت جای خود را وسط رندر
- * عوض نمی‌کند، پس CLS صفر می‌ماند و متن Hero با اولین پینت ظاهر می‌شود
- * (PageSpeed: «Element render delay»). در اولین بازدیدِ کاربر، اگر فایل در
- * بازه‌ی کوتاه block نرسد، متن با فونت fallback سیستمی نمایش داده می‌شود و
- * از ناوبری بعدی (که فونت در کش است) Vazirmatn اعمال می‌شود. برای اینکه
- * همین بازدید اول هم فارسی و خوانا باشد، fallbackها فونت‌های فارسی‌دار
- * سیستم‌اند (Arial پیش‌فرض هیچ گلیف فارسی ندارد).
+ * `display: 'swap'` نگه داشته شده تا متن منتظر فونت نماند و `adjustFontFallback`
+ * (پیش‌فرض) همچنان متریک‌های fallback را تنظیم می‌کند تا CLS ایجاد نشود.
  */
 export const iranSans = localFont({
   src: [
     {
-      path: './vazirmatn/Vazirmatn-VF.woff2',
+      path: './vazirmatn/Vazirmatn[wght].woff2',
       weight: '100 900',
       style: 'normal',
     },
   ],
-  display: 'optional',
-  fallback: [
-    'Tahoma',
-    'Segoe UI',
-    'Noto Sans Arabic',
-    'Naskh',
-    'system-ui',
-    'sans-serif',
-  ],
+  display: 'swap',
+  preload: true,
 });

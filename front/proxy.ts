@@ -13,6 +13,19 @@ import { normalizeRoles } from './lib/roles';
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // Fast path: public pages (everything except the auth pages) are reachable by
+  // everyone, so there is no need to read cookies or verify a JWT for them.
+  // Skipping that work on every request lowers the TTFB of the marketing pages.
+  // Auth pages are excluded here because a signed-in user must be redirected
+  // away from them (handled below).
+  if (isPublicAuthPath(pathname) && !isAuthPagePath(pathname)) {
+    // Never trust a client-supplied identity header.
+    const publicHeaders = new Headers(request.headers);
+    publicHeaders.delete('X-User-Payload');
+    return NextResponse.next({ request: { headers: publicHeaders } });
+  }
+
   // Never trust a client-supplied identity header, including expired-token paths.
   const headers = new Headers(request.headers);
   headers.delete('X-User-Payload');

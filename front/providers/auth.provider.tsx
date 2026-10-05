@@ -28,15 +28,19 @@ export default function AuthProvider({
   const router = useRouter();
   const queryClient = useQueryClient();
   const setUser = useAuthStore(state => state.setUser);
-  const { data, isPending, isError, error, refetch, isFetching } = useMe();
+  // صفحات عمومی (مارکتینگ، ورود، ...) به نشست کاربر نیازی ندارند؛ در آن‌ها
+  // درخواست /auth/me در زمان بارگذاری صفحه ارسال نمی‌شود.
+  const isPublicPath = isPublicAuthPath(pathname);
+  const { data, isPending, isError, error, refetch, isFetching } = useMe({
+    enabled: !isPublicPath,
+  });
   const user = data?.data ?? null;
-  const isPublic = isPublicAuthPath(pathname);
   const denied = user && !canAccessPath(pathname, user);
   const isAuthPage = isAuthPagePath(pathname);
 
   const destination =
     !isPending && !isFetching && !isError
-      ? !user && !isPublic
+      ? !user && !isPublicPath
         ? '/login'
         : denied
           ? getRoleLandingPath(user)
@@ -45,14 +49,18 @@ export default function AuthProvider({
             : null
       : null;
 
+  // روی صفحات عمومی کوئری غیرفعال است و `user` همیشه null است؛ نباید با آن
+  // مقدار، کاربرِ لاگین‌کرده را از store پاک کرد (در غیر این صورت هنگام رفتن از
+  // صفحهٔ اصلی به پنل، لحظه‌ای خالی دیده می‌شود).
   useEffect(() => {
+    if (isPublicPath) return;
     setUser(user);
-  }, [user, setUser]);
+  }, [user, setUser, isPublicPath]);
   useEffect(() => {
     if (!destination) return;
 
     let redirectTo = destination;
-    if (!user && !isPublic) {
+    if (!user && !isPublicPath) {
       const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       redirectTo = buildAuthHref('/login', currentUrl);
     } else if (user && isAuthPage) {
@@ -63,7 +71,7 @@ export default function AuthProvider({
     }
 
     router.replace(redirectTo);
-  }, [destination, isAuthPage, isPublic, pathname, router, user]);
+  }, [destination, isAuthPage, isPublicPath, pathname, router, user]);
 
   useEffect(() => {
     const expire = () => {
@@ -74,10 +82,10 @@ export default function AuthProvider({
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expire);
   }, [queryClient]);
 
-  if (destination || (!isPublic && (isPending || (!user && isFetching)))) {
+  if (destination || (!isPublicPath && (isPending || (!user && isFetching)))) {
     return;
   }
-  if (!isPublic && isError) {
+  if (!isPublicPath && isError) {
     return (
       <div role="alert" className="p-8 text-center space-y-4">
         <p>
@@ -92,7 +100,7 @@ export default function AuthProvider({
       </div>
     );
   }
-  if (!isPublic && (!user || denied)) return null;
+  if (!isPublicPath && (!user || denied)) return null;
 
   return children;
 }

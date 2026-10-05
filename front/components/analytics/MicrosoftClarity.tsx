@@ -5,10 +5,13 @@ import Script from 'next/script';
 const CLARITY_ID = 'ymyycjeoqr';
 
 /**
- * Clarity سنگین‌ترین اسکریپت third-party صفحه است و در حین ثبت رفتار کاربر
- * مرتب layout را می‌خواند (منبع بخش بزرگی از Forced Reflowهای گزارش
- * PageSpeed). با `lazyOnload` از پنجره‌ی LCP خارج می‌شود و بعد از idle
- * مرورگر همان‌طور کامل کار می‌کند.
+ * Microsoft Clarity یک ابزار ثالث سنگین است که هنگام اجرا روی DOM اندازه‌گیری
+ * انجام می‌دهد (forced reflow) و اسکریپتش CDN خود مایکروسافت با Cache-Control
+ * یک‌روزه سرو می‌شود؛ چیزی که ما نمی‌توانیم تغییرش دهیم.
+ *
+ * با `lazyOnload` این ابزار کاملاً از مسیر critical خارج می‌شود و در زمان idle
+ * بارگذاری می‌شود تا نه روی LCP اثر بگذارد، نه روی forced reflowهای ابتدای صفحه و
+ * نه روی تعداد requestهای اولیه.
  */
 export default function MicrosoftClarity() {
   return (

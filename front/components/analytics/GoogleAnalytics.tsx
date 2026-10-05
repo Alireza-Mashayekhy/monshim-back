@@ -5,12 +5,13 @@ import Script from 'next/script';
 const GA_ID = 'G-KXZ735QXG9';
 
 /**
- * استراتژی `lazyOnload` عمدی است: gtag.js حدود ۱۵۰ کیلوبایت است و اگر
- * در پنجره‌ی رندر اولیه (بعد از hydration) دانلود و اجرا شود، پهنای باند و
- * main-thread را از LCP می‌گیرد (PageSpeed: «Reduce the impact of third-party
- * code» / «Element render delay»). با lazyOnload اسکریپت در زمان idle مرورگر
- * بارگذاری می‌شود، بنابراین همه‌ی رویدادها ثبت می‌شوند و فقط چند صد
- * میلی‌ثانیه دیرتر.
+ * آنالیتیکس نباید با منابع critical رقابت کند.
+ *
+ * با `strategy="afterInteractive"` مرورگر اسکریپت gtag را در `<head>` پیش‌بارگذاری
+ * (`<link rel="preload" as="script">`) می‌کرد و آن را دقیقاً بعد از hydration اجرا
+ * می‌کرد؛ یعنی روی همان فریم‌هایی که محتوای اصلی صفحه دارد رندر و hydrate می‌شود.
+ * با `lazyOnload` این اسکریپت در زمان idle بارگذاری می‌شود و هم از مسیر critical
+ * خارج می‌شود و هم تعداد requestهای اولیه کم می‌شود. عملکرد آن تغییری نمی‌کند.
  */
 export default function GoogleAnalytics() {
   return (

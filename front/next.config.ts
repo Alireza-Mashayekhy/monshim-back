@@ -2,38 +2,14 @@ import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
 /**
- * کش مرورگری برای فایل‌های استاتیک «بدون هش» داخل `public/`.
- *
- * Next.js به‌صورت پیش‌فرض برای این فایل‌ها `Cache-Control: public, max-age=0`
- * می‌فرستد؛ یعنی مرورگر هر بار آن‌ها را دوباره اعتبارسنجی می‌کند (Lighthouse:
- * «Use efficient cache lifetimes»). چون این تصاویر به‌ندرت عوض می‌شوند و در
- * مسیر رندر صفحه اصلی هم هستند، ۳۰ روز کش + stale-while-revalidate می‌دهیم.
- * نکته: اگر تصویری با همان نام عوض شد، برای دیدن فوری آن باید فایل را rename
- * کنید (استاندارد رایج cache busting).
+ * فایل‌های استاتیک داخل `public/` (تصاویرOG، تصاویر landing، لوگو، favicon و ...)
+ * نامِ هش‌شده ندارند، بنابراین `immutable` برای آن‌ها امن نیست؛ با این حال مقدار
+ * پیش‌فرضِ Next (`max-age=0`) باعث می‌شد این منابع در هر بار بازدیدِ هر کاربر
+ * دوباره دانلود شوند. یک TTL یک‌ساله به همراه `stale-while-revalidate` تعادل
+ * مناسبی بین تازگی و کش‌پذیری ایجاد می‌کند.
  */
-const PUBLIC_ASSET_CACHE_CONTROL =
-  'public, max-age=2592000, stale-while-revalidate=86400';
-
-/** مسیرهایی که کش بلندمدت می‌گیرند (خارج از /_next که خودش immutable است). */
-const PUBLIC_ASSET_PATHS = [
-  '/logo/:path*',
-  '/landing/:path*',
-  '/footer/:path*',
-  '/home/:path*',
-  '/placeholder.webp',
-];
-
-/**
- * فایل‌های متادیتا (`app/favicon.ico` و `app/manifest.ts`) به‌صورت پیش‌فرض با
- * `Cache-Control: public, max-age=0, must-revalidate` سرو می‌شوند؛ یعنی هر
- * بازدید یک اعتبارسنجی کامل. این‌ها مثل تصاویر public کم‌تغییرند، پس کش
- * یک‌هفته‌ای می‌گیرند (کوتاه‌تر از تصاویر، چون در صورت تغییر باید سریع دیده
- * شوند).
- */
-const METADATA_ASSET_CACHE_CONTROL =
-  'public, max-age=604800, stale-while-revalidate=86400';
-
-const METADATA_ASSET_PATHS = ['/favicon.ico', '/manifest.webmanifest'];
+const LONG_LIVED_STATIC_ASSETS =
+  'public, max-age=31536000, stale-while-revalidate=86400';
 
 const nextConfig: NextConfig = {
   // فشرده‌سازی gzip سمت سرور Next (Brotli باید در لبه/CDN فعال باشد)
@@ -41,34 +17,57 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+
+  // فشرده‌سازی پاسخ‌های HTML/JS/CSS روی خودِ سرور Next (Brotli/Gzip در لایهٔ
+  // reverse proxy هم باید فعال باشد؛ این تنظیم تضمین می‌کند اگر پروکسی هم
+  // فشرده نکند، پاسخ‌ها همچنان فشرده تحویل داده شوند).
+  compress: true,
+
+  // حذف هدر اضافی از پاسخ‌ها
+  poweredByHeader: false,
+
   /**
-   * توجه: `experimental.inlineCss` تست شد و رد شد. با CSS فعلی (۱۷۶KB خام)
-   * این قابلیت کل استایل را هم داخل `<style>` و هم داخل RSC payload
-   * تکرار می‌کند و HTML صفحه اصلی از ۲۵KB gzip به ۱۱۱KB gzip می‌رسید؛
-   * یعنی به قیمت حذف یک درخواست، حجم هر بازدید چند برابر می‌شد (و کش
-   * بین‌صفحه‌ای CSS هم از دست می‌رفت). در عوض با SSR استاتیک، درخواست CSS
-   * از همان origin سریع سرو می‌شود و فایل با `immutable` کش می‌شود.
+   * ⚠️ مسیرهای زیر فقط پوشه‌های asset هستند و هیچ route/pageای با آن‌ها هم‌نام
+   * نیست؛ هرگز نباید `headers()` را روی مسیرهایی که page دارند (مثل `/home`)
+   * اعمال کرد، چون پاسخ HTML در CDN/مرورگر کاربر کش می‌شود.
    */
   async headers() {
     return [
-      ...PUBLIC_ASSET_PATHS.map(source => ({
-        source,
-        headers: [{ key: 'Cache-Control', value: PUBLIC_ASSET_CACHE_CONTROL }],
-      })),
-      ...METADATA_ASSET_PATHS.map(source => ({
-        source,
-        headers: [
-          { key: 'Cache-Control', value: METADATA_ASSET_CACHE_CONTROL },
-        ],
-      })),
+      {
+        source: '/landing/:file*',
+        headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
+      },
+      {
+        source: '/logo/:file*',
+        headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
+      },
+      {
+        source: '/footer/:file*',
+        headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
+      },
+      {
+        source: '/home/banner.jpg',
+        headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
+      },
+      {
+        source: '/placeholder.webp',
+        headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
+      },
+      {
+        source: '/favicon.ico',
+        headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
+      },
     ];
   },
+
   images: {
-    /**
-     * کش تصاویر بهینه‌شده‌ی `next/image` (پیش‌فرض Next 16 فقط ۴ ساعت است).
-     * ۳۰ روز طول عمر کش می‌دهد تا آدیت «Use efficient cache lifetimes» پاس شود.
-     */
-    minimumCacheTTL: 2592000,
+    // تصاویر بهینه‌شدهٔ next/image به‌طور پیش‌فرض تنها ۶۰ ثانیه کش می‌شوند؛
+    // این مقدار آن را به ۷ روز می‌رساند (برای تصاویری که عملاً تغییر نمی‌کنند).
+    //
+    // نکته: این مقدار بر حسب ثانیه است اما Next آن را به `setTimeout(ms)` می‌دهد؛
+    // مقادیر خیلی بزرگ (>‎ 2147483 ثانیه) از محدودهٔ int32 بیرون می‌زنند و به
+    // `TimeoutOverflowWarning` و در نهایت انقضای فوریِ کش منجر می‌شوند.
+    minimumCacheTTL: 604800,
     remotePatterns: [
       {
         protocol: 'https',
@@ -102,6 +101,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  experimental: {
+    /**
+     * `inlineCss` روی این پروژه امتحان شد اما نتیجه معکوس داد: استایل هم در
+     * `<style>` و هم در RSC payload تکرار می‌شود و حجم HTML از ~۳۶ کیلوبایت
+     * (gzip) به ~۱۰۹ کیلوبایت می‌رسد؛ یعنی حدود ۷۲ کیلوبایت اضافه در مسیر
+     * critical که بیشتر از یک round-trip صرفه‌جویی‌شده هزینه دارد. بنابراین
+     * فایل CSS خارجی (قابل کش) نگه داشته شده است.
+     */
+    inlineCss: false,
+  },
 };
 
 export default withSentryConfig(nextConfig, {
@@ -129,8 +139,7 @@ export default withSentryConfig(nextConfig, {
 
   webpack: {
     // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-    // See the following for more information:
-    // https://docs.sentry.io/product/crons/
+    // See the docs: https://docs.sentry.io/product/crons/
     // https://vercel.com/docs/cron-jobs
     automaticVercelMonitors: true,
 
