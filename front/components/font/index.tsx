@@ -19,7 +19,7 @@ import localFont from 'next/font/local';
 export const iranSans = localFont({
   src: [
     {
-      path: './vazirmatn/Vazirmatn[wght].woff2',
+      path: './vazirmatn/Vazirmatn-VF.woff2',
       weight: '100 900',
       style: 'normal',
     },

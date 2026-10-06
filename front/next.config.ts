@@ -14,14 +14,6 @@ const LONG_LIVED_STATIC_ASSETS =
 const nextConfig: NextConfig = {
   // فشرده‌سازی gzip سمت سرور Next (Brotli باید در لبه/CDN فعال باشد)
   compress: true,
-  turbopack: {
-    root: __dirname,
-  },
-
-  // فشرده‌سازی پاسخ‌های HTML/JS/CSS روی خودِ سرور Next (Brotli/Gzip در لایهٔ
-  // reverse proxy هم باید فعال باشد؛ این تنظیم تضمین می‌کند اگر پروکسی هم
-  // فشرده نکند، پاسخ‌ها همچنان فشرده تحویل داده شوند).
-  compress: true,
 
   // حذف هدر اضافی از پاسخ‌ها
   poweredByHeader: false,

@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  type DehydratedState,
   environmentManager,
+  HydrationBoundary,
   type QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
