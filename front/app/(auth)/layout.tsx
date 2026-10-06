@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import SessionHydration from '@/components/shared/session-hydration';
 import AuthProvider from '@/providers/auth.provider';
+import QueryProvider from '@/providers/query-provider';
 
 export const metadata: Metadata = {
   robots: {
@@ -16,7 +17,9 @@ export default function AuthLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <SessionHydration>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <QueryProvider>{children}</QueryProvider>
+      </AuthProvider>
     </SessionHydration>
   );
 }

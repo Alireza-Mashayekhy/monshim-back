@@ -114,7 +114,7 @@ export default function HomeHero({
                   type="button"
                   aria-pressed={selected}
                   onClick={() => setAudience(key)}
-                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold transition-colors cursor-pointer ${
                     selected
                       ? 'bg-primary text-white shadow-md shadow-primary/20'
                       : 'text-foreground/70 hover:bg-primary-2 hover:text-primary'

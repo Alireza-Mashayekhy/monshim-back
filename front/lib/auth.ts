@@ -77,10 +77,8 @@ export function isPublicAuthPath(pathname: string) {
   return (
     pathname === '/' ||
     isAuthPagePath(pathname) ||
-    // Discovery, approved barber profiles and data-backed city pages are public.
-    pathname === '/explore' ||
-    /^\/barber\/\d+$/.test(pathname) ||
-    isPathWithin(pathname, '/cities') ||
+    // صفحات discovery (privacy, terms) و marketing‌های عمومی در دسترس‌اند،
+    // اما `/explore` و `/cities/*` اکنون **خصوصی** هستند و نیاز به ورود دارند.
     isPathWithin(pathname, '/privacy') ||
     isPathWithin(pathname, '/terms') ||
     // Public marketing pages.

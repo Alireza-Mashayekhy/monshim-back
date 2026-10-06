@@ -1,6 +1,5 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowRight,
   Check,
@@ -21,10 +20,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
-import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
-import { PersianDatePicker } from '@/components/form/persian-date-picker';
+import { PersianDatePickerLazy } from '@/components/form/persian-date-picker-lazy';
 import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
 import RHFSelect from '@/components/form/rhf-select';
@@ -41,7 +39,7 @@ import {
   getAuthDestination,
 } from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
-import { normalizePhone, onlyDigits, phoneSchema } from '@/lib/phone';
+import { normalizePhone, onlyDigits } from '@/lib/phone';
 import { cn } from '@/lib/utils';
 import { useSendOtp, useSignUp } from '@/services/features/auth/hooks';
 import {
@@ -49,34 +47,7 @@ import {
   useProvinceList,
 } from '@/services/features/locations/hooks';
 
-const registerSchema = z
-  .object({
-    gender: z.enum(['male', 'female'], {
-      message: 'لطفاً جنسیت خود را انتخاب کنید.',
-    }),
-    firstName: z
-      .string()
-      .trim()
-      .min(2, 'نام باید حداقل ۲ کاراکتر باشد.')
-      .max(50, 'نام بسیار طولانی است.'),
-    lastName: z
-      .string()
-      .trim()
-      .min(2, 'نام خانوادگی باید حداقل ۲ کاراکتر باشد.')
-      .max(50, 'نام خانوادگی بسیار طولانی است.'),
-    phone: phoneSchema,
-    provinceId: z.string().trim().nonempty('انتخاب استان اجباری است.'),
-    cityId: z.string().trim().nonempty('انتخاب شهر اجباری است.'),
-    birthDate: z.string().trim().min(1, 'انتخاب تاریخ تولد اجباری است.'),
-    password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد.'),
-    confirmPassword: z.string().min(1, 'تکرار رمز عبور اجباری است.'),
-  })
-  .refine(data => data.password === data.confirmPassword, {
-    message: 'تکرار رمز عبور با رمز عبور مطابقت ندارد.',
-    path: ['confirmPassword'],
-  });
-
-type RegisterFormValues = z.infer<typeof registerSchema>;
+import type { RegisterFormValues } from './schemas/register';
 
 const COUNTDOWN_SECONDS = 120;
 
@@ -104,7 +75,13 @@ function RegisterFormContent({
   const signUpMutation = useSignUp();
 
   const methods = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+    // Resolver (و zod) به‌صورت پویا بعد از mount لود می‌شود؛ این کار
+    // ~۱۰۸K raw / ~۳۱K gz را از چانک بحرانی صفحهٔ /register حذف می‌کند.
+    resolver: async (values, context, options) => {
+      const { zodResolver } = await import('@hookform/resolvers/zod');
+      const { registerSchema } = await import('./schemas/register');
+      return zodResolver(registerSchema)(values, context, options);
+    },
     defaultValues: {
       gender: 'male',
       firstName: '',
@@ -383,7 +360,7 @@ function RegisterFormContent({
 
           {/* Birth Date */}
           <div className="space-y-1">
-            <PersianDatePicker
+            <PersianDatePickerLazy
               name="birthDate"
               label="تاریخ تولد"
               placeholder="انتخاب تاریخ تولد (روز / ماه / سال)"

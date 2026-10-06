@@ -1,15 +1,29 @@
 "use client"
 
-import { useTheme } from "next-themes"
+import {
+  CircleCheckIcon,
+  InfoIcon,
+  Loader2Icon,
+  OctagonXIcon,
+  TriangleAlertIcon,
+} from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
+/**
+ * Toaster برنامه.
+ *
+ * قبلاً برای خواندن تم از `next-themes` (`useTheme`) استفاده می‌شد، اما:
+ *   • اپ فقط تم روشن دارد (هیچ `ThemeProvider`/`dark class` در ریشه ست
+ *     نمی‌شود)، پس تم همیشه `"light"` است.
+ *   • `next-themes` فقط برای این یک مصرف، چند کیلوبایت JS اضافه می‌کرد.
+ *
+ * بنابراین تم hardcode شد و وابستگی `next-themes` از `package.json` حذف
+ * می‌شود.
+ */
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
-
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme="light"
       className="toaster group"
       icons={{
         success: (

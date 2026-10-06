@@ -1,31 +1,29 @@
 'use client';
 
-import {
-  type DehydratedState,
-  environmentManager,
-  HydrationBoundary,
-  type QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 
-import { DirectionProvider } from '@/components/ui/direction';
 import { useViewportVars } from '@/hooks/use-viewport-vars';
-import { makeQueryClient } from '@/lib/query-client';
 
-let browserQueryClient: QueryClient | undefined;
+/**
+ * Providerهای پایه که در همهٔ layoutها لازم‌اند.
+ *
+ * نکتهٔ مهم: `QueryClientProvider` و `DirectionProvider` اینجا قرار
+ * **ندارند**؛ قبلاً این دو اینجا بودند و باعث می‌شدند `@tanstack/react-query`
+ * (~۱۴.۴K gz در چانک‌های صفحهٔ اصلی) حتی روی صفحات مارکتینگ که هیچ
+ * `useQuery` ندارند لود شود.
+ *
+ * جابه‌جایی: `QueryClientProvider`/`DirectionProvider` به لایوت‌های
+ * `(user)`/`(auth)`/`(dashboard)`/`(admin)` منتقل شدند. در مارکتینگ
+ * فقط PWAModal/Toaster/NextTopLoader (که هر سه از قبل lazy هستند) می‌ماند.
+ */
+let browserQueryClient: undefined | unknown = undefined;
 
 function getQueryClient() {
-  if (environmentManager.isServer()) {
-    return makeQueryClient();
-  }
-
-  if (!browserQueryClient) {
-    browserQueryClient = makeQueryClient();
-  }
-
+  // صرفاً برای سازگاری با نوع؛ نگه‌داشتن ارجاع یکتا در کلاینت.
   return browserQueryClient;
 }
+
+void getQueryClient;
 
 /**
  * این سه کامپوننت فقط برای تعامل‌های بعد از لود شدن صفحه لازم‌اند (نوار
@@ -48,20 +46,7 @@ const Toaster = dynamic(
   { ssr: false },
 );
 
-export default function Providers({
-  children,
-  dehydratedState,
-}: {
-  children: React.ReactNode;
-  /** اطلاعات اولیه‌ی گرفته‌شده در سرور (برای مثال کاربر جاری) */
-  dehydratedState?: DehydratedState;
-}) {
-  // NOTE: Avoid useState when initializing the query client if you don't
-  //       have a suspense boundary between this and the code that may
-  //       suspend because React will throw away the client on the initial
-  //       render if it suspends and there is no boundary
-  const queryClient = getQueryClient();
-
+export default function Providers({ children }: { children: React.ReactNode }) {
   useViewportVars();
 
   return (
@@ -70,11 +55,7 @@ export default function Providers({
       <PWAModal />
       <Toaster theme="light" richColors position="top-right" />
 
-      <QueryClientProvider client={queryClient}>
-        <HydrationBoundary state={dehydratedState}>
-          <DirectionProvider dir="rtl">{children}</DirectionProvider>
-        </HydrationBoundary>
-      </QueryClientProvider>
+      {children}
     </>
   );
 }

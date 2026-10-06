@@ -1,6 +1,5 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Eye,
@@ -16,7 +15,6 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
 import RHFInput from '@/components/form/rhf-input';
@@ -34,12 +32,7 @@ import { normalizePhone, phoneSchema } from '@/lib/phone';
 import { extractUser } from '@/lib/roles';
 import { useLoginWithPassword } from '@/services/features/auth/hooks';
 
-const loginSchema = z.object({
-  phone: phoneSchema,
-  password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد.'),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
+import type { LoginFormValues } from './schemas/login';
 
 export default function LoginPasswordForm({
   callbackUrl,
@@ -52,7 +45,14 @@ export default function LoginPasswordForm({
   const loginMutation = useLoginWithPassword();
 
   const methods = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    // Resolver (و به‌تبع آن zod + @hookform/resolvers/zod) در زمان mount
+    // لود می‌شود؛ این کار ~۳۱K gz را در چانک بحرانی صفحهٔ ورود حذف می‌کند
+    // (zod به‌تنهایی ~۱۰۸K raw و resolver ~۳۱K gz).
+    resolver: async (values, context, options) => {
+      const { zodResolver } = await import('@hookform/resolvers/zod');
+      const { loginSchema } = await import('./schemas/login');
+      return zodResolver(loginSchema)(values, context, options);
+    },
     defaultValues: {
       phone: '',
       password: '',

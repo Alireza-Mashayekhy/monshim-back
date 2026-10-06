@@ -66,14 +66,20 @@ export default function FeatureRow({
       <div className={reverse ? 'lg:order-1' : ''}>
         {visual ??
           (imageSrc ? (
-            <Image
-              src={imageSrc}
-              alt={imageAlt}
-              width={1200}
-              height={800}
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="h-auto w-full rounded-3xl border border-primary-100/50 shadow-sm"
-            />
+            // ابعاد واقعی تصاویر landing 1408×768 هستند (نسبت ≈1.83).
+            // قبلاً width=1200 height=800 (نسبت 1.5) رزرو می‌شد و بعد از
+            // لود تصویر، مرورگر جعبه را اصلاح می‌کرد ← CLS.
+            // استفاده از `fill` + `aspect-[11/6]` (≈1.833) جای رزرو را از
+            // ابتدا با نسبت درست پر می‌کند و جابه‌جایی را حذف می‌کند.
+            <div className="relative aspect-[11/6] w-full overflow-hidden rounded-3xl border border-primary-100/50 shadow-sm">
+              <Image
+                src={imageSrc}
+                alt={imageAlt}
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </div>
           ) : null)}
       </div>
     </article>

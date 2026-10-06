@@ -54,22 +54,6 @@ export interface PublicDirectoryResponse {
   cities: PublicCityDirectoryEntry[];
 }
 
-export interface PublicCityResponse {
-  city: {
-    id: number;
-    name: string;
-    slug: string;
-    provinceName: string | null;
-  };
-  barbers: BarberResponse[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 export interface BarberProfile {
   id: number;
   fullName: string;
