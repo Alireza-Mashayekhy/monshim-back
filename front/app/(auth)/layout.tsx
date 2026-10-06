@@ -16,10 +16,12 @@ export default function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <SessionHydration>
+    <QueryProvider>
       <AuthProvider>
-        <QueryProvider>{children}</QueryProvider>
+        <SessionHydration>
+          {children}
+        </SessionHydration>
       </AuthProvider>
-    </SessionHydration>
+    </QueryProvider>
   );
 }

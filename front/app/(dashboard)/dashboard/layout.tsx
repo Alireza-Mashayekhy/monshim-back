@@ -21,9 +21,9 @@ export const metadata: Metadata = {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <SessionHydration>
+    <QueryProvider>
       <AuthProvider>
-        <QueryProvider>
+        <SessionHydration>
           <div className="min-h-screen bg-primary-3">
             <DesktopSidebar />
 
@@ -33,8 +33,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <main className="p-4 lg:p-5 pb-28 lg:pb-8">{children}</main>
             </div>
           </div>
-        </QueryProvider>
+        </SessionHydration>
       </AuthProvider>
-    </SessionHydration>
+    </QueryProvider>
   );
 }

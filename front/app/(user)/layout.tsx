@@ -28,12 +28,12 @@ export default function UserLayout({
   showNav = true,
 }: UserLayoutProps) {
   return (
-    <SessionHydration>
+    <QueryProvider>
       <AuthProvider>
-        <QueryProvider>
+        <SessionHydration>
           <UserLayoutClient showNav={showNav}>{children}</UserLayoutClient>
-        </QueryProvider>
+        </SessionHydration>
       </AuthProvider>
-    </SessionHydration>
+    </QueryProvider>
   );
 }

@@ -93,19 +93,6 @@ export default async function ExplorePage() {
     <main id="main-content" className="min-h-screen bg-background pb-24">
       <JsonLd data={structuredData} />
 
-      <header className="border-b border-primary-100/60 bg-gradient-to-b from-primary-2/60 to-background px-4 py-7 sm:py-10">
-        <div className="mx-auto max-w-5xl">
-          <h1 className="text-2xl font-black leading-relaxed text-foreground sm:text-3xl">
-            جست‌وجوی آرایشگاه و سالن زیبایی
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-7 text-muted-foreground">
-            پروفایل‌های تأییدشده را ببینید، موقعیت سالن را بررسی کنید و خدمات و
-            قیمت‌های ثبت‌شده را بخوانید. برای استفاده وارد حساب کاربری خود
-            شوید.
-          </p>
-        </div>
-      </header>
-
       <ExploreClient initialResults={initialResults} />
     </main>
   );

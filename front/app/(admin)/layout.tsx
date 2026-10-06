@@ -25,9 +25,9 @@ export default function AdminLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <SessionHydration>
+    <QueryProvider>
       <AuthProvider>
-        <QueryProvider>
+        <SessionHydration>
           <SidebarProvider>
             <AdminSidebar />
 
@@ -35,8 +35,8 @@ export default function AdminLayout({
               <main className="p-4">{children}</main>
             </SidebarInset>
           </SidebarProvider>
-        </QueryProvider>
+        </SessionHydration>
       </AuthProvider>
-    </SessionHydration>
+    </QueryProvider>
   );
 }
