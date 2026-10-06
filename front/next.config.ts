@@ -12,6 +12,10 @@ const LONG_LIVED_STATIC_ASSETS =
   'public, max-age=31536000, stale-while-revalidate=86400';
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
+
   // فشرده‌سازی gzip سمت سرور Next (Brotli باید در لبه/CDN فعال باشد)
   compress: true,
 
