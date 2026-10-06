@@ -99,7 +99,7 @@ export default function HomeHowItWorks() {
           <ol className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             {flow.steps.map(([title, description], index) => (
               <li key={title} className="rounded-2xl border bg-white p-6">
-                <span className="text-3xl font-black text-primary/40">
+                <span className="text-3xl font-black text-primary/70">
                   {(index + 1).toLocaleString('fa-IR', {
                     minimumIntegerDigits: 2,
                   })}

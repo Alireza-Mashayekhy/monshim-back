@@ -25,6 +25,42 @@ const nextConfig: NextConfig = {
    */
   async headers() {
     return [
+      /**
+       * هدرهای امنیتی برای همهٔ پاسخ‌ها.
+       *
+       * ⚠️ نکتهٔ مهم: قانونِ زیر فقط هدرهای امنیتی اضافه می‌کند و هیچ
+       * `Cache-Control`ای ست نمی‌کند؛ بنابراین هشدارِ بالای این تابع (کش‌شدن
+       * HTML مسیرهایی که page دارند) اینجا مصداق ندارد.
+       *
+       * چرا این‌ها و نه بیشتر؟ ممیزی‌های PageSpeed پنج مورد را چک می‌کنند:
+       *   • HSTS  → اضافه شد (بدونِ includeSubDomains، تا ساب‌دامین‌های
+       *             بدون HTTPS قفل نشوند).
+       *   • X-Frame-Options → اضافه شد (هیچ‌جا خودِ سایت را iframe نمی‌کند).
+       *   • Cross-Origin-Opener-Policy → `same-origin-allow-popups` (نه
+       *     `same-origin`) تا اگر روزی ورود/پرداخت با پنجرهٔ popup انجام شد،
+       *     `window.opener` قطع نشود.
+       *   • CSP و Trusted Types → عمداً اضافه نشد: سایت به `<style>` بحرانیِ
+       *     درون‌ریزی‌شده، `onload="this.media='all'"` روی لینک CSS، اسکریپت‌های
+       *     inline خود Next و تونل Sentry تکیه دارد؛ CSP بدون nonce/hash کل
+       *     این‌ها را می‌شکند. (COEP هم عمداً نیست چون منابع cross-origin مثل
+       *     Clarity را بلاک می‌کند.)
+       */
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000',
+          },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
       {
         source: '/landing/:file*',
         headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
@@ -97,10 +133,12 @@ const nextConfig: NextConfig = {
   experimental: {
     /**
      * `inlineCss` روی این پروژه امتحان شد اما نتیجه معکوس داد: استایل هم در
-     * `<style>` و هم در RSC payload تکرار می‌شود و حجم HTML از ~۳۶ کیلوبایت
-     * (gzip) به ~۱۰۹ کیلوبایت می‌رسد؛ یعنی حدود ۷۲ کیلوبایت اضافه در مسیر
-     * critical که بیشتر از یک round-trip صرفه‌جویی‌شده هزینه دارد. بنابراین
-     * فایل CSS خارجی (قابل کش) نگه داشته شده است.
+     * `<style>` و هم در RSC payload (به‌ازای هر segment) تکرار می‌شود و حجم
+     * HTMLِ صفحهٔ اصلی از ~۲۶ کیلوبایت به ~۱۱۰ کیلوبایت (gzip) می‌رسد؛ یعنی
+     * حدود ۸۴ کیلوبایت اضافه در مسیر critical که بیشتر از یک round-trip
+     * صرفه‌جویی‌شده هزینه دارد. بنابراین فایل CSS خارجی (قابل کش) نگه داشته
+     * شده است و به‌جای آن، درون‌ریزیِ «CSS بحرانی» بعد از build و روی
+     * HTMLهای پررندر‌شده انجام می‌شود: `scripts/inline-critical-css.mjs`.
      */
     inlineCss: false,
   },

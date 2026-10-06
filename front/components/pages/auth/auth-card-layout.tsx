@@ -39,7 +39,7 @@ export default function AuthCardLayout({
             className="group flex flex-col items-center focus:outline-none"
           >
             <div className="relative mb-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-teal-700 flex items-center justify-center shadow-lg shadow-primary/25 text-white ring-4 ring-white transition-transform group-hover:scale-105 duration-300">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-teal-800 flex items-center justify-center shadow-lg shadow-primary/25 text-white ring-4 ring-white transition-transform group-hover:scale-105 duration-300">
                 <Scissors className="w-7 h-7 -rotate-45" />
               </div>
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center text-white ring-2 ring-white shadow">

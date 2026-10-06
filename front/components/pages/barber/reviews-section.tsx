@@ -18,13 +18,19 @@ import type { BarberReview } from '@/services/features/barber/types';
 
 const REVIEWS_PAGE_SIZE = 10;
 
+/**
+ * فرمتر ماژول‌سطح: این تابع برای هر نظر در لیست صدا زده می‌شود و ساخت مکرر
+ * `Intl.DateTimeFormat` (تبدیل تقویم + شکل‌دهی) گران است.
+ */
+const FA_REVIEW_DATE = new Intl.DateTimeFormat('fa-IR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+
 const formatDate = (iso: string) => {
   try {
-    return new Date(iso).toLocaleDateString('fa-IR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return FA_REVIEW_DATE.format(new Date(iso));
   } catch {
     return '';
   }

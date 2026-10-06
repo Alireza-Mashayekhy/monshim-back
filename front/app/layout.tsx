@@ -73,7 +73,7 @@ export default function RootLayout({
     <html
       lang="fa"
       dir="rtl"
-      className={cn('h-full', 'antialiased', 'font-sans', iranSans.className)}
+      className={cn('h-full', 'antialiased', 'font-sans', iranSans.variable)}
     >
       <head>
         {preconnectOrigin ? (

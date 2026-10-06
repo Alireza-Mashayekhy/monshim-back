@@ -58,18 +58,43 @@ export function useViewportVars() {
           Math.round(window.innerHeight - height - top),
         );
 
-        root.style.setProperty(VAR_HEIGHT, `${height}px`);
-        root.style.setProperty(VAR_TOP, `${top}px`);
-        root.style.setProperty(VAR_KEYBOARD, `${keyboard}px`);
+        /**
+         * ⚠️ این سه `if` قلبِ بهینه‌سازی CPU این هوک هستند.
+         *
+         * `visualViewport.scroll` و `visualViewport.resize` روی موبایل هنگام
+         * اسکرول و باز/بسته شدن نوار آدرس مرورگر پشت‌سرهم و در هر فریم
+         * fire می‌شوند. نوشتن یک custom property روی `<html>` فقط یک تغییر
+         * کوچک نیست: چون این متغیرها ارثی‌اند، مرورگر باید محاسبهٔ استایلِ
+         * *همهٔ* عناصر صفحه را از نو انجام بدهد (full style recalc)؛ در یک
+         * صفحهٔ سنگین این کار روی رشتهٔ اصلی ده‌ها میلی‌ثانیه طول می‌کشد و
+         * همان چیزی است که اسکرول موبایل را به ۱۰۰٪ یک هستهٔ CPU می‌رساند.
+         *
+         * پس فقط وقتی می‌نویسیم که مقدارِ گِردشده واقعاً عوض شده باشد؛ در
+         * اسکرول عادی هیچ‌کدام از این سه مقدار تغییر نمی‌کند و در نتیجه صفر
+         * نوشتن و صفر style recalc خواهیم داشت.
+         */
+        if (height !== lastHeight) {
+          root.style.setProperty(VAR_HEIGHT, `${height}px`);
+          lastHeight = height;
+        }
+        if (top !== lastTop) {
+          root.style.setProperty(VAR_TOP, `${top}px`);
+          lastTop = top;
+        }
+        if (keyboard !== lastKeyboard) {
+          root.style.setProperty(VAR_KEYBOARD, `${keyboard}px`);
+          lastKeyboard = keyboard;
+        }
       });
     };
 
     sync();
 
-    viewport.addEventListener('resize', sync);
-    viewport.addEventListener('scroll', sync);
-    window.addEventListener('resize', sync);
-    window.addEventListener('orientationchange', sync);
+    // `passive` تضمین می‌کند این شنونده‌ها هرگز اسکرول را بلاک نکنند.
+    viewport.addEventListener('resize', sync, { passive: true });
+    viewport.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync, { passive: true });
+    window.addEventListener('orientationchange', sync, { passive: true });
 
     return () => {
       if (frame) window.cancelAnimationFrame(frame);

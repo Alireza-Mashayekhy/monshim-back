@@ -4,7 +4,7 @@ import { Check, MessageSquare, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, formatFaNumber } from '@/lib/utils';
 
 import { COMMON_PLAN_FEATURES, formatToman, PRICING_PLANS } from './plans-data';
 
@@ -78,7 +78,7 @@ export default function PricingPlans() {
               {/* سهمیه پیامک — تنها تفاوت واقعی پلن‌ها */}
               <p className="mt-4 flex items-center gap-2 rounded-2xl bg-primary-2/70 px-3 py-2.5 text-xs font-bold text-primary">
                 <MessageSquare className="size-4" aria-hidden="true" />
-                {plan.smsCount.toLocaleString('fa-IR')} پیامک در ماه
+                {formatFaNumber(plan.smsCount)} پیامک در ماه
               </p>
 
               <p className="mt-3 text-[11px] leading-5 text-muted-foreground">

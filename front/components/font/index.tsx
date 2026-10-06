@@ -13,8 +13,15 @@ import localFont from 'next/font/local';
  * - کوتاه شدن Critical Request Chain
  * - کاهش زمان render شدن متن Hero (کاندیدای اصلی LCP)
  *
- * `display: 'swap'` نگه داشته شده تا متن منتظر فونت نماند و `adjustFontFallback`
- * (پیش‌فرض) همچنان متریک‌های fallback را تنظیم می‌کند تا CLS ایجاد نشود.
+ * `display: 'swap'` نگه داشته شده تا متن منتظر فونت نماند.
+ *
+ * نکتهٔ مهم دربارهٔ CLS: `adjustFontFallback` (پیش‌فرض) فقط یک @font-face با
+ * `src: local(Arial)` می‌سازد. مقادیر متریک آن face درست است (ascent 101.52%،
+ * descent 53.18%، line-gap 0%، size-adjust 101% برای همین فایل فونت)، اما Arial
+ * روی اندروید/لینوکس موجود نیست؛ پس آن face کلاً رد می‌شود و مرورگر با فونت
+ * پیش‌فرض سیستم رندر می‌کند و بعد از لود وزیرمتن، ارتفاع خط‌ها می‌پرد
+ * (سهم بزرگی از CLS). برای همین یک fallback متریک‌تنظیم‌شدهٔ معادل با همان
+ * اعداد، ولی با فونت‌های «واقعاً موجود» در `app/globals.css` تعریف شده است.
  */
 export const iranSans = localFont({
   src: [
@@ -26,4 +33,11 @@ export const iranSans = localFont({
   ],
   display: 'swap',
   preload: true,
+  /**
+   * به‌جای `className` (که خانوادهٔ فونت را به `iranSans, "iranSans Fallback"`
+   * محدود می‌کند و هیچ generic family‌ای ندارد) از `variable` استفاده می‌کنیم و
+   * زنجیرهٔ کامل فونت را در `app/globals.css` می‌سازیم؛ جزئیات و دلیلش (CLS)
+   * همان‌جا توضیح داده شده است.
+   */
+  variable: '--font-iran-sans',
 });

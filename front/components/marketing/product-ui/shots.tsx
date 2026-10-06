@@ -83,7 +83,7 @@ export function DashboardShot({ className = '' }: { className?: string }) {
             <p className="text-sm font-black text-gray-900">
               سلام، سالن شما ✂️
             </p>
-            <p className="text-[11px] text-gray-400">پیش‌نمایش رابط کاربری</p>
+            <p className="text-[11px] text-gray-500">پیش‌نمایش رابط کاربری</p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-[11px] font-bold text-white">
             <Plus className="size-3.5" aria-hidden="true" />
@@ -103,7 +103,7 @@ export function DashboardShot({ className = '' }: { className?: string }) {
               <p className="mt-1.5 text-base font-black text-gray-900">
                 {stat.value}
               </p>
-              <p className="mt-0.5 text-[10px] text-gray-400">{stat.sub}</p>
+              <p className="mt-0.5 text-[10px] text-gray-500">{stat.sub}</p>
             </div>
           ))}
         </div>
@@ -128,7 +128,7 @@ export function DashboardShot({ className = '' }: { className?: string }) {
               <span className="block truncate text-xs font-bold text-gray-900">
                 {booking.name}
               </span>
-              <span className="block truncate text-[11px] text-gray-400">
+              <span className="block truncate text-[11px] text-gray-500">
                 {booking.service}
               </span>
             </span>
@@ -192,7 +192,7 @@ export function CalendarShot({ className = '' }: { className?: string }) {
                 </li>
               ))}
               {column.bookings.length < 3 ? (
-                <li className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-center text-[10px] text-gray-300">
+                <li className="rounded-lg border border-dashed border-gray-200 px-2 py-1.5 text-center text-[10px] text-gray-500">
                   ساعت خالی
                 </li>
               ) : null}
@@ -247,7 +247,7 @@ export function CustomersShot({ className = '' }: { className?: string }) {
         action="مشتری جدید"
       />
       <div className="border-t border-gray-50 px-4 py-3">
-        <span className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-[11px] text-gray-400">
+        <span className="flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-[11px] text-gray-500">
           <Search className="size-3.5" aria-hidden="true" />
           جست‌وجوی مشتری بر اساس نام یا شماره موبایل
         </span>
@@ -265,7 +265,7 @@ export function CustomersShot({ className = '' }: { className?: string }) {
               <span className="block truncate text-xs font-bold text-gray-900">
                 {customer.name}
               </span>
-              <span className="block truncate text-[11px] text-gray-400">
+              <span className="block truncate text-[11px] text-gray-500">
                 {customer.visits} • {customer.last}
               </span>
             </span>
@@ -291,10 +291,10 @@ const WALLET_TX = [
 export function WalletShot({ className = '' }: { className?: string }) {
   return (
     <DesktopAppFrame title="کیف پول و درآمد" className={className}>
-      <div className="bg-gradient-to-bl from-primary to-teal-700 px-4 py-5 text-white">
-        <p className="text-[11px] text-white/80">موجودی قابل برداشت</p>
+      <div className="bg-gradient-to-bl from-primary to-teal-800 px-4 py-5 text-white">
+        <p className="text-[11px] text-white/90">موجودی قابل برداشت</p>
         <p className="mt-1 text-2xl font-black">—</p>
-        <p className="text-[11px] text-white/75">تومان</p>
+        <p className="text-[11px] text-white/90">تومان</p>
         <span className="mt-3 inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-[11px] font-bold text-primary">
           <ArrowUpRight className="size-3.5" aria-hidden="true" />
           درخواست تسویه وجه
@@ -319,8 +319,8 @@ export function WalletShot({ className = '' }: { className?: string }) {
               aria-hidden="true"
               className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
                 tx.income
-                  ? 'bg-green-50 text-green-600'
-                  : 'bg-gray-100 text-gray-500'
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-gray-100 text-gray-600'
               }`}
             >
               {tx.income ? (
@@ -334,7 +334,7 @@ export function WalletShot({ className = '' }: { className?: string }) {
             </span>
             <span
               className={`shrink-0 text-xs font-black ${
-                tx.income ? 'text-green-600' : 'text-gray-500'
+                tx.income ? 'text-green-700' : 'text-gray-500'
               }`}
             >
               {tx.amount}
@@ -425,7 +425,7 @@ export function BookingShot({ className = '' }: { className?: string }) {
                 <span className="block truncate text-[11px] font-bold text-gray-900">
                   {service.name}
                 </span>
-                <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
                   <Clock className="size-2.5" aria-hidden="true" />
                   {service.minutes ? `${service.minutes} دقیقه` : 'مدت ثبت‌شده'}
                 </span>
@@ -434,7 +434,7 @@ export function BookingShot({ className = '' }: { className?: string }) {
                 <span className="block text-[11px] font-black text-primary">
                   {service.price}
                 </span>
-                <span className="block text-[9px] text-gray-400">
+                <span className="block text-[9px] text-gray-500">
                   توسط سالن
                 </span>
               </span>
@@ -453,7 +453,7 @@ export function BookingShot({ className = '' }: { className?: string }) {
               className={`rounded-lg py-2 text-center text-[10px] font-bold ${
                 slot.free
                   ? 'bg-primary-2 text-primary'
-                  : 'bg-gray-100 text-gray-300 line-through'
+                  : 'bg-gray-100 text-gray-600 line-through'
               }`}
             >
               {slot.time}
@@ -464,7 +464,7 @@ export function BookingShot({ className = '' }: { className?: string }) {
         <span className="mt-4 block rounded-xl bg-primary py-3 text-center text-[11px] font-bold text-white">
           ادامه و پرداخت آنلاین
         </span>
-        <p className="mt-2 text-center text-[9px] leading-4 text-gray-400">
+        <p className="mt-2 text-center text-[9px] leading-4 text-gray-500">
           یادآوری پیامکی در صورت فعال‌بودن برای نوبت ارسال می‌شود
         </p>
       </div>
@@ -476,13 +476,13 @@ export function BookingShot({ className = '' }: { className?: string }) {
 export function WalletMobileShot({ className = '' }: { className?: string }) {
   return (
     <PhoneAppFrame className={className}>
-      <div className="bg-gradient-to-bl from-primary to-teal-700 px-4 py-6 text-white">
-        <span className="flex items-center gap-1.5 text-[11px] text-white/80">
+      <div className="bg-gradient-to-bl from-primary to-teal-800 px-4 py-6 text-white">
+        <span className="flex items-center gap-1.5 text-[11px] text-white/90">
           <Wallet className="size-3.5" aria-hidden="true" />
           کیف پول منشیم
         </span>
         <p className="mt-2 text-2xl font-black">—</p>
-        <p className="text-[11px] text-white/75">تومان • قابل برداشت</p>
+        <p className="text-[11px] text-white/90">تومان • قابل برداشت</p>
       </div>
       <ul className="divide-y divide-gray-50">
         {WALLET_TX.map(tx => (
@@ -492,7 +492,7 @@ export function WalletMobileShot({ className = '' }: { className?: string }) {
             </span>
             <span
               className={`shrink-0 text-[11px] font-black ${
-                tx.income ? 'text-green-600' : 'text-gray-500'
+                tx.income ? 'text-green-700' : 'text-gray-500'
               }`}
             >
               {tx.amount}
@@ -580,7 +580,7 @@ function AppointmentRow({
           <span className="text-base font-black leading-none">{time}</span>
           <span
             className={`mt-1 text-[9px] font-bold ${
-              isToday && !pending ? 'text-white/70' : 'text-gray-400'
+              isToday && !pending ? 'text-white/90' : 'text-gray-500'
             }`}
           >
             {duration}
@@ -606,13 +606,13 @@ function AppointmentRow({
                 {pending ? 'در انتظار تایید' : 'تایید شده'}
               </span>
             </div>
-            <p className="mt-1 text-[11px] font-medium text-gray-400">
+            <p className="mt-1 text-[11px] font-medium text-gray-500">
               {phone}
             </p>
           </div>
           <p className="text-xs font-black text-gray-900">
             {price}
-            <span className="ms-1 text-[10px] font-bold text-gray-400">
+            <span className="ms-1 text-[10px] font-bold text-gray-500">
               تومان
             </span>
           </p>
@@ -636,14 +636,14 @@ function AppointmentRow({
                 <Check size={12} aria-hidden="true" />
                 تایید
               </span>
-              <span className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] font-black text-red-500">
+              <span className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-[11px] font-black text-red-700">
                 <XCircle size={12} aria-hidden="true" />
                 رد
               </span>
             </span>
           ) : (
             <span className="flex gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-red-500">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-red-700">
                 <XCircle size={12} aria-hidden="true" />
                 لغو
               </span>
@@ -688,7 +688,7 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
               <span
                 className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${
                   tile.tone === 'amber'
-                    ? 'bg-amber-100 text-amber-600'
+                    ? 'bg-amber-100 text-amber-700'
                     : 'bg-primary-2 text-primary'
                 }`}
               >
@@ -698,7 +698,7 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
             <p className="mt-2 text-base font-black text-gray-900">
               {tile.value}
             </p>
-            <p className="mt-1 truncate text-[9px] font-medium text-gray-400">
+            <p className="mt-1 truncate text-[9px] font-medium text-gray-500">
               {tile.sub}
             </p>
           </div>
@@ -722,7 +722,7 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
       </div>
 
       {/* جست‌وجو */}
-      <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11px] text-gray-400">
+      <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11px] text-gray-500">
         <Search size={13} aria-hidden="true" />
         جست‌وجوی نام یا شماره مشتری...
       </div>
@@ -732,7 +732,7 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
         <span className="rounded-md bg-primary-2 px-2 py-1 text-primary">
           روز نمونه — رزرو ثبت‌شده
         </span>
-        <span className="text-gray-400">نمایش روزانه</span>
+        <span className="text-gray-500">نمایش روزانه</span>
       </div>
       <div className="mt-2">
         <AppointmentRow
@@ -752,7 +752,7 @@ export function AppointmentsShot({ className = '' }: { className?: string }) {
         <span className="rounded-md bg-primary-2 px-2 py-1 text-primary">
           روز نمونه — رزرو در انتظار
         </span>
-        <span className="text-gray-400">نمایش روزانه</span>
+        <span className="text-gray-500">نمایش روزانه</span>
       </div>
       <div className="mt-2">
         <AppointmentRow

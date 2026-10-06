@@ -50,7 +50,7 @@ export default function HomePersonas() {
               key={persona.title}
               className={`flex flex-col items-start rounded-4xl p-8 shadow-sm lg:p-10 ${
                 persona.dark
-                  ? 'bg-gradient-to-bl from-primary to-teal-700 text-white shadow-lg shadow-primary/20'
+                  ? 'bg-gradient-to-bl from-primary to-teal-800 text-white shadow-lg shadow-primary/20'
                   : 'border border-primary-100/60 bg-primary-2/50'
               }`}
             >
@@ -73,7 +73,7 @@ export default function HomePersonas() {
               </h3>
               <p
                 className={`mb-7 leading-8 ${
-                  persona.dark ? 'text-white/85' : 'text-muted-foreground'
+                  persona.dark ? 'text-white/90' : 'text-muted-foreground'
                 }`}
               >
                 {persona.description}

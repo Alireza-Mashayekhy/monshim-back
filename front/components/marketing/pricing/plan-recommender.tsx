@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, formatFaNumber } from '@/lib/utils';
 
 import { formatToman, PRICING_PLANS } from './plans-data';
 
@@ -15,7 +15,7 @@ const DEFAULT_BOOKINGS = 150;
 
 const SLIDER_STEPS = PRICING_PLANS.map(plan => plan.maxBookingsPerMonth);
 
-const toFa = (n: number) => n.toLocaleString('fa-IR');
+const toFa = (n: number) => formatFaNumber(n);
 
 /**
  * «پلن مناسب سالن شما» — یک اسلایدر به‌جای مقایسهٔ پنج کارت.

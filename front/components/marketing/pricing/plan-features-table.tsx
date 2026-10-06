@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 
 import SectionHeading from '@/components/marketing/section-heading';
+import { formatFaNumber } from '@/lib/utils';
 
 import { formatToman, PRICING_PLANS } from './plans-data';
 
@@ -25,7 +26,7 @@ const PLAN_ROWS: {
     label: 'سهمیه پیامک ماهانه (یادآوری نوبت و لینک بیعانه)',
     value: key => {
       const plan = PRICING_PLANS.find(p => p.key === key)!;
-      return plan.smsCount.toLocaleString('fa-IR');
+      return formatFaNumber(plan.smsCount);
     },
     highlight: true,
   },

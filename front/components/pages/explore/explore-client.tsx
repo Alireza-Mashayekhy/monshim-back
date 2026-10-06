@@ -26,12 +26,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
-import { cn } from '@/lib/utils';
+import { cn, formatFaNumber } from '@/lib/utils';
 import type { ApiListResponse } from '@/services/api/types';
 import { useCurrentUser } from '@/services/features/auth/hooks';
 import { useBarberList } from '@/services/features/barber/hooks';
 import type { BarberResponse } from '@/services/features/barber/types';
 import { useLocationStore } from '@/store/useLocationStore';
+
+/**
+ * فرمترهای ماژول‌سطح.
+ *
+ * این صفحه در هر حرکت اسلایدر/تایپ بازرندر می‌شود؛ ساختن `Intl` در هر
+ * فراخوانی (که کار سنگین ICU است) روی CPU و روانی رابط اثر می‌گذاشت.
+ */
+const EN_NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
 
 interface ExploreClientProps {
   initialResults?: ApiListResponse<BarberResponse> | null;
@@ -163,13 +171,13 @@ export default function ExploreClient({
 
   const pricePillLabel = useMemo(() => {
     if (minPrice !== undefined && maxPrice !== undefined) {
-      return `از ${toPersianDigits((minPrice / 1000).toLocaleString('en-US'))} تا ${toPersianDigits((maxPrice / 1000).toLocaleString('en-US'))} هزار ت`;
+      return `از ${toPersianDigits(EN_NUMBER_FORMATTER.format(minPrice / 1000))} تا ${toPersianDigits(EN_NUMBER_FORMATTER.format(maxPrice / 1000))} هزار ت`;
     }
     if (minPrice !== undefined) {
-      return `از ${toPersianDigits((minPrice / 1000).toLocaleString('en-US'))} هزار ت به بالا`;
+      return `از ${toPersianDigits(EN_NUMBER_FORMATTER.format(minPrice / 1000))} هزار ت به بالا`;
     }
     if (maxPrice !== undefined) {
-      return `تا ${toPersianDigits((maxPrice / 1000).toLocaleString('en-US'))} هزار ت`;
+      return `تا ${toPersianDigits(EN_NUMBER_FORMATTER.format(maxPrice / 1000))} هزار ت`;
     }
     return 'قیمت';
   }, [minPrice, maxPrice]);
@@ -447,7 +455,7 @@ export default function ExploreClient({
                     inputMode="numeric"
                     value={
                       tempMinPrice
-                        ? Number(tempMinPrice).toLocaleString('fa-IR')
+                        ? formatFaNumber(tempMinPrice)
                         : ''
                     }
                     onChange={e => {
@@ -470,7 +478,7 @@ export default function ExploreClient({
                     inputMode="numeric"
                     value={
                       tempMaxPrice
-                        ? Number(tempMaxPrice).toLocaleString('fa-IR')
+                        ? formatFaNumber(tempMaxPrice)
                         : ''
                     }
                     onChange={e => {

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
  * قاب پنجرهٔ پنل مدیریت منشیم.
  *
  * به‌جای تصویر کارتونی، خودِ رابط کاربری محصول با همان توکن‌های رنگی اپ
- * (primary #0D9488 / primary-2 #E6F9F6) رندر می‌شود؛ یعنی آنچه کاربر می‌بیند
+ * (primary #0F766E / primary-2 #E6F9F6) رندر می‌شود؛ یعنی آنچه کاربر می‌بیند
  * markup واقعی است، نه یک نقاشی از محصول.
  */
 export function DesktopAppFrame({
@@ -26,7 +26,7 @@ export function DesktopAppFrame({
           <span className="size-2.5 rounded-full bg-amber-400/70" />
           <span className="size-2.5 rounded-full bg-emerald-400/70" />
         </span>
-        <span className="mx-auto rounded-md bg-white px-3 py-1 text-[10px] font-medium text-gray-400 shadow-2xs">
+        <span className="mx-auto rounded-md bg-white px-3 py-1 text-[10px] font-medium text-gray-500 shadow-2xs">
           monshiim.ir{title ? ` — ${title}` : ''}
         </span>
       </div>
@@ -73,7 +73,7 @@ export function ShotHeader({
       <div>
         <h3 className="text-sm font-extrabold text-gray-900">{title}</h3>
         {subtitle ? (
-          <p className="mt-0.5 text-[11px] text-gray-400">{subtitle}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">{subtitle}</p>
         ) : null}
       </div>
       {action ? (

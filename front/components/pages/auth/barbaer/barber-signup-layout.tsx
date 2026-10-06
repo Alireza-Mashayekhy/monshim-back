@@ -48,7 +48,7 @@ export default function BarberSignupLayout({
           className="group flex items-center gap-2.5 focus:outline-none"
         >
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-teal-700 flex items-center justify-center shadow-lg shadow-primary/25 text-white ring-2 ring-white transition-transform group-hover:scale-105 duration-300">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary to-teal-800 flex items-center justify-center shadow-lg shadow-primary/25 text-white ring-2 ring-white transition-transform group-hover:scale-105 duration-300">
               <Scissors className="w-5 h-5 -rotate-45" />
             </div>
             <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center text-white ring-2 ring-white shadow">

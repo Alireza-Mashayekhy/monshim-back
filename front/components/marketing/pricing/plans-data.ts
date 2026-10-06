@@ -78,5 +78,11 @@ export const COMMON_PLAN_FEATURES = [
   'یادآوری پیامکی نوبت و ارسال لینک بیعانه',
 ] as const;
 
+/**
+ * فرمتر ماژول‌سطح (نه در هر رندر) — این تابع در کارت‌ها و جدول‌های قیمت
+ * بارها صدا زده می‌شود و ساخت مکرر `Intl` بخش قابل‌توجهی از CPU رندر بود.
+ */
+const TOMAN_FORMATTER = new Intl.NumberFormat('fa-IR');
+
 export const formatToman = (amount: number): string =>
-  amount.toLocaleString('fa-IR');
+  TOMAN_FORMATTER.format(amount);
