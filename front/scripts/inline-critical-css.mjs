@@ -87,48 +87,7 @@ function selectorClasses(selector) {
 }
 
 /**
- * یک selector-list را به بخش‌های کاما-جدا می‌شکند، بدون توجه به کاماهای
- * داخل پرانتز/براکت (`:is(a, b)`, `[data-x=","]`).
- */
-function splitSelectors(selector) {
-  const parts = [];
-  let depth = 0;
-  let quote = null;
-  let current = '';
-  for (const ch of selector) {
-    if (quote) {
-      current += ch;
-      if (ch === quote) quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      current += ch;
-      continue;
-    }
-    if (ch === '(' || ch === '[') depth++;
-    else if (ch === ')' || ch === ']') depth--;
-    if (ch === ',' && depth === 0) {
-      parts.push(current);
-      current = '';
-      continue;
-    }
-    current += ch;
-  }
-  parts.push(current);
-  return parts.map(part => part.trim()).filter(Boolean);
-}
-
-/**
  * فیلترِ سوپرست: هر قاعده‌ای که هیچ کلاسی در HTML ندارد حذف می‌شود.
- *
- * ⚠️ هر بخش از selector-list جداگانه ارزیابی می‌شود. دلیلش یک تلهٔ واقعی است:
- * LightningCSS دو بلوک `:root` و `.dark` را (چون مقادیرشان یکی است) در یک
- * قاعدهٔ `:root,.dark{--primary:...;--background:...}` ادغام می‌کند. اگر قاعده
- * یک واحد دیده شود، چون `.dark` در HTML نیست کل قاعده حذف می‌شد و در نتیجه
- * **تمام متغیرهای رنگِ سایت** از CSS بحرانی می‌افتادند؛ اولین رنگ‌آمیزی بدون
- * رنگ انجام می‌شد و بعد با رسیدن CSS اصلی، صفحه یک‌باره رنگی می‌شد.
- *
  * at-ruleها (media/supports/layer/container) نگه داشته می‌شوند تا ترتیب
  * لایه‌های CSS (cascade layers) به‌هم نخورد.
  */
@@ -144,11 +103,8 @@ function filterCss(css, usedClasses) {
         continue;
       }
       if (node.type !== 'rule') continue;
-      const keep = splitSelectors(node.selector).some(part => {
-        const classes = selectorClasses(part);
-        return classes.length === 0 || classes.some(c => usedClasses.has(c));
-      });
-      if (keep) {
+      const classes = selectorClasses(node.selector);
+      if (classes.length === 0 || classes.some(c => usedClasses.has(c))) {
         kept++;
       } else {
         dropped++;
@@ -168,28 +124,6 @@ function hrefToFile(href) {
   if (index === -1) return null;
   const relative = href.slice(index + marker.length).split('?')[0];
   return path.join(DIST_DIR, relative);
-}
-
-/**
- * لینک‌های `preload` فونت را به ابتدای `<head>` می‌برد.
- *
- * چرا لازم است؟ CSS بحرانیِ درون‌ریزی‌شده (~۵۵ کیلوبایت) در ابتدای `<head>`
- * قرار می‌گیرد و تگ‌های Next (از جمله preload فونت) بعد از آن می‌آیند. مرورگر
- * هرچند با preload-scanner جلوتر از parser را می‌خواند، برای رسیدن به بایتِ
- * ~۵۶KB باید همین حجم را دانلود کند؛ روی شبکهٔ کند موبایل (همان پروفایل
- * PageSpeed) این یعنی شروعِ دانلود فونت چند صد میلی‌ثانیه دیرتر — دقیقاً همان
- * چیزی که در «Network dependency tree» به‌صورت زنجیرهٔ document → woff2 با
- * ۸۹۷ms دیده می‌شود، و هرچه دیرتر باشد پنجرهٔ FOUT/CLS طولانی‌تر می‌شود.
- * با انتقال این تگ به ابتدای head، فونت از همان اولین بایت‌های HTML کشف می‌شود.
- */
-function hoistFontPreloads(html) {
-  const tags = [...html.matchAll(/<link\b[^>]*\bas="font"[^>]*>/gi)].map(
-    match => match[0],
-  );
-  if (tags.length === 0) return html;
-  let out = html;
-  for (const tag of tags) out = out.replace(tag, () => '');
-  return out.replace(/(<head[^>]*>)/i, (_m, head) => `${head}${tags.join('')}`);
 }
 
 /** تبدیل `<link rel="stylesheet">` به لینکی که رندر را مسدود نمی‌کند. */
@@ -275,8 +209,6 @@ function processFile(file, cache) {
     /<head([^>]*)>/i,
     head => `${head}<style ${MARKER}>${inlineCss}</style>`,
   );
-  // preload فونت باید قبل از CSS بحرانی (۵۵KB) دیده شود تا دانلودش دیر شروع نشود.
-  html = hoistFontPreloads(html);
   fs.writeFileSync(file, html);
 
   return {
