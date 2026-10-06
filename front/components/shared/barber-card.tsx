@@ -1,7 +1,9 @@
 import { MapPin, Scissors } from 'lucide-react';
+import { memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { formatFaNumber } from '@/lib/utils';
 import { BarberResponse } from '@/services/features/barber/types';
 
 interface BarberCardProps {
@@ -9,7 +11,7 @@ interface BarberCardProps {
   variant?: 'horizontal' | 'vertical';
 }
 
-export default function BarberCard({
+function BarberCard({
   barber,
   variant = 'horizontal',
 }: BarberCardProps) {
@@ -24,7 +26,7 @@ export default function BarberCard({
     barber?.minPrice !== null &&
     Number.isFinite(Number(barber.minPrice));
   const minPriceFormatted = hasPrice
-    ? Number(barber.minPrice).toLocaleString('fa-IR')
+    ? formatFaNumber(Number(barber.minPrice))
     : null;
 
   if (variant === 'vertical') {
@@ -109,6 +111,16 @@ export default function BarberCard({
     </Link>
   );
 }
+
+/**
+ * با `memo` از رندر دوبارهٔ همهٔ کارت‌های یک لیست جلوگیری می‌شود.
+ * مثلاً در صفحهٔ «جست‌وجو» باز و بسته کردن فیلترها یا حرکت اسلایدر قیمت،
+ * state والد را عوض می‌کند؛ بدون memo همهٔ کارت‌ها (که هرکدام یک `next/image`
+ * و چند محاسبه دارند) دوباره رندر می‌شدند. دادهٔ react-query با
+ * structural sharing پایدار است، پس این مقایسهٔ سطحی دقیقاً همان چیزی است که
+ * لازم داریم.
+ */
+export default memo(BarberCard);
 
 export const BarberCardSkeleton = ({
   variant = 'horizontal',

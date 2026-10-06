@@ -52,6 +52,31 @@ const dayDiffFromToday = (isoDate: string): number => {
   return Math.round((target.getTime() - today.getTime()) / DAY_MS);
 };
 
+/**
+ * فرمترهای ماژول‌سطح.
+ *
+ * این تابع برای *هر کارت نوبت* صدا زده می‌شود؛ نسخهٔ قبلی در هر فراخوانی یک
+ * `Intl.DateTimeFormat` می‌ساخت و تبدیل تقویم میلادی→شمسی را از نو انجام
+ * می‌داد. در لیست نوبت‌ها همین چند میلی‌ثانیه در هر رندر روی رشتهٔ اصلی
+ * هزینه داشت.
+ */
+const FA_DAY_MONTH = new Intl.DateTimeFormat('fa-IR', {
+  day: 'numeric',
+  month: 'long',
+});
+
+const FA_WEEKDAY_DAY_MONTH = new Intl.DateTimeFormat('fa-IR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
+const FA_DAY_MONTH_YEAR = new Intl.DateTimeFormat('fa-IR', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
 /** برچسب خوانا برای تاریخ نوبت: امروز / فردا، ۱۸ مهر / ۱۸ مهر ۱۴۰۵ */
 const bookingDateLabel = (date: string): string => {
   if (!date) return '';
@@ -60,22 +85,9 @@ const bookingDateLabel = (date: string): string => {
 
   const diff = dayDiffFromToday(date);
   if (diff === 0) return 'امروز';
-  if (diff === 1)
-    return `فردا، ${d.toLocaleDateString('fa-IR', {
-      day: 'numeric',
-      month: 'long',
-    })}`;
-  if (diff > 1)
-    return d.toLocaleDateString('fa-IR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    });
-  return d.toLocaleDateString('fa-IR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  if (diff === 1) return `فردا، ${FA_DAY_MONTH.format(d)}`;
+  if (diff > 1) return FA_WEEKDAY_DAY_MONTH.format(d);
+  return FA_DAY_MONTH_YEAR.format(d);
 };
 
 export function AppointmentCard({ booking }: AppointmentCardProps) {

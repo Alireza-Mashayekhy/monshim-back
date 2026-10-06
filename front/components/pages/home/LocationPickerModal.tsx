@@ -132,7 +132,7 @@ export function LocationPickerModal({
           <div className="flex-1 overflow-y-auto bg-white">
             {selectedProvinceId ? (
               <>
-                <div className="sticky top-0 bg-white/95 backdrop-blur-sm p-2 z-10 border-b mb-3 flex items-center justify-between">
+                <div className="sticky top-0 bg-white/95 p-2 z-10 border-b mb-3 flex items-center justify-between">
                   <span className="text-xs text-gray-500">
                     {
                       provinces?.data?.find(p => p.id === selectedProvinceId)

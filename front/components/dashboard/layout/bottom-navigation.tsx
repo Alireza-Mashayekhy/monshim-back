@@ -24,7 +24,7 @@ export default function BottomNavigation({ onMoreClick }: Props) {
 
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 px-3 pb-3">
-      <div className="h-[68px] rounded-2xl bg-white/95 backdrop-blur-xl border shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
+      <div className="h-[68px] rounded-2xl bg-white/95 border shadow-[0_8px_30px_rgba(0,0,0,0.08)]">
         <div className="grid grid-cols-5 h-full">
           {mobileRoutes.map(item => {
             const Icon = item.icon;

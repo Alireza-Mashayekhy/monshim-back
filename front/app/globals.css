@@ -4,6 +4,37 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/**
+ * انیمیشن‌های سفارشی.
+ *
+ * `fade-up` جای framer-motion را در کامپوننت `FadeIn` گرفته است؛ چون روی
+ * کامپوزیتور اجرا می‌شود، هیچ هزینهٔ JS روی رشتهٔ اصلی ندارد. (تعریف داخل
+ * `@theme` باعث می‌شود keyframes فقط وقتی کلاسش استفاده شود در CSS بیاید.)
+ */
+@theme {
+  --animate-fade-up: fade-up 0.45s ease-out both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(25px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  /* برای کاربرانی که حرکت کمتر می‌خواهند، محتوا بلافاصله و کامل دیده شود. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-up {
+      animation: none;
+    }
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

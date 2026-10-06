@@ -10,7 +10,7 @@ import Search from './search';
 export default function Header() {
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-20 bg-background backdrop-blur-2xl ">
+      <div className="fixed top-0 left-0 right-0 z-20 bg-background">
         <div className="grid grid-cols-3 custom-container py-1 h-[52px] items-center">
           <div className="flex">
             <Menu />
