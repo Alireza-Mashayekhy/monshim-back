@@ -32,7 +32,7 @@ export default function CtaSection({
       aria-labelledby="cta-heading"
       className="custom-container py-8 lg:py-14"
     >
-      <div className="relative overflow-hidden rounded-4xl bg-gradient-to-l from-primary to-teal-700 px-6 py-14 text-center shadow-xl shadow-primary/20 sm:px-12 lg:py-20">
+      <div className="relative overflow-hidden rounded-4xl bg-gradient-to-l from-primary to-teal-800 px-6 py-14 text-center shadow-xl shadow-primary/20 sm:px-12 lg:py-20">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -left-20 -top-20 size-64 rounded-full bg-white/10 blur-2xl"
@@ -49,7 +49,7 @@ export default function CtaSection({
           >
             {title}
           </h2>
-          <p className="mt-4 leading-8 text-white/85">{description}</p>
+          <p className="mt-4 leading-8 text-white/90">{description}</p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button
               asChild
@@ -72,7 +72,7 @@ export default function CtaSection({
               </Link>
             </Button>
           </div>
-          <p className="mt-4 text-xs text-white/70">
+          <p className="mt-4 text-xs text-white/90">
             راه‌اندازی چند دقیقه‌ای | پشتیبانی آنلاین
           </p>
         </div>

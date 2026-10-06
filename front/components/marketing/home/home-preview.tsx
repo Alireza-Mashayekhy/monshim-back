@@ -80,7 +80,7 @@ export default function HomePreview() {
                   <span
                     key={tab.label}
                     className={`relative flex-1 pb-2.5 text-center text-[13px] font-semibold ${
-                      tab.active ? 'text-primary' : 'text-gray-400'
+                      tab.active ? 'text-primary' : 'text-gray-500'
                     }`}
                   >
                     {tab.label}
@@ -116,7 +116,7 @@ export default function HomePreview() {
                       <span className="block text-sm font-bold text-foreground">
                         {service.name}
                       </span>
-                      <span className="mt-0.5 flex items-center gap-1 text-[11px] text-gray-400">
+                      <span className="mt-0.5 flex items-center gap-1 text-[11px] text-gray-500">
                         <Clock className="size-3" aria-hidden="true" />
                         {service.durationMinutes} دقیقه
                       </span>
@@ -125,7 +125,7 @@ export default function HomePreview() {
                       <span className="text-base font-black text-primary">
                         {service.price}
                       </span>
-                      <span className="text-[11px] text-gray-400">تومان</span>
+                      <span className="text-[11px] text-gray-500">تومان</span>
                     </span>
                   </li>
                 ))}

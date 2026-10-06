@@ -7,7 +7,24 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /**
+   * زنجیرهٔ فونت سایت.
+   *
+   * قبلاً خودِ کلاس `next/font` روی `<html>` مینشست و تنها
+   * `font-family: iranSans, "iranSans Fallback"` تولید میکرد؛ فالبکِ آن هم
+   * `local(Arial)` بود. روی اندروید و اکثر توزیعهای لینوکس Arial وجود ندارد،
+   * پس @font-face فالبک بیاثر میشد و مرورگر به فونت پیشفرض (serif) برمیگشت؛
+   * نتیجهاش یک FOUT زشت و جابهجایی بزرگ متنها در لحظهٔ رسیدن فونت اصلی بود
+   * (بخشی از CLS 0.324 گزارش لایتهاوس).
+   *
+   * حالا ترتیب این است: فونت اصلی → فالبکِ متریکتنظیمشدهٔ خودمان
+   * (`Monshim Fallback`، همخوان با line box فونت اصلی) → فونتهای فارسیخوانِ
+   * رایج سیستمها → generic family. بنابراین حتی پیش از رسیدن فونت، چیدمان
+   * عمودی متنها تقریباً همان چیزی است که کاربر نهایی میبیند.
+   */
+  --font-sans:
+    var(--font-iran-sans), 'Monshim Fallback', Tahoma, 'Noto Naskh Arabic',
+    'Segoe UI', system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -58,14 +75,16 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: #f9f9f9;
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #0d9488;
+  --primary: #0f766e; /* teal-700: 5.47:1 روی سفید و متن سفید روی آن (WCAG AA) */
   --primary-2: #e6f9f6;
   --primary-3: #f7fcfb;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.5 0 0); /* معادل #636363؛ مقدار قبلی (#737373) مرزِ AA بود:
+                                           روی #f9f9f9 دقیقاً 4.50:1 و روی سطوح سبزآبی روشن
+                                           (#e6f9f6) 4.35:1 می‌شد و رد می‌شد. */
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -95,14 +114,16 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: #f9f9f9;
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #0d9488;
+  --primary: #0f766e; /* teal-700: 5.47:1 روی سفید و متن سفید روی آن (WCAG AA) */
   --primary-2: #e6f9f6;
   --primary-3: #f7fcfb;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.5 0 0); /* معادل #636363؛ مقدار قبلی (#737373) مرزِ AA بود:
+                                           روی #f9f9f9 دقیقاً 4.50:1 و روی سطوح سبزآبی روشن
+                                           (#e6f9f6) 4.35:1 می‌شد و رد می‌شد. */
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -241,4 +262,28 @@ body {
 
 @utility overlay-center {
   top: calc(var(--vv-top, 0px) + var(--vvh, 100dvh) / 2);
+}
+
+/**
+ * فالبکِ متریک‌تنظیم‌شدهٔ فونت اصلی.
+ *
+ * مقادیر `ascent-override` / `descent-override` / `line-gap-override` همان
+ * مقادیری هستند که `next/font` برای فونت وزیرمتن محاسبه می‌کند؛ با اعمال آن‌ها
+ * روی یک فونتِ محلی، ارتفاع خط (line box) پیش از رسیدن فونت اصلی هم با فونت
+ * اصلی یکی می‌شود و در نتیجه متن‌ها هنگام swap جابه‌جا نمی‌شوند.
+ *
+ * چرا لازم است؟ `next/font` فالبکِ خودش را با `local(Arial)` می‌سازد؛ اگر Arial
+ * روی دستگاه نباشد (اندروید/لینوکس) آن @font-face بی‌اثر است و این fallback
+ * جای آن را می‌گیرد.
+ */
+@font-face {
+  font-family: 'Monshim Fallback';
+  src:
+    local('Tahoma'), local('Noto Naskh Arabic'), local('Noto Sans Arabic'),
+    local('Segoe UI'), local('DejaVu Sans'), local('Arial');
+  ascent-override: 101.52%;
+  descent-override: 53.18%;
+  line-gap-override: 0%;
+  size-adjust: 101%;
+  font-display: swap;
 }

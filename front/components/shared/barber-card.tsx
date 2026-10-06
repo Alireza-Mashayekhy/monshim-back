@@ -43,7 +43,7 @@ export default function BarberCard({
               className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <Scissors size={28} className="text-[#0D9488]/60" />
+            <Scissors size={28} className="text-[#0F766E]/60" />
           )}
         </div>
         <div className="mt-2 space-y-0.5 text-right">
@@ -57,7 +57,7 @@ export default function BarberCard({
                 {barber.cityName}
               </span>
             )}
-            <span className="font-bold text-[#0D9488]">
+            <span className="font-bold text-[#0F766E]">
               {hasPrice ? `از ${minPriceFormatted} تومان` : 'مشاهده خدمات'}
             </span>
           </div>
@@ -69,7 +69,7 @@ export default function BarberCard({
   return (
     <Link
       href={`/barber/${barber.id}`}
-      className="group bg-white rounded-xl border border-[#14B8A6]/20 p-2 sm:p-3.5 shadow-2xs hover:shadow-md hover:border-[#0D9488]/40 transition-all flex gap-3 sm:gap-4 active:scale-[0.99]"
+      className="group bg-white rounded-xl border border-[#14B8A6]/20 p-2 sm:p-3.5 shadow-2xs hover:shadow-md hover:border-[#0F766E]/40 transition-all flex gap-3 sm:gap-4 active:scale-[0.99]"
     >
       <div className="relative w-28 sm:w-32 rounded-lg overflow-hidden shrink-0 bg-[#E6F9F6] border border-gray-100 flex items-center justify-center">
         {imgUrl ? (
@@ -81,12 +81,12 @@ export default function BarberCard({
             className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <Scissors size={28} className="text-[#0D9488]/50" />
+          <Scissors size={28} className="text-[#0F766E]/50" />
         )}
       </div>
       <div className="flex-1 flex flex-col justify-between self-stretch py-2 text-right min-w-0">
         <div className="space-y-1">
-          <h3 className="text-sm sm:text-base font-black text-gray-900 tracking-tight truncate group-hover:text-[#0D9488] transition-colors">
+          <h3 className="text-sm sm:text-base font-black text-gray-900 tracking-tight truncate group-hover:text-[#0F766E] transition-colors">
             {barber.salonName}
           </h3>
           {barber.cityName && (
@@ -101,7 +101,7 @@ export default function BarberCard({
         </div>
 
         <div className="pt-3">
-          <span className="text-xs sm:text-sm font-bold text-[#0D9488]">
+          <span className="text-xs sm:text-sm font-bold text-[#0F766E]">
             {hasPrice ? `از ${minPriceFormatted} تومان` : 'مشاهده خدمات'}
           </span>
         </div>

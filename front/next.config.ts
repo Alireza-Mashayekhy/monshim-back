@@ -25,6 +25,42 @@ const nextConfig: NextConfig = {
    */
   async headers() {
     return [
+      /**
+       * هدرهای امنیتی برای همهٔ پاسخ‌ها.
+       *
+       * ⚠️ نکتهٔ مهم: قانونِ زیر فقط هدرهای امنیتی اضافه می‌کند و هیچ
+       * `Cache-Control`ای ست نمی‌کند؛ بنابراین هشدارِ بالای این تابع (کش‌شدن
+       * HTML مسیرهایی که page دارند) اینجا مصداق ندارد.
+       *
+       * چرا این‌ها و نه بیشتر؟ ممیزی‌های PageSpeed پنج مورد را چک می‌کنند:
+       *   • HSTS  → اضافه شد (بدونِ includeSubDomains، تا ساب‌دامین‌های
+       *             بدون HTTPS قفل نشوند).
+       *   • X-Frame-Options → اضافه شد (هیچ‌جا خودِ سایت را iframe نمی‌کند).
+       *   • Cross-Origin-Opener-Policy → `same-origin-allow-popups` (نه
+       *     `same-origin`) تا اگر روزی ورود/پرداخت با پنجرهٔ popup انجام شد،
+       *     `window.opener` قطع نشود.
+       *   • CSP و Trusted Types → عمداً اضافه نشد: سایت به `<style>` بحرانیِ
+       *     درون‌ریزی‌شده، `onload="this.media='all'"` روی لینک CSS، اسکریپت‌های
+       *     inline خود Next و تونل Sentry تکیه دارد؛ CSP بدون nonce/hash کل
+       *     این‌ها را می‌شکند. (COEP هم عمداً نیست چون منابع cross-origin مثل
+       *     Clarity را بلاک می‌کند.)
+       */
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000',
+          },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
       {
         source: '/landing/:file*',
         headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],

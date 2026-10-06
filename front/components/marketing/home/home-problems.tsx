@@ -47,7 +47,7 @@ export default function HomeProblems() {
               key={problem.text}
               className="flex items-center gap-3 rounded-2xl border border-primary-100/60 bg-white p-4 shadow-sm"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-700">
                 <problem.icon className="size-5" aria-hidden="true" />
               </span>
               <span className="text-sm font-bold leading-7 text-foreground/90">
@@ -57,7 +57,7 @@ export default function HomeProblems() {
           ))}
 
           {/* کارت تیره برجسته — مطابق طرح */}
-          <li className="flex items-center gap-3 rounded-2xl bg-gradient-to-bl from-primary to-teal-700 p-4 text-white shadow-lg shadow-primary/20 sm:col-span-2 lg:col-span-3">
+          <li className="flex items-center gap-3 rounded-2xl bg-gradient-to-bl from-primary to-teal-800 p-4 text-white shadow-lg shadow-primary/20 sm:col-span-2 lg:col-span-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
               <TrendingDown className="size-5" aria-hidden="true" />
             </span>

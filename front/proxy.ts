@@ -77,6 +77,13 @@ export const config = {
   matcher: [
     // `monitoring` تونل Sentry است (rewrite در next.config)؛ اگر از proxy رد شود،
     // کاربر مهمان با ۳۰۷ به /login می‌رود و خطاهای سمت کلاینت گم می‌شوند.
-    '/((?!api(?:/|$)|_next/|monitoring(?:/|$)|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|mov|mp4|txt)$).*)',
+    //
+    // `/.well-known/*` هم عمداً از این لایه خارج است: این مسیرها استانداردِ
+    // discovery هستند (ai-catalog.json، ard.json، security.txt و ...) و
+    // ریدایرکت‌شدن‌شان به صفحهٔ لاگین باعث می‌شود ربات‌ها/ایجنت‌ها به‌جای «فایل
+    // وجود ندارد» یک صفحهٔ HTML با کد ۳۰۷/۲۰۰ بگیرند — که همان چیزی است که
+    // ممیزی «ai-catalog.json schema is valid» در PageSpeed را می‌شکند.
+    // با خارج‌بودن از matcher، این درخواست‌ها طبیعی و بدون ریدایرکت ۴۰۴ می‌شوند.
+    '/((?!api(?:/|$)|\\.well-known/|_next/|monitoring(?:/|$)|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|mov|mp4|txt)$).*)',
   ],
 };
