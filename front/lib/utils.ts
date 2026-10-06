@@ -1,9 +1,20 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+// Re-export از پکیج `cn` که drop-in replacement برای clsx + tailwind-merge است.
+// نگه‌داشتن این re-export برای سازگاری با ~۶۷ فایلی که از `@/lib/utils` ایمپورت
+// می‌کنند، تا مهاجرت تدریجی بدون شکستن build انجام شود.
+// همچنین `ClassValue` را به‌صورت محلی تعریف می‌کنیم تا فایل‌هایی که از
+// `import type { ClassValue } from '@/lib/utils'` استفاده می‌کنند، همچنان
+// type-check شوند (پکیج `cn` این نوع را export نمی‌کند ولی clsx آن را
+// داشت — این همان ساختار است).
+export { cn } from 'cn';
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export type ClassValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | null
+  | ClassValue[]
+  | { [key: string]: boolean | undefined | null | ClassValue };
 
 export function toPersianDigits(value: number | string) {
   return String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);

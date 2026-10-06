@@ -2,6 +2,7 @@ import './globals.css';
 
 import type { Metadata } from 'next';
 
+import AnalyticsGate from '@/components/analytics/AnalyticsGate';
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
 import MicrosoftClarity from '@/components/analytics/MicrosoftClarity';
 import { iranSans } from '@/components/font';
@@ -96,6 +97,7 @@ export default function RootLayout({
 
         <GoogleAnalytics />
         <MicrosoftClarity />
+        <AnalyticsGate />
         <JsonLd data={globalStructuredData} />
 
         <Providers>{children}</Providers>

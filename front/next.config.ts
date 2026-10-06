@@ -100,19 +100,32 @@ const nextConfig: NextConfig = {
     // مقادیر خیلی بزرگ (>‎ 2147483 ثانیه) از محدودهٔ int32 بیرون می‌زنند و به
     // `TimeoutOverflowWarning` و در نهایت انقضای فوریِ کش منجر می‌شوند.
     minimumCacheTTL: 604800,
+    /**
+     * فعال‌سازی AVIF به‌عنوان اولین قالب خروجی بهینه‌ساز تصویر.
+     *
+     * اندازه‌گیری با sharp روی همین تصاویر (همان ابعاد و کیفیت) نشان داد:
+     *   - salon-interior :  58.3K  →  44.6K  (≈۲۳٪ کمتر)
+     *   - hero-home      :  26.4K  →  17.9K  (≈۳۲٪ کمتر)
+     *   - logo           :  66.7K  →  34.7K  (≈۴۸٪ کمتر)
+     *
+     * `sharp` در این نسخه AVIF را پشتیبانی می‌کند (aom/heif نصب است) و
+     * مرورگرهای قدیمی‌تر به‌طور خودکار WebP دریافت می‌کنند؛ یعنی سازگاری
+     * حفظ می‌شود و فقط مصرف بایت تصاویر در مرورگرهای مدرن بهبود می‌یابد.
+     */
+    formats: ['image/avif', 'image/webp'],
+    /**
+     * محدودسازی عرض‌های قابل تولید توسط بهینه‌ساز تصویر.
+     *
+     * پیش‌فرض Next شامل ۳۸۴۰px است، اما در هیچ‌جای این اپ نمایشگر ۴K
+     * نداریم (حداکثر عرض مفید صفحه ~۱۲۸۰px است). در نتیجه تصویر Hero با
+     * `sizes="(max-width: 448px)..."` ولی srcset شامل ۳۸۴۰px تولید می‌شد و
+     * مرورگر در شبکه‌های با DPR بالا تا ۲۰۰KB اضافه می‌کشید. حذف ۳۸۴۰ و
+     * محدودسازی به ۲۰۴۸px (سقف واقعی نمایشگرهای فعلی) حجم همان تصویر را
+     * تقریباً نصف می‌کند.
+     */
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-        port: '',
-        pathname: '**',
-      },
-      {
-        protocol: 'http',
-        hostname: '**',
-        port: '',
-        pathname: '**',
-      },
       {
         protocol: 'http',
         hostname: 'localhost',
@@ -125,10 +138,32 @@ const nextConfig: NextConfig = {
         port: '', // پورت 80
         pathname: '/uploads/**',
       },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
+        port: '4000',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
+        port: '',
+        pathname: '/uploads/**',
+      },
       // در صورت نیاز به سایر دامنه‌ها (مثل محیط production)
+      // ⚠️ قبلاً hostname: '**' برای http و https مجاز بود که بهینه‌ساز
+      // تصویر Next را عملاً به یک پروکسی باز تبدیل می‌کرد: هر کاربری
+      // می‌توانست با URL دلخواه، روی سرور ما واریانت تولید کند و CPU و
+      // پهنای‌باند را بسوزاند. محدود به هاست‌های واقعی بک‌اند + localhost
+      // شد؛ هاست production باید قبل از deploy تکمیل شود.
       {
         protocol: 'https',
-        hostname: 'your-production-domain.com',
+        hostname: 'api.monshiim.ir',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.monshiim.ir',
         pathname: '/uploads/**',
       },
     ],

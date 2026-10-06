@@ -85,16 +85,30 @@ export default function HomePage() {
         }
       />
       <HomeRoleSummary />
-      <div id="features" className="scroll-mt-32">
+      {/*
+        سکشن‌های زیر fold با کلاس `below-fold-section` (تعریف‌شده در
+        globals.css) رندر اولیه را به تعویق می‌اندازند؛ این کار کار
+        layout/paint را بدون تغییر ظاهر کاهش می‌دهد. روی LCP (Hero)
+        اعمال نمی‌شود.
+      */}
+      <div id="features" className="scroll-mt-32 below-fold-section">
         <HomeFeatures />
       </div>
-      <HomeHowItWorks />
-      <HomePreview />
-      <HomeFaq />
-      <CtaSection
-        title="سالن خودتان را آنلاین کنید"
-        description="خدمات و ساعات کاری را مشخص کنید و لینک رزرو سالن را با مشتریانتان به اشتراک بگذارید."
-      />
+      <div className="below-fold-section">
+        <HomeHowItWorks />
+      </div>
+      <div className="below-fold-section">
+        <HomePreview />
+      </div>
+      <div className="below-fold-section">
+        <HomeFaq />
+      </div>
+      <div className="below-fold-section">
+        <CtaSection
+          title="سالن خودتان را آنلاین کنید"
+          description="خدمات و ساعات کاری را مشخص کنید و لینک رزرو سالن را با مشتریانتان به اشتراک بگذارید."
+        />
+      </div>
     </>
   );
 }

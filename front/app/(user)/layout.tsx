@@ -3,6 +3,7 @@ import { Metadata } from 'next';
 import UserLayoutClient from '@/components/layout/public/client';
 import SessionHydration from '@/components/shared/session-hydration';
 import AuthProvider from '@/providers/auth.provider';
+import QueryProvider from '@/providers/query-provider';
 
 export const metadata: Metadata = {
   title: {
@@ -29,7 +30,9 @@ export default function UserLayout({
   return (
     <SessionHydration>
       <AuthProvider>
-        <UserLayoutClient showNav={showNav}>{children}</UserLayoutClient>
+        <QueryProvider>
+          <UserLayoutClient showNav={showNav}>{children}</UserLayoutClient>
+        </QueryProvider>
       </AuthProvider>
     </SessionHydration>
   );

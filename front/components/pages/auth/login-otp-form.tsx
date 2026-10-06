@@ -1,6 +1,5 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
@@ -16,7 +15,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
@@ -34,15 +32,11 @@ import {
   getAuthDestination,
   getRoleLandingPath,
 } from '@/lib/auth';
-import { normalizePhone, onlyDigits, phoneSchema } from '@/lib/phone';
+import { normalizePhone, onlyDigits } from '@/lib/phone';
 import { extractUser } from '@/lib/roles';
 import { useLogin, useSendOtp } from '@/services/features/auth/hooks';
 
-const phoneFormSchema = z.object({
-  phone: phoneSchema,
-});
-
-type PhoneFormValues = z.infer<typeof phoneFormSchema>;
+import type { PhoneFormValues } from './schemas/login-otp';
 
 const COUNTDOWN_SECONDS = 120;
 
@@ -64,7 +58,12 @@ export default function LoginOtpForm({
   const loginMutation = useLogin();
 
   const phoneMethods = useForm<PhoneFormValues>({
-    resolver: zodResolver(phoneFormSchema),
+    // Resolver (و zod) به‌صورت پویا بعد از mount لود می‌شود.
+    resolver: async (values, context, options) => {
+      const { zodResolver } = await import('@hookform/resolvers/zod');
+      const { phoneFormSchema } = await import('./schemas/login-otp');
+      return zodResolver(phoneFormSchema)(values, context, options);
+    },
     defaultValues: {
       phone: '',
     },

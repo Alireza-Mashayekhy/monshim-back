@@ -2,7 +2,13 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-@custom-variant dark (&:is(.dark *));
+/*
+ * تم تیره حذف شد: اپ فقط تم روشن دارد و متغیرهای رنگ `.dark` و `:root`
+ * یکسان بودند (۳۴ متغیر مشترک، ۰ متغیر متفاوت). `@custom-variant dark`
+ * قبلاً این امکان را می‌داد که با اضافه‌کردن کلاس `.dark` به ریشه، تمام
+ * `dark:*` utilityها فعال شوند؛ اکنون چون هیچ‌جا از این تم استفاده نمی‌شود
+ * و تم روشن تنها تم اپ است، این variant نیز حذف شده است.
+ */
 
 /**
  * انیمیشن‌های سفارشی.
@@ -99,45 +105,6 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: #f9f9f9;
-  --foreground: oklch(0.145 0 0);
-  --card: #f9f9f9;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: #f9f9f9;
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #0f766e; /* teal-700: 5.47:1 روی سفید و متن سفید روی آن (WCAG AA) */
-  --primary-2: #e6f9f6;
-  --primary-3: #f7fcfb;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.5 0 0); /* معادل #636363؛ مقدار قبلی (#737373) مرزِ AA بود:
-                                           روی #f9f9f9 دقیقاً 4.50:1 و روی سطوح سبزآبی روشن
-                                           (#e6f9f6) 4.35:1 می‌شد و رد می‌شد. */
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: rgba(20, 184, 166, 0.3);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
   --radius: 0.625rem;
   --background: #f9f9f9;
   --foreground: oklch(0.145 0 0);
@@ -293,6 +260,23 @@ body {
 
 @utility overlay-center {
   top: calc(var(--vv-top, 0px) + var(--vvh, 100dvh) / 2);
+}
+
+/**
+ * بهینه‌سازی رندر برای سکشن‌های زیر fold.
+ *
+ * `content-visibility: auto` به مرورگر می‌گوید سکشن‌هایی که در viewport
+ * نیستند را layout/paint نکند. `contain-intrinsic-size` جای رزرو را
+ * تعیین می‌کند تا وقتی کاربر scroll کرد و سکشن وارد دید شد، بدون پرش
+ * اندازه‌گیری شود.
+ *
+ * نکتهٔ مهم: این کلاس فقط روی سکشن‌های **پایین صفحه** استفاده شود؛
+ * اگر روی سکشن‌های بالای صفحه (به‌ویژه LCP) اعمال شود، به LCP آسیب
+ * می‌زند چون رندر اولیه را به تعویق می‌اندازد.
+ */
+@utility below-fold-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 800px;
 }
 
 /**

@@ -81,7 +81,7 @@ export default function AuthCardLayout({
             className="block group"
           >
             {' '}
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50/80 hover:from-amber-100/70 hover:to-orange-100/70 border border-amber-200/70 rounded-2xl p-4 transition-all duration-200 flex items-center justify-between shadow-xs">
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50/80 hover:from-amber-100/70 hover:to-orange-100/70 border border-amber-200/70 rounded-2xl p-4 transition-colors duration-200 flex items-center justify-between shadow-xs">
               <div className="flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200/50">
                   <Scissors className="w-5 h-5" />

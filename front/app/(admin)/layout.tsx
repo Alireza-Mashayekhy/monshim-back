@@ -4,6 +4,7 @@ import AdminSidebar from '@/components/layout/admin/sidebar';
 import SessionHydration from '@/components/shared/session-hydration';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import AuthProvider from '@/providers/auth.provider';
+import QueryProvider from '@/providers/query-provider';
 
 export const metadata: Metadata = {
   title: {
@@ -26,13 +27,15 @@ export default function AdminLayout({
   return (
     <SessionHydration>
       <AuthProvider>
-        <SidebarProvider>
-          <AdminSidebar />
+        <QueryProvider>
+          <SidebarProvider>
+            <AdminSidebar />
 
-          <SidebarInset className="bg-border">
-            <main className="p-4">{children}</main>
-          </SidebarInset>
-        </SidebarProvider>
+            <SidebarInset className="bg-border">
+              <main className="p-4">{children}</main>
+            </SidebarInset>
+          </SidebarProvider>
+        </QueryProvider>
       </AuthProvider>
     </SessionHydration>
   );
