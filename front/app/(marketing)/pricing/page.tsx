@@ -4,12 +4,15 @@ import type { Metadata } from 'next';
 import CtaSection from '@/components/marketing/cta-section';
 import JsonLd from '@/components/marketing/json-ld';
 import PlanFeaturesTable from '@/components/marketing/pricing/plan-features-table';
+import PlanRecommender from '@/components/marketing/pricing/plan-recommender';
 import { PRICING_PLANS } from '@/components/marketing/pricing/plans-data';
 import PricingFaq, {
   PRICING_FAQS,
 } from '@/components/marketing/pricing/pricing-faq';
 import PricingPlans from '@/components/marketing/pricing/pricing-plans';
+import SectionHeading from '@/components/marketing/section-heading';
 import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
+import PageHero from '@/components/marketing/shared/page-hero';
 import { buildPageMetadata, faqPageSchema, JSONLD_URLS } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 
@@ -100,27 +103,43 @@ export default function PricingPage() {
         ]}
       />
 
-      <section
-        aria-labelledby="pricing-hero-heading"
-        className="custom-container py-8 lg:py-14"
-      >
-        <div className="mx-auto max-w-3xl text-center">
-          <h1
-            id="pricing-hero-heading"
-            className="text-2xl font-black leading-[1.7] text-foreground sm:text-3xl lg:text-4xl lg:leading-[1.6]"
-          >
+      <PageHero
+        eyebrow="تعرفه و قیمت پلن‌های منشیم"
+        heading={
+          <>
             تعرفه و قیمت پلن‌های{' '}
             <span className="text-primary">نرم افزار مدیریت آرایشگاه</span>{' '}
             منشیم
-          </h1>
-          <p className="mt-5 leading-8 text-muted-foreground">
-            اشتراک‌ها ۳۰روزه‌اند و تفاوت پلن‌ها در سهمیه پیامک است. مبلغ اشتراک
-            هر پلن مشخص است؛ کارمزد درگاه و کمیسیون پرداخت آنلاین رزرو نیز پیش
-            از تأیید پرداخت نمایش داده می‌شود.
-          </p>
-        </div>
+          </>
+        }
+        description="اشتراک‌ها ۳۰روزه‌اند و تفاوت پلن‌ها در سهمیه پیامک است. مبلغ اشتراک
+        هر پلن مشخص است؛ کارمزد درگاه و کمیسیون پرداخت آنلاین رزرو نیز پیش
+        از تأیید پرداخت نمایش داده می‌شود."
+        imageSrc="/landing/hero-pricing.png"
+        imageAlt="پنل مدیریت آرایشگاه و تعرفه پلن‌های اشتراک سامانه رزرو آنلاین منشیم"
+        primaryCta={{
+          href: '/register',
+          label: 'شروع رایگان',
+          title: 'ثبت‌نام رایگان نرم افزار مدیریت آرایشگاه منشیم',
+        }}
+        secondaryCta={{
+          href: '/barber-management',
+          label: 'امکانات مدیریت سالن',
+          title: 'نرم افزار مدیریت آرایشگاه و امکانات منشیم',
+        }}
+        highlights={[
+          'همه امکانات در همه پلن‌ها فعال',
+          'قیمت شفاف بدون هزینه پنهان',
+          'پشتیبانی آنلاین',
+        ]}
+      />
 
-        <ul className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-3">
+      {/* ضمانت‌های اشتراک منشیم */}
+      <section
+        aria-label="ضمانت‌های اشتراک منشیم"
+        className="custom-container py-8 lg:py-10"
+      >
+        <ul className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
           {GUARANTEES.map(item => (
             <li
               key={item.title}
@@ -143,15 +162,24 @@ export default function PricingPage() {
         </ul>
       </section>
 
+      {/* پیشنهاد پلن بر اساس حجم نوبت سالن */}
+      <PlanRecommender />
+
+      {/* کارت‌های پلن‌ها */}
       <section
         id="plans"
         aria-labelledby="plans-heading"
         className="custom-container pb-8"
       >
-        <h2 id="plans-heading" className="sr-only">
-          پلن‌های اشتراک سامانه رزرو آنلاین آرایشگاه منشیم
-        </h2>
-        <PricingPlans />
+        <SectionHeading
+          id="plans-heading"
+          eyebrow="پلن‌های اشتراک"
+          title="تعرفه پلن‌های منشیم"
+          description="همه امکانات نرم افزار مدیریت آرایشگاه در همه پلن‌ها فعال است؛ تفاوت پلن‌ها فقط در سهمیه پیامک ماهانه و حجم رزرو پیشنهادی هر پلن است."
+        />
+        <div className="mt-12">
+          <PricingPlans />
+        </div>
       </section>
 
       <PlanFeaturesTable />
