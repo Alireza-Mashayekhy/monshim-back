@@ -22,7 +22,10 @@ import {
   IMAGE_MAX_SIZE_BYTES,
   MAX_BARBER_PORTFOLIO_IMAGES,
 } from 'src/common/constants/constants';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { QueryDto } from 'src/common/query';
 import { FilesService } from 'src/files/files.service';
 import { Repository } from 'typeorm';
@@ -30,6 +33,7 @@ import { Repository } from 'typeorm';
 import { BarberService } from './barber.service';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 import { BarberProfile } from './entities/barber.entity';
+import { PublicPageService } from './public-page.service';
 import { WorkHoursService } from './work-hours.service';
 
 @Controller('barber')
@@ -38,6 +42,7 @@ export class BarberController {
     private readonly barberService: BarberService,
     private readonly filesService: FilesService,
     private readonly workHoursService: WorkHoursService,
+    private readonly publicPageService: PublicPageService,
     @InjectRepository(BarberProfile)
     private barberProfileRepo: Repository<BarberProfile>,
   ) {}
@@ -50,6 +55,25 @@ export class BarberController {
   @Get('public/cities/:slug')
   getPublicCity(@Param('slug') slug: string) {
     return this.barberService.findPublicCityBySlug(slug);
+  }
+
+  // ---- صفحهٔ عمومی آرایشگر ----
+
+  /** وضعیت صفحهٔ عمومی آرایشگر متصل (پنل مدیریت) */
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.Barber)
+  @Get('public-page/status')
+  getPublicPageStatus(@Req() req: any) {
+    return this.publicPageService.getStatus(req.user.id);
+  }
+
+  /**
+   * شناسهٔ آرایشگرهایی که صفحهٔ عمومی‌شان فعال است
+   * (فقط برای sitemap؛ صفحهٔ نامفعال در یوآرال دستی هم ۴۰۴ است).
+   */
+  @Get('public-pages/directory')
+  getActivePublicPagesDirectory() {
+    return this.publicPageService.findActivePublicPageIds();
   }
 
   // ---- مسیرهای عمومی ----

@@ -38,3 +38,10 @@ export const IMAGE_MAX_SIZE_BYTES = 1024 * 1024 * 3; // 3 مگابایت
 export const MAX_BARBER_PORTFOLIO_IMAGES = 5;
 
 export const IRAN_PHONE_REGEX = /^09\d{9}$/;
+
+// فعال‌سازی صفحهٔ عمومی آرایشگر (/barber/{userId})
+// آرایشگر با یکی از این دو راه صفحهٔ عمومی فعال و قابل سئو می‌شود:
+// ۱) خرید یک‌بارهٔ پکیج صفحه عمومی (اعتبار دائمی)
+// ۲) تعداد رزروهای فعال با بیعانه به این حد برسد
+export const PUBLIC_PAGE_PACKAGE_PRICE = 599_000; // تومان
+export const PUBLIC_PAGE_MIN_DEPOSIT_BOOKINGS = 300;
