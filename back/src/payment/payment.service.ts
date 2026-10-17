@@ -10,6 +10,7 @@ import axios from 'axios';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
+import { PUBLIC_PAGE_PACKAGE_PRICE } from 'src/common/constants/constants';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { Service } from 'src/services/entities/service.entity';
 import { SiteSettings } from 'src/settings/entities/setting.entity';
@@ -468,6 +469,59 @@ export class PaymentService {
     };
   }
 
+  // =========================================================
+  // ۳-۱. خرید پکیج صفحه عمومی آرایشگر (PUBLIC_PAGE)
+  // =========================================================
+  async initiatePublicPagePayment(userId: number) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: { barberProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+
+    const profile = user.barberProfile;
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگری یافت نشد');
+    }
+
+    const orderId = `PUBPAGE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const appUrl = this.getAppUrl();
+    const callbackUrl = `${appUrl}/api/payment/callback`;
+
+    const { trackId, paymentUrl } = await this.requestZibalPayment({
+      amountTomans: PUBLIC_PAGE_PACKAGE_PRICE,
+      callbackUrl,
+      description: `خرید پکیج صفحه عمومی - ${profile.salonName} - منشیم`,
+      orderId,
+      mobile: user.phone,
+    });
+
+    // پرداخت موفق، خودش مدرک فعال‌سازی صفحهٔ عمومی است
+    // (بدون نیاز به جدول جداگانه با پرس‌وجوی purpose=PAID مشتق می‌شود).
+    const payment = this.paymentRepo.create({
+      userId,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE,
+      trackId,
+      orderId,
+      purpose: PaymentPurpose.PUBLIC_PAGE,
+      purposeId: profile.id,
+      status: PaymentStatus.PENDING,
+      description: `خرید پکیج صفحه عمومی ${profile.salonName}`,
+    });
+
+    await this.paymentRepo.save(payment);
+
+    return {
+      trackId,
+      paymentUrl,
+      orderId,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE,
+    };
+  }
+
   async initiateDepositPaymentByToken(token: string) {
     const booking = await this.bookingRepo.findOne({
       where: { depositToken: token },
@@ -698,6 +752,12 @@ export class PaymentService {
           payment.amount,
           'شارژ آنلاین کیف پول از درگاه زیبال',
           payment.refNumber || payment.id,
+        );
+      } else if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
+        // فعال‌سازی صفحهٔ عمومی از رکورد پرداخت موفق مشتق می‌شود؛
+        // هیچ عملیات تکمیلی لازم نیست.
+        this.logger.log(
+          `Public page package purchased by user ${payment.userId} (order ${payment.orderId})`,
         );
       }
     } catch (e: any) {
