@@ -39,6 +39,8 @@ export const endpoints = {
     workHours: '/barber/profile/work-hours',
     updateWorkHours: '/barber/profile/work-hours',
     referralCode: '/barber/profile/referral-code',
+    publicPageStatus: '/barber/public-page/status',
+    activePublicPages: '/barber/public-pages/directory',
     reviews: (id: number | string) => `/barber/${id}/reviews`,
     myReview: (id: number | string) => `/barber/${id}/reviews/my`,
     myReviews: '/barber-reviews/my',
@@ -122,6 +124,7 @@ export const endpoints = {
   payment: {
     subscription: '/payment/subscription',
     booking: '/payment/booking',
+    publicPage: '/payment/public-page',
     status: (trackId: number | string) => `/payment/status/${trackId}`,
   },
 };

@@ -14,6 +14,7 @@ export enum PaymentPurpose {
   SUBSCRIPTION = 'SUBSCRIPTION',
   BOOKING = 'BOOKING',
   WALLET = 'WALLET',
+  PUBLIC_PAGE = 'PUBLIC_PAGE',
 }
 
 export enum PaymentStatus {

@@ -84,7 +84,10 @@ export function isPublicAuthPath(pathname: string) {
     // Public marketing pages.
     isPathWithin(pathname, '/barber-management') ||
     isPathWithin(pathname, '/online-barber-booking') ||
-    isPathWithin(pathname, '/pricing')
+    isPathWithin(pathname, '/pricing') ||
+    // صفحات عمومی آرایشگرها؛ فعالیت‌شان سمت بک‌اند چک می‌شود و
+    // آرایشگرهای غیرفعال همان‌جا ۴۰۴ برمی‌گردانند.
+    isPathWithin(pathname, '/barber')
   );
 }
 

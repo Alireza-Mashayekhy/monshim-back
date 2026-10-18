@@ -2,6 +2,7 @@ import {
   CalendarDays,
   Clock,
   Gem,
+  Globe,
   LayoutDashboard,
   Scissors,
   UserRound,
@@ -41,5 +42,10 @@ export const dashboardRoutes = [
     icon: Users,
     title: 'مشتریان',
     href: '/dashboard/club',
+  },
+  {
+    icon: Globe,
+    title: 'صفحه عمومی',
+    href: '/dashboard/public-page',
   },
 ];

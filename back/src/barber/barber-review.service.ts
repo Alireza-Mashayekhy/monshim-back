@@ -20,6 +20,7 @@ import {
   BarberReview,
   BarberReviewStatus,
 } from './entities/barber-review.entity';
+import { PublicPageService } from './public-page.service';
 
 // وضعیت‌هایی که نشان‌دهنده «این کاربر از این آرایشگر نوبت رزرو کرده» هستند
 const BOOKING_STATUSES_ELIGIBLE_FOR_REVIEW: BookingStatus[] = [
@@ -41,6 +42,8 @@ export class BarberReviewService implements OnModuleInit {
 
     @InjectRepository(Booking)
     private bookingRepo: Repository<Booking>,
+
+    private readonly publicPageService: PublicPageService,
   ) {}
 
   // با راه‌اندازی سرور، میانگین امتیاز همه آرایشگرها از روی نظرات تاییدشده محاسبه می‌شود
@@ -144,6 +147,12 @@ export class BarberReviewService implements OnModuleInit {
       .getOne();
 
     if (!publicProfile) {
+      throw new NotFoundException('آرایشگاه یافت نشد');
+    }
+
+    // نظرات عمومی فقط برای آرایشگرهایی نمایش داده می‌شود که
+    // صفحهٔ عمومی‌شان فعال است (همچون خود صفحهٔ پروفایل).
+    if (!(await this.publicPageService.isPublicPageActive(profile.userId))) {
       throw new NotFoundException('آرایشگاه یافت نشد');
     }
 
