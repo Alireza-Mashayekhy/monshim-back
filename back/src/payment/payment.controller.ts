@@ -47,13 +47,6 @@ export class PaymentController {
     return this.paymentService.initiateWalletCharge(req.user.id, dto);
   }
 
-  // ۳-۱. درخواست پرداخت پکیج صفحه عمومی آرایشگر
-  @UseGuards(AuthGuard)
-  @Post('public-page')
-  async payPublicPagePackage(@Req() req: any) {
-    return this.paymentService.initiatePublicPagePayment(req.user.id);
-  }
-
   @Get('deposit/:token')
   async depositLink(@Param('token') token: string, @Res() res: Response) {
     const redirectUrl = await this.paymentService.getDepositRedirectUrl(token);
