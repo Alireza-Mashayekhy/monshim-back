@@ -5,18 +5,13 @@ import { siteConfig } from '@/lib/site-config';
 const privatePaths = [
   '/admin',
   '/dashboard',
-  '/home',
-  '/explore',
+  // همهٔ صفحات پنل کاربر (`/panel/home`، `/panel/explore` و ...) خصوصی‌اند.
+  '/panel',
   '/cities',
-  '/support',
   '/login',
   '/login-otp',
   '/register',
   '/barbaer-signup',
-  '/profile',
-  '/appointments',
-  '/payment',
-  '/barber/profile',
   '/test',
 ];
 

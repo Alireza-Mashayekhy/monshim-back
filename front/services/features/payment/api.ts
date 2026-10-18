@@ -18,6 +18,14 @@ export async function paySubscription(dto: InitiateSubscriptionPaymentDto) {
   return data;
 }
 
+// درخواست خرید پکیج «صفحهٔ عمومی آرایشگاه» با درگاه زیبال
+export async function payPublicPage() {
+  const { data } = await api.post<ApiSingleResponse<InitiatePaymentResponse>>(
+    endpoints.payment.publicPage,
+  );
+  return data;
+}
+
 // درخواست پرداخت آنلاین نوبت (رزرو بیعانه/کل مبلغ) با درگاه زیبال
 export async function payBooking(dto: InitiateBookingPaymentDto) {
   const { data } = await api.post<ApiSingleResponse<InitiatePaymentResponse>>(

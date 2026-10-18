@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { revalidateMyPublicBarberPage } from '@/lib/actions/public-page';
 import { formatPrice } from '@/lib/utils';
 
 const toPersianDigits = (num: number | string): string => {
@@ -50,6 +51,8 @@ function PaymentCallbackContent() {
         return 'رزرو آنلاین نوبت آرایشگاه';
       case 'WALLET':
         return 'شارژ آنلاین کیف پول';
+      case 'PUBLIC_PAGE':
+        return 'خرید صفحهٔ اختصاصی آرایشگاه';
       default:
         return 'پرداخت اینترنتی منشیم';
     }
@@ -64,7 +67,7 @@ function PaymentCallbackContent() {
         };
       case 'BOOKING':
         return {
-          href: '/appointments',
+          href: '/panel/appointments',
           label: 'مشاهده لیست نوبت‌های من',
         };
       case 'WALLET':
@@ -72,15 +75,30 @@ function PaymentCallbackContent() {
           href: '/dashboard/financial',
           label: 'مشاهده موجودی کیف پول',
         };
+      case 'PUBLIC_PAGE':
+        return {
+          href: '/dashboard/public-page',
+          label: 'مشاهده صفحهٔ اختصاصی در داشبورد',
+        };
       default:
         return {
-          href: '/home',
+          href: '/panel/home',
           label: 'بازگشت به صفحه اصلی',
         };
     }
   };
 
   const destination = getDestinationLink();
+
+  // خرید موفقِ پکیج صفحهٔ عمومی: کشِ صفحهٔ `/barber/[id]` همان لحظه پاک شود تا
+  // آرایشگر بعد از پرداخت، صفحهٔ فعال خودش را ببیند (و در sitemap بیاید).
+  const revalidateRan = useRef(false);
+  useEffect(() => {
+    if (!isSuccess || purpose !== 'PUBLIC_PAGE' || revalidateRan.current)
+      return;
+    revalidateRan.current = true;
+    void revalidateMyPublicBarberPage();
+  }, [isSuccess, purpose]);
 
   return (
     <div className="min-h-screen  flex items-center justify-center p-4">
@@ -188,7 +206,7 @@ function PaymentCallbackContent() {
                   <ChevronLeft size={16} />
                 </Button>
               </Link>
-              <Link href="/home" className="w-full block">
+              <Link href="/panel/home" className="w-full block">
                 <Button variant="outline" className="w-full">
                   <Home size={16} />
                   <span>صفحه اصلی منشیم</span>
@@ -197,7 +215,7 @@ function PaymentCallbackContent() {
             </>
           ) : (
             <>
-              <Link href="/home" className="w-full block">
+              <Link href="/panel/home" className="w-full block">
                 <Button className="w-full">
                   <Home size={16} />
                   <span>بازگشت به خانه</span>

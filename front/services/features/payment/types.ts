@@ -30,7 +30,7 @@ export interface PaymentStatusResponse {
   amount: number;
   trackId: number;
   orderId: string;
-  purpose: 'SUBSCRIPTION' | 'BOOKING' | 'WALLET';
+  purpose: 'SUBSCRIPTION' | 'BOOKING' | 'WALLET' | 'PUBLIC_PAGE';
   status: 'PENDING' | 'PAID' | 'FAILED' | 'CANCELED';
   refNumber: string | null;
   cardNumber: string | null;

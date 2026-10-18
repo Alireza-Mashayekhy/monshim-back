@@ -24,7 +24,7 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({
       icon: Headphones,
       label: 'پشتیبانی آنلاین',
       onClick: onSupport,
-      href: '/support',
+      href: '/panel/support',
     },
     {
       icon: Share2,

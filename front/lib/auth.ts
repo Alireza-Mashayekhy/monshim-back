@@ -45,7 +45,7 @@ export function sanitizeCallbackUrl(value: CallbackUrlValue): string | null {
 
 export function getAuthDestination(
   callbackUrl: CallbackUrlValue,
-  fallback = '/home',
+  fallback = '/panel/home',
 ) {
   return sanitizeCallbackUrl(callbackUrl) ?? fallback;
 }
@@ -81,6 +81,10 @@ export function isPublicAuthPath(pathname: string) {
     // اما `/explore` و `/cities/*` اکنون **خصوصی** هستند و نیاز به ورود دارند.
     isPathWithin(pathname, '/privacy') ||
     isPathWithin(pathname, '/terms') ||
+    // صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[id]`) برای همه در دسترس است.
+    // مسیرِ مشابه داخل پنل (`/panel/barber/[id]`) خصوصی می‌ماند چون با
+    // پیشوند `/panel/` شروع می‌شود.
+    isPathWithin(pathname, '/barber') ||
     // Public marketing pages.
     isPathWithin(pathname, '/barber-management') ||
     isPathWithin(pathname, '/online-barber-booking') ||
@@ -92,7 +96,7 @@ export function isPublicAuthPath(pathname: string) {
 export function getRoleLandingPath(user: unknown) {
   if (isAdmin(user)) return '/admin';
   if (isBarber(user)) return '/dashboard';
-  return '/home';
+  return '/panel/home';
 }
 
 export function canAccessPath(pathname: string, user: unknown) {

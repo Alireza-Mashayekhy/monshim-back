@@ -152,7 +152,7 @@ export default function OnlineBarberBookingPage() {
 
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
               <a
-                href="/explore"
+                href="/panel/explore"
                 title="جست‌وجو و رزرو آنلاین آرایشگاه در منشیم"
                 className="inline-flex h-10.5 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-white transition-colors hover:bg-primary/80"
               >
@@ -255,7 +255,7 @@ export default function OnlineBarberBookingPage() {
       />
 
       <CtaSection
-        primaryHref="/explore"
+        primaryHref="/panel/explore"
         primaryLabel="پیدا کردن آرایشگاه"
         primaryTitle="جست‌وجوی آرایشگاه بدون ورود"
         title="همین حالا اولین نوبتتان را آنلاین رزرو کنید"

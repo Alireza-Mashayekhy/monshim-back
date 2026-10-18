@@ -11,6 +11,8 @@ import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
+import { PUBLIC_PAGE_PACKAGE_PRICE_TOMANS } from 'src/public-page/constants';
+import { PublicPageService } from 'src/public-page/public-page.service';
 import { Service } from 'src/services/entities/service.entity';
 import { SiteSettings } from 'src/settings/entities/setting.entity';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
@@ -66,6 +68,7 @@ export class PaymentService {
     private readonly workHoursRepo: Repository<BarberWorkHours>,
 
     private readonly bookingSmsService: BookingSmsService,
+    private readonly publicPageService: PublicPageService,
     private readonly walletService: WalletService,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
@@ -254,6 +257,66 @@ export class PaymentService {
       orderId,
       amount: plan.price,
       planName: plan.name,
+    };
+  }
+
+  // =========================================================
+  // ۱.۱. خرید پکیج «صفحهٔ عمومی آرایشگاه» (PUBLIC_PAGE)
+  // =========================================================
+  /**
+   * پکیج یک‌باره و مادام‌العمر است؛ اگر صفحه از قبل (با خرید یا با حد نصاب
+   * نوبت‌های پرداخت‌شده) فعال شده باشد، پرداخت دوباره پذیرفته نمی‌شود.
+   */
+  async initiatePublicPagePayment(userId: number) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+
+    const profile = await this.barberProfileRepo.findOne({
+      where: { userId },
+    });
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    const status = await this.publicPageService.getStatusByUserId(userId);
+    if (status.isActive) {
+      throw new BadRequestException(
+        'صفحهٔ اختصاصی شما از قبل فعال است و نیازی به خرید دوباره نیست',
+      );
+    }
+
+    const orderId = `PAGE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const appUrl = this.getAppUrl();
+    const callbackUrl = `${appUrl}/api/payment/callback`;
+
+    const { trackId, paymentUrl } = await this.requestZibalPayment({
+      amountTomans: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      callbackUrl,
+      description: `خرید صفحهٔ اختصاصی آرایشگاه - ${profile.salonName}`,
+      orderId,
+      mobile: user.phone,
+    });
+
+    const payment = this.paymentRepo.create({
+      userId,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      trackId,
+      orderId,
+      purpose: PaymentPurpose.PUBLIC_PAGE,
+      purposeId: profile.id,
+      status: PaymentStatus.PENDING,
+      description: `خرید صفحهٔ اختصاصی آرایشگاه (${profile.salonName})`,
+    });
+
+    await this.paymentRepo.save(payment);
+
+    return {
+      trackId,
+      paymentUrl,
+      orderId,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
     };
   }
 
@@ -553,7 +616,7 @@ export class PaymentService {
           'خطا در شروع پرداخت بیعانه',
       );
 
-      return `${this.getFrontUrl()}/payment/callback?status=failed&message=${message}`;
+      return `${this.getFrontUrl()}/panel/payment/callback?status=failed&message=${message}`;
     }
   }
 
@@ -610,15 +673,15 @@ export class PaymentService {
     }
 
     if (!payment) {
-      return `${frontUrl}/payment/callback?status=failed&message=${encodeURIComponent('رکورد تراکنش یافت نشد')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&message=${encodeURIComponent('رکورد تراکنش یافت نشد')}`;
     }
 
     // کال‌بک‌های تکراری نباید یک رزرو یا واریز را دوباره ایجاد کنند.
     if (payment.status === PaymentStatus.PAID) {
-      return `${frontUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+      return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
     }
     if (payment.status !== PaymentStatus.PENDING) {
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('وضعیت این پرداخت قبلاً نهایی شده است')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('وضعیت این پرداخت قبلاً نهایی شده است')}`;
     }
 
     // اگر کاربر در درگاه انصراف داده بود یا ناموفق بود
@@ -631,9 +694,9 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
       }
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید')}`;
     }
 
     // تایید تراکنش در زیبال
@@ -650,9 +713,9 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
       }
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
     }
 
     // فقط یک کال‌بک می‌تواند پرداخت در انتظار را نهایی و عملیات رزرو را اجرا کند.
@@ -671,9 +734,9 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
       }
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('این پرداخت لغو شده یا قبلاً ناموفق شده است')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('این پرداخت لغو شده یا قبلاً ناموفق شده است')}`;
     }
     payment.status = PaymentStatus.PAID;
     payment.refNumber = verifyResult.refNumber || null;
@@ -692,6 +755,8 @@ export class PaymentService {
         );
       } else if (payment.purpose === PaymentPurpose.BOOKING) {
         await this.completeBookingPayment(payment);
+      } else if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
+        await this.publicPageService.activateAfterPayment(payment);
       } else if (payment.purpose === PaymentPurpose.WALLET) {
         await this.walletService.deposit(
           payment.userId,
@@ -715,11 +780,11 @@ export class PaymentService {
             `Could not reopen booking payment ${payment.id} for retry: ${retryError?.message ?? String(retryError)}`,
           );
         }
-        return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید')}`;
+        return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید')}`;
       }
     }
 
-    return `${frontUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+    return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
   }
 
   // فعال‌سازی اشتراک پس از تایید پرداخت
@@ -858,6 +923,9 @@ export class PaymentService {
         date: meta.date,
         note: meta.note || '',
         status: BookingStatus.CONFIRMED,
+        // مبلغ نوبت به‌طور کامل از درگاه پرداخت شده است؛ این زمان مبنای
+        // شمارش نوبت‌های پرداخت‌شده برای فعال‌سازی صفحهٔ عمومی آرایشگاه است.
+        onlinePaidAt: payment.paidAt ?? new Date(),
       };
 
       if (meta.serviceId && !meta.items) {

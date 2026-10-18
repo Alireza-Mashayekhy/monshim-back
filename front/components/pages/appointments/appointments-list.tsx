@@ -55,7 +55,7 @@ export function AppointmentsList({
         <p className="text-xs text-gray-400 mt-1 leading-6">
           {emptyDescription}
         </p>
-        <Link href="/explore" className="mt-4">
+        <Link href="/panel/explore" className="mt-4">
           <Button className="rounded-full px-5">رزرو نوبت جدید</Button>
         </Link>
       </div>

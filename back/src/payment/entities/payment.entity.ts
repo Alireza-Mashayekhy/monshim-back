@@ -14,6 +14,8 @@ export enum PaymentPurpose {
   SUBSCRIPTION = 'SUBSCRIPTION',
   BOOKING = 'BOOKING',
   WALLET = 'WALLET',
+  /** خرید یک‌بارهٔ «صفحهٔ عمومی آرایشگاه» (سئو) توسط آرایشگر */
+  PUBLIC_PAGE = 'PUBLIC_PAGE',
 }
 
 export enum PaymentStatus {

@@ -134,6 +134,16 @@ export class Booking {
   })
   depositPaidAt: Date | null;
 
+  // زمان پرداخت موفق کل مبلغ نوبت از درگاه (رزرو آنلاینِ کاربر).
+  // این ستون همراه با `depositPaidAt` مبنای شمارش «نوبت‌های پرداخت‌شده»
+  // برای فعال‌سازی صفحهٔ عمومی آرایشگاه است.
+  @Column({
+    name: 'online_paid_at',
+    type: 'datetime',
+    nullable: true,
+  })
+  onlinePaidAt: Date | null;
+
   @CreateDateColumn({
     name: 'created_at',
   })
