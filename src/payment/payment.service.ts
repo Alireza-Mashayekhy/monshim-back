@@ -616,7 +616,7 @@ export class PaymentService {
           'خطا در شروع پرداخت بیعانه',
       );
 
-      return `${this.getFrontUrl()}/payment/callback?status=failed&message=${message}`;
+      return `${this.getFrontUrl()}/panel/payment/callback?status=failed&message=${message}`;
     }
   }
 
@@ -673,15 +673,15 @@ export class PaymentService {
     }
 
     if (!payment) {
-      return `${frontUrl}/payment/callback?status=failed&message=${encodeURIComponent('رکورد تراکنش یافت نشد')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&message=${encodeURIComponent('رکورد تراکنش یافت نشد')}`;
     }
 
     // کال‌بک‌های تکراری نباید یک رزرو یا واریز را دوباره ایجاد کنند.
     if (payment.status === PaymentStatus.PAID) {
-      return `${frontUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+      return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
     }
     if (payment.status !== PaymentStatus.PENDING) {
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('وضعیت این پرداخت قبلاً نهایی شده است')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('وضعیت این پرداخت قبلاً نهایی شده است')}`;
     }
 
     // اگر کاربر در درگاه انصراف داده بود یا ناموفق بود
@@ -694,9 +694,9 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
       }
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید')}`;
     }
 
     // تایید تراکنش در زیبال
@@ -713,9 +713,9 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
       }
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
     }
 
     // فقط یک کال‌بک می‌تواند پرداخت در انتظار را نهایی و عملیات رزرو را اجرا کند.
@@ -734,9 +734,9 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
       }
-      return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('این پرداخت لغو شده یا قبلاً ناموفق شده است')}`;
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('این پرداخت لغو شده یا قبلاً ناموفق شده است')}`;
     }
     payment.status = PaymentStatus.PAID;
     payment.refNumber = verifyResult.refNumber || null;
@@ -780,11 +780,11 @@ export class PaymentService {
             `Could not reopen booking payment ${payment.id} for retry: ${retryError?.message ?? String(retryError)}`,
           );
         }
-        return `${frontUrl}/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید')}`;
+        return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید')}`;
       }
     }
 
-    return `${frontUrl}/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+    return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
   }
 
   // فعال‌سازی اشتراک پس از تایید پرداخت
