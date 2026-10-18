@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { cn, formatFaNumber } from '@/lib/utils';
+import { formatFaNumber } from '@/lib/utils';
 
 import { formatToman, PRICING_PLANS } from './plans-data';
 
-const MIN_BOOKINGS = 10;
-const MAX_BOOKINGS = 900;
+const MIN_BOOKINGS = 25;
+const MAX_BOOKINGS = 750;
 const DEFAULT_BOOKINGS = 150;
 
 const SLIDER_STEPS = PRICING_PLANS.map(plan => plan.maxBookingsPerMonth);
@@ -90,23 +90,6 @@ export default function PlanRecommender() {
               }%)`,
             }}
           />
-
-          <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-            {SLIDER_STEPS.map(step => (
-              <button
-                key={step}
-                type="button"
-                onClick={() => setBookings(step)}
-                className={cn(
-                  'rounded px-1 py-0.5 transition-colors cursor-pointer hover:text-primary',
-                  bookings === step && 'font-black text-primary',
-                )}
-              >
-                {toFa(step)}
-                {step === SLIDER_STEPS[SLIDER_STEPS.length - 1] ? '+' : ''}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* پلن پیشنهادی */}
