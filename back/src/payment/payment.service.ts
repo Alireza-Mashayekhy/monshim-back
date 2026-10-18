@@ -11,6 +11,8 @@ import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
+import { PUBLIC_PAGE_PACKAGE_PRICE_TOMANS } from 'src/public-page/constants';
+import { PublicPageService } from 'src/public-page/public-page.service';
 import { Service } from 'src/services/entities/service.entity';
 import { SiteSettings } from 'src/settings/entities/setting.entity';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
@@ -66,6 +68,7 @@ export class PaymentService {
     private readonly workHoursRepo: Repository<BarberWorkHours>,
 
     private readonly bookingSmsService: BookingSmsService,
+    private readonly publicPageService: PublicPageService,
     private readonly walletService: WalletService,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
@@ -254,6 +257,66 @@ export class PaymentService {
       orderId,
       amount: plan.price,
       planName: plan.name,
+    };
+  }
+
+  // =========================================================
+  // ۱.۱. خرید پکیج «صفحهٔ عمومی آرایشگاه» (PUBLIC_PAGE)
+  // =========================================================
+  /**
+   * پکیج یک‌باره و مادام‌العمر است؛ اگر صفحه از قبل (با خرید یا با حد نصاب
+   * نوبت‌های پرداخت‌شده) فعال شده باشد، پرداخت دوباره پذیرفته نمی‌شود.
+   */
+  async initiatePublicPagePayment(userId: number) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+
+    const profile = await this.barberProfileRepo.findOne({
+      where: { userId },
+    });
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    const status = await this.publicPageService.getStatusByUserId(userId);
+    if (status.isActive) {
+      throw new BadRequestException(
+        'صفحهٔ اختصاصی شما از قبل فعال است و نیازی به خرید دوباره نیست',
+      );
+    }
+
+    const orderId = `PAGE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const appUrl = this.getAppUrl();
+    const callbackUrl = `${appUrl}/api/payment/callback`;
+
+    const { trackId, paymentUrl } = await this.requestZibalPayment({
+      amountTomans: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      callbackUrl,
+      description: `خرید صفحهٔ اختصاصی آرایشگاه - ${profile.salonName}`,
+      orderId,
+      mobile: user.phone,
+    });
+
+    const payment = this.paymentRepo.create({
+      userId,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      trackId,
+      orderId,
+      purpose: PaymentPurpose.PUBLIC_PAGE,
+      purposeId: profile.id,
+      status: PaymentStatus.PENDING,
+      description: `خرید صفحهٔ اختصاصی آرایشگاه (${profile.salonName})`,
+    });
+
+    await this.paymentRepo.save(payment);
+
+    return {
+      trackId,
+      paymentUrl,
+      orderId,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
     };
   }
 
@@ -692,6 +755,8 @@ export class PaymentService {
         );
       } else if (payment.purpose === PaymentPurpose.BOOKING) {
         await this.completeBookingPayment(payment);
+      } else if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
+        await this.publicPageService.activateAfterPayment(payment);
       } else if (payment.purpose === PaymentPurpose.WALLET) {
         await this.walletService.deposit(
           payment.userId,
@@ -858,6 +923,9 @@ export class PaymentService {
         date: meta.date,
         note: meta.note || '',
         status: BookingStatus.CONFIRMED,
+        // مبلغ نوبت به‌طور کامل از درگاه پرداخت شده است؛ این زمان مبنای
+        // شمارش نوبت‌های پرداخت‌شده برای فعال‌سازی صفحهٔ عمومی آرایشگاه است.
+        onlinePaidAt: payment.paidAt ?? new Date(),
       };
 
       if (meta.serviceId && !meta.items) {

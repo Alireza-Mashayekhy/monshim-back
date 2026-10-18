@@ -11,7 +11,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 
 import { ChargeWalletDto } from './dto/charge-wallet.dto';
 import { InitiateBookingPaymentDto } from './dto/initiate-booking-payment.dto';
@@ -31,6 +34,14 @@ export class PaymentController {
     @Body() dto: InitiateSubscriptionPaymentDto,
   ) {
     return this.paymentService.initiateSubscriptionPayment(req.user.id, dto);
+  }
+
+  // ۱.۱. خرید پکیج «صفحهٔ عمومی آرایشگاه» (یک‌باره، مادام‌العمر)
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.Barber, Role.Admin)
+  @Post('public-page')
+  async payPublicPage(@Req() req: any) {
+    return this.paymentService.initiatePublicPagePayment(req.user.id);
   }
 
   // ۲. درخواست پرداخت آنلاین نوبت (رزرو بیعانه/کل مبلغ)

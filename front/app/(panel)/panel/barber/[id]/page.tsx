@@ -1,0 +1,74 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+
+import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
+import BookingWizard from '@/components/pages/barber/booking-wizard';
+import { fetchPublicApi } from '@/lib/public-api';
+import { buildPageMetadata } from '@/lib/seo';
+import { siteConfig } from '@/lib/site-config';
+import type { ApiListResponse } from '@/services/api/types';
+import type { Barber, BarberReview } from '@/services/features/barber/types';
+
+/**
+ * این همان صفحهٔ رزرو نوبت آرایشگاه است که **داخل پنل کاربر** نمایش داده
+ * می‌شود (`/panel/barber/[id]`). صفحهٔ عمومی و سئوشدهٔ آرایشگاه مسیر
+ * مستقلِ خودش (`/barber/[id]`) را دارد و با این صفحه اشتباه گرفته نشود.
+ */
+type BarberPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+function barberPath(id: number) {
+  return `/panel/barber/${id}`;
+}
+
+async function getBarber(id: string) {
+  const numericId = Number(id);
+  if (!Number.isInteger(numericId) || numericId < 1) return null;
+  return fetchPublicApi<Barber>(`/barber/${numericId}`);
+}
+
+async function getReviews(id: number) {
+  return fetchPublicApi<ApiListResponse<BarberReview>>(
+    `/barber/${id}/reviews?page=1&limit=10`,
+  );
+}
+
+export async function generateMetadata({
+  params,
+}: BarberPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const numericId = Number(id);
+  const path =
+    Number.isInteger(numericId) && numericId > 0
+      ? barberPath(numericId)
+      : `/panel/barber/${encodeURIComponent(id)}`;
+
+  // صفحهٔ خصوصی است؛ ایندکس نمی‌شود و کنونیکال به مسیر عمومی اشاره نمی‌کند.
+  return buildPageMetadata({
+    title: 'رزرو نوبت آرایشگاه',
+    description: 'انتخاب خدمات و رزرو نوبت آرایشگاه در منشیم.',
+    path,
+    noIndex: true,
+  });
+}
+
+export default async function PanelBarberPage({ params }: BarberPageProps) {
+  const { id } = await params;
+  const barber = await getBarber(id);
+  if (!barber) notFound();
+  const initialReviews = await getReviews(barber.id);
+
+  return (
+    <main id="main-content" className="min-h-screen bg-background">
+      <Breadcrumbs
+        items={[
+          { href: '/', label: siteConfig.name },
+          { href: '/panel/explore', label: 'جست‌وجوی آرایشگاه‌ها' },
+          { href: barberPath(barber.id), label: barber.salonName },
+        ]}
+      />
+      <BookingWizard initialBarber={barber} initialReviews={initialReviews} />
+    </main>
+  );
+}

@@ -34,8 +34,8 @@ export default function UserLayoutClient({
           {children}
         </div>
 
-        {showNav && !isActive('/support') && (
-          <Link href="/support">
+        {showNav && !isActive('/panel/support') && (
+          <Link href="/panel/support">
             <button
               className="fixed bottom-24 right-4 z-40 bg-white text-primary-600 p-3 rounded-xl shadow-lg border border-primary-100 active:scale-95 transition-transform"
               title="پشتیبانی آنلاین"
@@ -48,9 +48,9 @@ export default function UserLayoutClient({
         {showNav && (
           <div className="fixed bottom-4 w-[calc(100vw-32px)] left-4 right-4 bg-white border border-border rounded-xl p-2 flex justify-between items-center z-50">
             <Link
-              href="/home"
+              href="/panel/home"
               className={`flex flex-col items-center gap-1 transition-all w-17 ${
-                isActive('/home')
+                isActive('/panel/home')
                   ? 'bg-[#E6F9F6] text-[#0F766E] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
@@ -58,16 +58,16 @@ export default function UserLayoutClient({
               <Home
                 size={20}
                 className={
-                  isActive('/home') ? 'text-[#0F766E]' : 'text-gray-400'
+                  isActive('/panel/home') ? 'text-[#0F766E]' : 'text-gray-400'
                 }
               />
               <span className="text-[11px]">خانه</span>
             </Link>
 
             <Link
-              href="/explore"
+              href="/panel/explore"
               className={`flex flex-col items-center gap-1 transition-all w-17 ${
-                isActive('/explore')
+                isActive('/panel/explore')
                   ? 'bg-[#E6F9F6] text-[#0F766E] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
@@ -75,16 +75,16 @@ export default function UserLayoutClient({
               <Search
                 size={20}
                 className={
-                  isActive('/explore') ? 'text-[#0F766E]' : 'text-gray-400'
+                  isActive('/panel/explore') ? 'text-[#0F766E]' : 'text-gray-400'
                 }
               />
               <span className="text-[11px]">جستجو</span>
             </Link>
 
             <Link
-              href="/appointments"
+              href="/panel/appointments"
               className={`flex flex-col items-center gap-1 transition-all w-17 ${
-                isActive('/appointments')
+                isActive('/panel/appointments')
                   ? 'bg-[#E6F9F6] text-[#0F766E] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
@@ -92,7 +92,7 @@ export default function UserLayoutClient({
               <Calendar
                 size={20}
                 className={
-                  isActive('/appointments') ? 'text-[#0F766E]' : 'text-gray-400'
+                  isActive('/panel/appointments') ? 'text-[#0F766E]' : 'text-gray-400'
                 }
               />
               <span className="text-[11px]">نوبت‌ها</span>
@@ -120,9 +120,9 @@ export default function UserLayoutClient({
             )}
 
             <Link
-              href="/profile"
+              href="/panel/profile"
               className={`flex flex-col items-center gap-1 transition-all w-17 ${
-                isActive('/profile')
+                isActive('/panel/profile')
                   ? 'bg-[#E6F9F6] text-[#0F766E] px-2 pb-1 pt-2 rounded-lg font-bold'
                   : 'text-gray-400 hover:text-gray-600 px-2 pb-1 pt-2'
               }`}
@@ -130,7 +130,7 @@ export default function UserLayoutClient({
               <User
                 size={20}
                 className={
-                  isActive('/profile') ? 'text-[#0F766E]' : 'text-gray-400'
+                  isActive('/panel/profile') ? 'text-[#0F766E]' : 'text-gray-400'
                 }
               />
               <span className="text-[11px]">پروفایل</span>

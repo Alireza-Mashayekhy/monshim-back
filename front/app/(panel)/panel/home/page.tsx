@@ -173,7 +173,7 @@ export default function Home() {
 
             {/* Action Buttons: مشاهده جزئیات & لغو */}
             <div className="grid grid-cols-2 gap-2 pt-2">
-              <Link href="/appointments">
+              <Link href="/panel/appointments">
                 <Button className="w-full">مشاهده جزئیات</Button>
               </Link>
 
@@ -210,7 +210,7 @@ export default function Home() {
               </p>
             </div>
 
-            <Link href="/explore">
+            <Link href="/panel/explore">
               <Button className="w-full">رزرو نوبت جدید</Button>
             </Link>
           </section>
@@ -230,7 +230,7 @@ export default function Home() {
               )}
             </div>
             <Link
-              href="/explore"
+              href="/panel/explore"
               className="text-xs font-bold text-primary hover:underline transition-all"
             >
               مشاهده همه

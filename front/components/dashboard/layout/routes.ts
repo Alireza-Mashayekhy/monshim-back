@@ -2,6 +2,7 @@ import {
   CalendarDays,
   Clock,
   Gem,
+  Globe,
   LayoutDashboard,
   Scissors,
   UserRound,
@@ -41,5 +42,15 @@ export const dashboardRoutes = [
     icon: Users,
     title: 'مشتریان',
     href: '/dashboard/club',
+  },
+  /**
+   * صفحهٔ اختصاصی/عمومی آرایشگاه (`/barber/[id]`) — خرید پکیج یا پیشرفت به
+   * سمت ۳۰۰ نوبتِ پرداخت‌شده. در انتهای فهرست نگه داشته شده چون منوی موبایل
+   * با اندیس به آیتم‌ها اشاره می‌کند.
+   */
+  {
+    icon: Globe,
+    title: 'صفحهٔ اختصاصی',
+    href: '/dashboard/public-page',
   },
 ];

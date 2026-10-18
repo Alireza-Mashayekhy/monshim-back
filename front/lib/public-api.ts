@@ -1,3 +1,5 @@
+import { publicImageUrl } from './images';
+
 type ApiEnvelope<T> = {
   data?: T;
   pagination?: unknown;
@@ -55,11 +57,5 @@ export async function fetchPublicApi<T>(path: string): Promise<T | null> {
 }
 
 export function absolutePublicImageUrl(imagePath?: string | null) {
-  if (!imagePath) return undefined;
-  if (/^https?:\/\//i.test(imagePath)) return imagePath;
-
-  const imageBase = process.env.NEXT_PUBLIC_IMAGE_URL;
-  if (!imageBase || !/^https?:\/\//i.test(imageBase)) return undefined;
-
-  return `${imageBase.replace(/\/+$/, '')}/${imagePath.replace(/^\/+/, '')}`;
+  return publicImageUrl(imagePath);
 }

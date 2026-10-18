@@ -11,13 +11,23 @@ export const siteConfig = {
     barberManagement: '/barber-management',
     onlineBooking: '/online-barber-booking',
     pricing: '/pricing',
-    explore: '/explore',
+    explore: '/panel/explore',
     privacy: '/privacy',
     terms: '/terms',
     login: '/login',
     register: '/register',
     barberSignup: '/barbaer-signup',
+    publicBarber: (id: number | string) => `/barber/${id}`,
+  },
+  /** مسیرهای داخل پنل کاربر (نیازمند ورود) */
+  panel: {
+    home: '/panel/home',
+    explore: '/panel/explore',
+    appointments: '/panel/appointments',
+    profile: '/panel/profile',
+    support: '/panel/support',
+    barber: (id: number | string) => `/panel/barber/${id}`,
   },
 } as const;
 
-export type SiteRoute = keyof typeof siteConfig.routes;
+export type SiteRoute = Exclude<keyof typeof siteConfig.routes, 'publicBarber'>;

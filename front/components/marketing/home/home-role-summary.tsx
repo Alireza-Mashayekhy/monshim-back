@@ -31,7 +31,7 @@ export default function HomeRoleSummary() {
             نهایی‌کردن رزرو و پرداخت، وارد حساب کاربری شوید.
           </p>
           <Link
-            href="/explore"
+            href="/panel/explore"
             className="mt-4 inline-flex text-sm font-bold text-primary underline-offset-4 hover:underline"
           >
             جست‌وجوی آرایشگاه‌ها

@@ -19,6 +19,7 @@ import { LocationsModule } from './locations/locations.module';
 import { NotificationModule } from './notification/notification.module';
 import { OtpModule } from './otp/otp.module';
 import { PaymentModule } from './payment/payment.module';
+import { PublicPageModule } from './public-page/public-page.module';
 import { RedisModule } from './redis/redis.module';
 import { ReferralModule } from './referral/referral.module';
 import { ServicesModule } from './services/services.module';
@@ -72,6 +73,7 @@ import { WalletModule } from './wallet/wallet.module';
     TicketModule,
     ClubModule,
     PaymentModule,
+    PublicPageModule,
     NotificationModule,
   ],
   controllers: [AppController],

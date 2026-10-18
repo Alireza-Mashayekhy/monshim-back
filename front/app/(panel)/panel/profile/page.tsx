@@ -230,7 +230,7 @@ export default function ProfilePage() {
             icon={<MessageSquareWarning size={15} />}
             label="گزارش مشکل"
             description="صدای شما برای ما مهم است."
-            href="/support"
+            href="/panel/support"
           />
           <RowAction
             icon={<ThumbsUp size={15} />}
@@ -246,7 +246,7 @@ export default function ProfilePage() {
         <p className="text-xs font-bold text-red-600 text-center mb-3">
           سؤالی دارید؟ با پشتیبانی تماس بگیرید
         </p>
-        <Link href="/support">
+        <Link href="/panel/support">
           <Button
             className="w-full gap-2 bg-red-500 hover:bg-red-600 text-white"
             size="lg"

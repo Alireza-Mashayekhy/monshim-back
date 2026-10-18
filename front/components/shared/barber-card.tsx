@@ -32,7 +32,7 @@ function BarberCard({
   if (variant === 'vertical') {
     return (
       <Link
-        href={`/barber/${barber.id}`}
+        href={`/panel/barber/${barber.id}`}
         className="group bg-white rounded-xl border border-[#14B8A6]/25 p-2 sm:p-2.5 shadow-2xs hover:shadow-md transition-all flex flex-col active:scale-98"
       >
         <div className="relative aspect-4/3 rounded-lg overflow-hidden bg-[#E6F9F6] flex items-center justify-center">
@@ -70,7 +70,7 @@ function BarberCard({
 
   return (
     <Link
-      href={`/barber/${barber.id}`}
+      href={`/panel/barber/${barber.id}`}
       className="group bg-white rounded-xl border border-[#14B8A6]/20 p-2 sm:p-3.5 shadow-2xs hover:shadow-md hover:border-[#0F766E]/40 transition-all flex gap-3 sm:gap-4 active:scale-[0.99]"
     >
       <div className="relative w-28 sm:w-32 rounded-lg overflow-hidden shrink-0 bg-[#E6F9F6] border border-gray-100 flex items-center justify-center">

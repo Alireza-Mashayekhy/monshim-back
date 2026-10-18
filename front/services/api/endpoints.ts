@@ -121,7 +121,16 @@ export const endpoints = {
 
   payment: {
     subscription: '/payment/subscription',
+    publicPage: '/payment/public-page',
     booking: '/payment/booking',
     status: (trackId: number | string) => `/payment/status/${trackId}`,
+  },
+
+  /** صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[id]`) */
+  publicPage: {
+    /** فقط آرایشگرهایی که صفحه‌شان فعال است — مبنای sitemap */
+    directory: '/public-page/directory',
+    barber: (id: number | string) => `/public-page/barber/${id}`,
+    me: '/public-page/me',
   },
 };
