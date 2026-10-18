@@ -14,7 +14,6 @@ import { Brackets, EntityManager, Repository } from 'typeorm';
 import { ReviewBarberDto } from './dto/review-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 import { BarberProfile } from './entities/barber.entity';
-import { PublicPageService } from './public-page.service';
 
 @Injectable()
 export class BarberService {
@@ -27,8 +26,6 @@ export class BarberService {
 
     @InjectRepository(City)
     private cityRepository: Repository<City>,
-
-    private readonly publicPageService: PublicPageService,
   ) {}
 
   // src/barber/barber.service.ts
@@ -309,13 +306,6 @@ export class BarberService {
       .getOne();
 
     if (!user?.barberProfile) {
-      throw new NotFoundException('آرایشگاه یافت نشد');
-    }
-
-    // صفحهٔ عمومی فقط برای آرایشگرهای فعال (خرید پکیج یا
-    // تعداد رزروهای بیعانه‌دار کافی) قابل دسترسی و سئو است؛
-    // در غیر این صورت حتی با یوآرال دستی هم ۴۰۴ برمی‌گردد.
-    if (!(await this.publicPageService.isPublicPageActive(id))) {
       throw new NotFoundException('آرایشگاه یافت نشد');
     }
 

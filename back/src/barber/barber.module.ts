@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Booking } from 'src/booking/entities/booking.entity';
 import { FilesModule } from 'src/files/files.module';
 import { City } from 'src/locations/entities/city.entity';
-import { Payment } from 'src/payment/entities/payment.entity';
 import { User } from 'src/users/entities/user.entity';
 
 import { BarberAdminController } from './barber.admin.controller';
@@ -18,7 +17,6 @@ import { BarberReviewService } from './barber-review.service';
 import { BarberProfile } from './entities/barber.entity';
 import { BarberReview } from './entities/barber-review.entity';
 import { BarberWorkHours } from './entities/barber-work-hours.entity';
-import { PublicPageService } from './public-page.service';
 import { WorkHoursService } from './work-hours.service';
 
 @Module({
@@ -30,7 +28,6 @@ import { WorkHoursService } from './work-hours.service';
       User,
       BarberWorkHours,
       City,
-      Payment,
     ]),
     FilesModule,
   ],
@@ -41,17 +38,7 @@ import { WorkHoursService } from './work-hours.service';
     BarberAdminController,
     BarberReviewAdminController,
   ],
-  providers: [
-    BarberService,
-    BarberReviewService,
-    WorkHoursService,
-    PublicPageService,
-  ],
-  exports: [
-    BarberService,
-    BarberReviewService,
-    WorkHoursService,
-    PublicPageService,
-  ],
+  providers: [BarberService, BarberReviewService, WorkHoursService],
+  exports: [BarberService, BarberReviewService, WorkHoursService],
 })
 export class BarberModule {}
