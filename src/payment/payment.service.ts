@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
+import { getBookingClock, isBookingSlotInPast } from 'src/booking/booking-time';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { PUBLIC_PAGE_PACKAGE_PRICE_TOMANS } from 'src/public-page/constants';
@@ -327,6 +328,12 @@ export class PaymentService {
     customerId: number,
     dto: InitiateBookingPaymentDto,
   ) {
+    if (isBookingSlotInPast(dto.date, dto.time, getBookingClock())) {
+      throw new BadRequestException(
+        'امکان ثبت نوبت برای تاریخ یا ساعت گذشته وجود ندارد',
+      );
+    }
+
     const user = await this.userRepo.findOne({ where: { id: customerId } });
     if (!user) {
       throw new NotFoundException('کاربر یافت نشد');

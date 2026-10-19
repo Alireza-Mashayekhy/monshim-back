@@ -28,6 +28,11 @@ import { User } from 'src/users/entities/user.entity';
 import { WalletService } from 'src/wallet/wallet.service';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
+import {
+  getBookingClock,
+  isBookingDateInPast,
+  isBookingSlotInPast,
+} from './booking-time';
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
@@ -65,11 +70,21 @@ export class BookingsService {
     private bookingSmsService: BookingSmsService,
   ) {}
 
+  private assertBookingSlotIsNotPast(date: string, time: string): void {
+    if (isBookingSlotInPast(date, time, getBookingClock())) {
+      throw new BadRequestException(
+        'امکان ثبت نوبت برای تاریخ یا ساعت گذشته وجود ندارد',
+      );
+    }
+  }
+
   // =========================================================
   // CREATE BOOKING
   // =========================================================
 
   async create(customerId: number, dto: CreateBookingDto): Promise<Booking> {
+    this.assertBookingSlotIsNotPast(dto.date, dto.time);
+
     // dto.barberId = User.id
     const barberId = Number(dto.barberId);
 
@@ -927,6 +942,8 @@ export class BookingsService {
     barberUserId: number,
     dto: CreateManualBookingDto,
   ) {
+    this.assertBookingSlotIsNotPast(dto.date, dto.time);
+
     const barber = await this.barberProfileRepo.findOne({
       where: { userId: barberUserId },
     });
@@ -1235,6 +1252,9 @@ export class BookingsService {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد یا تایید نشده است');
     }
 
+    const bookingClock = getBookingClock();
+    if (isBookingDateInPast(date, bookingClock)) return [];
+
     // سرویس
     let serviceDuration = 0;
     let services: Service[] = [];
@@ -1324,8 +1344,11 @@ export class BookingsService {
             .padStart(2, '0');
 
           const minutes = (currentStart % 60).toString().padStart(2, '0');
+          const slot = `${hours}:${minutes}`;
 
-          freeSlots.push(`${hours}:${minutes}`);
+          if (!isBookingSlotInPast(date, slot, bookingClock)) {
+            freeSlots.push(slot);
+          }
         }
 
         currentStart += step;
