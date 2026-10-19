@@ -43,11 +43,11 @@ export default function BookingWizard({
 
   const barberUserId =
     (barber?.data?.userId ?? barber?.data?.id)?.toString() || '';
-  const { data: availableTimes, isLoading: timesLoading } = useAvailableSlots(
-    barberUserId,
-    selectedDate,
-    selectedServiceIds,
-  );
+  const {
+    data: availableTimes,
+    isLoading: timesLoading,
+    isFetching: timesFetching,
+  } = useAvailableSlots(barberUserId, selectedDate, selectedServiceIds);
 
   const payBookingMutation = usePayBooking();
 
@@ -65,6 +65,14 @@ export default function BookingWizard({
       router.push(buildAuthHref('/login', `/panel/barber/${id}`));
       return;
     }
+
+    const slots = availableTimes?.data?.slots ?? [];
+    if (timesFetching || !slots.includes(selectedTime)) {
+      setSelectedTime(null);
+      toast.error('این ساعت دیگر در دسترس نیست؛ لطفاً ساعت دیگری انتخاب کنید.');
+      return;
+    }
+
     try {
       await payBookingMutation.mutateAsync({
         barberId: Number(id),
@@ -115,6 +123,7 @@ export default function BookingWizard({
           selectedServiceIds={selectedServiceIds}
           availableTimes={availableTimes?.data?.slots || []}
           timesLoading={timesLoading}
+          timesFetching={timesFetching}
           selectedDateISO={selectedDate}
           selectedTime={selectedTime}
           onSelectDateISO={d => {

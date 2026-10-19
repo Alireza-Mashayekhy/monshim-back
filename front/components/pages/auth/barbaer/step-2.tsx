@@ -94,7 +94,10 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
   const previousProvince = useRef(selectedProvinceId);
   useEffect(() => {
     if (previousProvince.current !== selectedProvinceId) {
-      methods.setValue('cityId', '', { shouldValidate: true });
+      // پاک شدن شهر بعد از تغییر استان طبیعی است؛ تا زمان انتخاب شهر، خطای
+      // required را نمایش نده و خطای قبلیِ شهر را هم پاک کن.
+      methods.setValue('cityId', '', { shouldValidate: false });
+      methods.clearErrors('cityId');
       previousProvince.current = selectedProvinceId;
     }
   }, [selectedProvinceId, methods]);

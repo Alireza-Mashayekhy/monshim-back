@@ -223,11 +223,11 @@ export function ManualBookingDrawer({
   const isNotApproved = !!barberProfile?.data && !barberProfile.data.isApproved;
   const isoDate = jalaliToIso(jalaliDate) ?? '';
 
-  const { data: slotsResponse, isLoading: slotsLoading } = useAvailableSlots(
-    barberId,
-    isoDate,
-    serviceId ? [serviceId] : [],
-  );
+  const {
+    data: slotsResponse,
+    isLoading: slotsLoading,
+    isFetching: slotsFetching,
+  } = useAvailableSlots(barberId, isoDate, serviceId ? [serviceId] : []);
   const slots = slotsResponse?.data?.slots ?? [];
 
   const hasSearchQuery = debouncedSearch.trim().length > 0;
@@ -318,6 +318,12 @@ export function ManualBookingDrawer({
       toast.error(NOT_APPROVED_MESSAGE);
       return;
     }
+
+    if (slotsFetching || !slots.includes(values.time)) {
+      toast.error('این ساعت دیگر در دسترس نیست؛ لطفاً ساعت دیگری انتخاب کنید.');
+      return;
+    }
+
     try {
       let clubCustomerId = values.existingCustomerId;
 
@@ -668,6 +674,7 @@ export function ManualBookingDrawer({
                   name="date"
                   placeholder="انتخاب تاریخ"
                   className="flex-1"
+                  disablePastDates
                 />
 
                 <div className="flex shrink-0 gap-1.5 pt-0.5">
@@ -724,12 +731,13 @@ export function ManualBookingDrawer({
                     <button
                       key={slot}
                       type="button"
+                      disabled={slotsFetching}
                       onClick={() =>
                         setValue('time', slot, { shouldValidate: true })
                       }
                       className={cn(
-                        'h-10 rounded-lg border text-xs font-black transition',
-                        time === slot
+                        'h-10 rounded-lg border text-xs font-black transition disabled:cursor-wait disabled:opacity-60',
+                        time === slot && !slotsFetching
                           ? 'border-primary bg-primary text-white'
                           : 'border-gray-200 bg-white text-gray-600 hover:border-primary/40 hover:text-primary',
                       )}
@@ -738,6 +746,18 @@ export function ManualBookingDrawer({
                     </button>
                   ))}
                 </div>
+              )}
+
+              {slotsFetching && !slotsLoading && (
+                <p className="text-[10px] text-gray-400">
+                  در حال به‌روزرسانی ساعت‌های خالی...
+                </p>
+              )}
+
+              {time && !slotsFetching && !slots.includes(time) && (
+                <p className="text-[11px] text-amber-700">
+                  این ساعت دیگر در دسترس نیست؛ لطفاً ساعت دیگری انتخاب کنید.
+                </p>
               )}
 
               {errors.time && (
@@ -916,7 +936,12 @@ export function ManualBookingDrawer({
             <Button
               type="submit"
               className="h-11 w-full"
-              disabled={isSubmitting || isNotApproved}
+              disabled={
+                isSubmitting ||
+                isNotApproved ||
+                slotsFetching ||
+                (!!time && !slots.includes(time))
+              }
             >
               {isSubmitting ? (
                 <>

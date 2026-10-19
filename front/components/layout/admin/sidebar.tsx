@@ -60,7 +60,7 @@ const items = [
 ];
 
 export default function AdminSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
 
   return (
@@ -70,8 +70,10 @@ export default function AdminSidebar() {
       side="right"
       bgClassName="bg-white border-l border-sidebar-border"
     >
-      <SidebarHeader className="flex flex-row items-center justify-end">
-        {state !== 'collapsed' && <span className="ml-auto">Monshim</span>}
+      <SidebarHeader className="flex flex-row items-center justify-between">
+        {(state !== 'collapsed' || isMobile) && (
+          <span className="font-semibold">Monshim</span>
+        )}
         <SidebarTrigger />
       </SidebarHeader>
 
@@ -88,6 +90,10 @@ export default function AdminSidebar() {
                   <SidebarMenuButton asChild>
                     <Link
                       href={item.link}
+                      aria-current={isActive ? 'page' : undefined}
+                      onClick={() => {
+                        if (isMobile) setOpenMobile(false);
+                      }}
                       className={cn(
                         'flex items-center gap-2 border rounded-sm px-2 py-1 transition',
                         isActive

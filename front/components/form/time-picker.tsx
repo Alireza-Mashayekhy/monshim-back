@@ -1,11 +1,16 @@
 'use client';
 
 import { Clock } from 'lucide-react';
-import persian from 'react-date-object/calendars/persian';
-import persian_fa from 'react-date-object/locales/persian_fa';
-import DatePicker, { DateObject } from 'react-multi-date-picker';
-import TimePickerPlugin from 'react-multi-date-picker/plugins/time_picker';
+import { useId } from 'react';
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toFa } from '@/lib/jalali';
 import { cn } from '@/lib/utils';
 
 interface TimePickerProps {
@@ -14,20 +19,45 @@ interface TimePickerProps {
   label?: string;
   className?: string;
   disabled?: boolean;
-  portalTarget?: HTMLElement | null; // برای جلوگیری از بریده شدن در اسکرول
+  includeEndOfDay?: boolean;
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
+const HALF_HOUR_TIMES = Array.from({ length: 48 }, (_, index) => {
+  const hour = String(Math.floor(index / 2)).padStart(2, '0');
+  const minute = index % 2 === 0 ? '00' : '30';
 
-// "HH:mm" -> DateObject
-const toDateObject = (value: string) => {
-  const [h, m] = (value || '00:00').split(':').map(Number);
-  return new DateObject({ calendar: persian, locale: persian_fa }).set({
-    hour: h || 0,
-    minute: m || 0,
-    second: 0,
+  return `${hour}:${minute}`;
+});
+const HALF_HOUR_TIME_SET = new Set(HALF_HOUR_TIMES);
+
+function toEnglishDigits(value: string) {
+  return value.replace(/[۰-۹٠-٩]/g, digit => {
+    const code = digit.charCodeAt(0);
+    const zeroCode = code >= 0x06f0 ? 0x06f0 : 0x0660;
+    return String(code - zeroCode);
   });
-};
+}
+
+export function normalizeTime(value: string) {
+  const normalized = toEnglishDigits(value).trim();
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(normalized);
+
+  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : normalized;
+}
+
+export function parseTimeValue(value: string, includeEndOfDay = false) {
+  const normalized = toEnglishDigits(value).trim();
+  const match = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(normalized);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (minute > 59) return null;
+  if (hour === 24 && minute === 0 && includeEndOfDay) return '24:00';
+  if (hour > 23) return null;
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
 
 export function TimePicker({
   value,
@@ -35,46 +65,58 @@ export function TimePicker({
   label,
   className,
   disabled,
-  portalTarget,
+  includeEndOfDay = false,
 }: TimePickerProps) {
+  const id = useId();
+  const normalizedValue = normalizeTime(value);
+  const isPresetValue =
+    HALF_HOUR_TIME_SET.has(normalizedValue) ||
+    (includeEndOfDay && normalizedValue === '24:00');
+  const hasLegacyValue = Boolean(normalizedValue) && !isPresetValue;
+
   return (
-    <div className={cn('space-y-1 flex-1 min-w-[110px]', className)}>
+    <div className={cn('min-w-0 flex-1 space-y-1', className)}>
       {label && (
-        <label className="block text-xs font-medium text-gray-700">
+        <label htmlFor={id} className="block text-xs font-medium text-gray-700">
           {label}
         </label>
       )}
-      <DatePicker
-        disableDayPicker
-        calendar={persian}
-        locale={persian_fa}
-        format="HH:mm"
-        value={toDateObject(value)}
-        onChange={(date: DateObject | null) => {
-          if (date) onChange(`${pad(date.hour)}:${pad(date.minute)}`);
-        }}
-        plugins={[<TimePickerPlugin key="time" hideSeconds />]}
+      <Select
+        value={normalizedValue || undefined}
+        onValueChange={onChange}
         disabled={disabled}
-        portal={!!portalTarget}
-        portalTarget={portalTarget ?? undefined}
-        calendarPosition="bottom-center"
-        render={<TimeButton disabled={disabled} />}
-      />
+      >
+        <SelectTrigger
+          id={id}
+          aria-label={label ?? 'انتخاب ساعت'}
+          className="h-10 w-full min-w-0 bg-white px-2"
+        >
+          <SelectValue placeholder="انتخاب ساعت">
+            {hasLegacyValue ? (
+              <span dir="ltr" className="tabular-nums">
+                {toFa(normalizedValue)}
+              </span>
+            ) : undefined}
+          </SelectValue>
+          <Clock className="size-4 shrink-0 text-gray-400" />
+        </SelectTrigger>
+        <SelectContent className="z-[60]">
+          {HALF_HOUR_TIMES.map(time => (
+            <SelectItem key={time} value={time}>
+              <span dir="ltr" className="tabular-nums">
+                {toFa(time)}
+              </span>
+            </SelectItem>
+          ))}
+          {includeEndOfDay && (
+            <SelectItem value="24:00">
+              <span dir="ltr" className="tabular-nums">
+                {toFa('24:00')}
+              </span>
+            </SelectItem>
+          )}
+        </SelectContent>
+      </Select>
     </div>
-  );
-}
-
-// دکمه بجای input تا کیبورد موبایل باز نشه
-function TimeButton({ value, openCalendar, disabled }: any) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={openCalendar}
-      className="w-full h-10 px-3 border border-input rounded-lg bg-white text-sm flex items-center justify-between gap-2 hover:border-gray-400 transition disabled:opacity-50"
-    >
-      <span className="font-medium tabular-nums text-gray-800">{value}</span>
-      <Clock className="w-4 h-4 text-gray-400" />
-    </button>
   );
 }

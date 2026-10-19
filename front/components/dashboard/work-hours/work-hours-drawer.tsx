@@ -2,8 +2,13 @@
 
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
-import { TimePicker } from '@/components/form/time-picker';
+import {
+  normalizeTime,
+  parseTimeValue,
+  TimePicker,
+} from '@/components/form/time-picker';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -38,8 +43,6 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
   const { data: workHours, isLoading } = useWorkHours();
   const updateMutation = useUpdateWorkHours();
 
-  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
-
   const [hoursByDay, setHoursByDay] = useState<{
     [key: number]: { startTime: string; endTime: string }[];
   }>({});
@@ -50,8 +53,8 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
       workHours.data.forEach(h => {
         if (!grouped[h.dayOfWeek]) grouped[h.dayOfWeek] = [];
         grouped[h.dayOfWeek].push({
-          startTime: h.startTime,
-          endTime: h.endTime,
+          startTime: normalizeTime(h.startTime),
+          endTime: normalizeTime(h.endTime),
         });
       });
       setHoursByDay(grouped);
@@ -93,14 +96,30 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
   };
 
   const handleSave = () => {
+    const parsedHours = Object.entries(hoursByDay).flatMap(([day, slots]) =>
+      slots.map(slot => {
+        const startTime = parseTimeValue(slot.startTime);
+        const endTime = parseTimeValue(slot.endTime, true);
+
+        if (!startTime || !endTime || startTime >= endTime) return null;
+
+        return {
+          dayOfWeek: Number(day),
+          startTime,
+          endTime,
+        };
+      }),
+    );
+
+    if (parsedHours.some(slot => slot === null)) {
+      toast.error(
+        'ساعت معتبر وارد کنید و مطمئن شوید ساعت پایان بعد از ساعت شروع است.',
+      );
+      return;
+    }
+
     const payload: { hours: WorkHours[] } = {
-      hours: Object.entries(hoursByDay).flatMap(([day, slots]) =>
-        slots.map(s => ({
-          dayOfWeek: parseInt(day),
-          startTime: s.startTime,
-          endTime: s.endTime,
-        })),
-      ),
+      hours: parsedHours.filter((slot): slot is WorkHours => slot !== null),
     };
     updateMutation.mutate(payload, {
       onSuccess: () => onOpenChange(false),
@@ -115,11 +134,12 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>
-      <DrawerContent ref={setContentEl}>
+      <DrawerContent>
         <DrawerHeader>
           <DrawerTitle className="text-center">تنظیم ساعات کاری</DrawerTitle>
           <DrawerDescription className="text-center text-sm">
-            برای هر روز، بازه‌های کاری خود را مشخص کنید
+            برای هر روز، بازه‌های کاری را فقط از فهرست ساعت‌های نیم‌ساعته انتخاب
+            کنید (از ۰۰:۰۰ تا ۲۴:۰۰).
           </DrawerDescription>
         </DrawerHeader>
 
@@ -142,20 +162,21 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
                 {(hoursByDay[idx] || []).map((slot, slotIndex) => (
                   <div
                     key={slotIndex}
-                    className="flex items-end gap-2 p-2 rounded-lg bg-gray-50 border border-gray-100"
+                    className="flex min-w-0 items-end gap-1.5 rounded-lg border border-gray-100 bg-gray-50 p-2"
                   >
                     <TimePicker
                       label="شروع"
-                      portalTarget={contentEl}
                       value={slot.startTime}
                       onChange={val =>
                         updateSlot(idx, slotIndex, 'startTime', val)
                       }
                     />
-                    <span className="text-gray-400 text-sm mb-2.5">تا</span>
+                    <span className="mb-2.5 shrink-0 text-sm text-gray-400">
+                      تا
+                    </span>
                     <TimePicker
                       label="پایان"
-                      portalTarget={contentEl}
+                      includeEndOfDay
                       value={slot.endTime}
                       onChange={val =>
                         updateSlot(idx, slotIndex, 'endTime', val)
@@ -164,7 +185,7 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
                     <button
                       type="button"
                       onClick={() => removeSlot(idx, slotIndex)}
-                      className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                      className="shrink-0 rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50"
                     >
                       <Trash2 size={16} />
                     </button>
