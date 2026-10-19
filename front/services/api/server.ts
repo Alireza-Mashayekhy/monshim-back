@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers';
 
+import { resolveServerApiBaseUrl } from '@/lib/api-base-url';
+
 interface ServerRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
@@ -22,7 +24,17 @@ export async function serverFetch<T>(
   url: string,
   options: ServerRequestOptions = {},
 ): Promise<T> {
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/+$/, '');
+  // قبلاً مستقیم از NEXT_PUBLIC_API_URL استفاده می‌شد؛ اگر آن متغیر روی
+  // سرور نسبی باشد (`/api`)، fetch سمت سرور «Failed to parse URL» می‌دهد
+  // و خطا در SessionHydration بی‌صدا بلعیده می‌شد. resolver مشترک همان
+  // منطق public-api را اعمال می‌کند (اولویت با API_URL داخلی سرور).
+  const baseUrl = resolveServerApiBaseUrl();
+  if (!baseUrl) {
+    throw new ServerApiError(
+      500,
+      'آدرس API سمت سرور تنظیم نشده است (API_URL / NEXT_PUBLIC_API_URL)',
+    );
+  }
   const cookieStore = await cookies();
   const isFormData = options.body instanceof FormData;
 
