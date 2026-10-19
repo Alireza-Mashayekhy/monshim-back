@@ -31,7 +31,7 @@ export default function AdminLayout({
           <SidebarProvider>
             <AdminSidebar />
 
-            <SidebarInset className="bg-border">
+            <SidebarInset className="bg-primary-3">
               <main className="p-4">{children}</main>
             </SidebarInset>
           </SidebarProvider>

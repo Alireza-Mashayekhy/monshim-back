@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronLeft, Scissors, ShieldCheck, Sparkles } from 'lucide-react';
+import { ChevronLeft, Scissors, ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import React from 'react';
 
@@ -36,15 +37,16 @@ export default function AuthCardLayout({
         <div className="flex flex-col items-center text-center mb-6">
           <Link
             href={buildAuthHref('/login', callbackUrl)}
-            className="group flex flex-col items-center focus:outline-none"
+            className="group flex gap-2 items-center focus:outline-none"
           >
-            <div className="relative mb-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-teal-800 flex items-center justify-center shadow-lg shadow-primary/25 text-white ring-4 ring-white transition-transform group-hover:scale-105 duration-300">
-                <Scissors className="w-7 h-7 -rotate-45" />
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center text-white ring-2 ring-white shadow">
-                <Sparkles className="w-3 h-3 fill-current" />
-              </div>
+            <div className="relative">
+              <Image
+                loading="eager"
+                src="/logo/logo.png"
+                alt="Logo"
+                width={56}
+                height={56}
+              />
             </div>
 
             <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">

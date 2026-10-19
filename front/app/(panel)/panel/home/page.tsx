@@ -99,7 +99,7 @@ export default function Home() {
         {/* ================= PROMO / HERO BANNER ================= */}
         <section
           aria-label="آشنایی با سیستم مدیریت سالن منشیم"
-          className="relative bg-white rounded-2xl border border-primary/30 shadow-xs overflow-hidden"
+          className="relative bg-white rounded-2xl border border-border shadow-xs overflow-hidden"
         >
           {/* Left illustration */}
           <Image
@@ -114,7 +114,7 @@ export default function Home() {
 
         {/* ================= NEXT APPOINTMENT CARD ================= */}
         {bookingsLoading ? (
-          <div className="bg-white rounded-2xl border border-primary/20 p-5 animate-pulse space-y-3">
+          <div className="bg-white rounded-2xl border border-border p-5 animate-pulse space-y-3">
             <div className="h-5 bg-gray-200 rounded w-28" />
             <div className="h-12 bg-gray-100 rounded-xl" />
             <div className="h-9 bg-gray-200 rounded-xl" />
@@ -122,7 +122,7 @@ export default function Home() {
         ) : activeBooking ? (
           <section
             aria-label="نوبت بعدی من"
-            className="bg-white rounded-2xl border border-primary/30 shadow-xs p-4 sm:p-5 space-y-4"
+            className="bg-white rounded-2xl border border-border shadow-xs p-4 sm:p-5 space-y-4"
           >
             {/* Card Top Row: Badge & Scissors Icon */}
             <div className="flex items-center justify-between">

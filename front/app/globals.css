@@ -112,20 +112,22 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: #f9f9f9;
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #0f766e; /* teal-700: 5.47:1 روی سفید و متن سفید روی آن (WCAG AA) */
-  --primary-2: #e6f9f6;
-  --primary-3: #f7fcfb;
+  --primary: #0b7285; /* teal-700: 5.47:1 روی سفید و متن سفید روی آن (WCAG AA) */
+  --primary-2: #e6f9fc;
+  --primary-3: #f6fcfd;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.5 0 0); /* معادل #636363؛ مقدار قبلی (#737373) مرزِ AA بود:
+  --muted-foreground: oklch(
+    0.5 0 0
+  ); /* معادل #636363؛ مقدار قبلی (#737373) مرزِ AA بود:
                                            روی #f9f9f9 دقیقاً 4.50:1 و روی سطوح سبزآبی روشن
                                            (#e6f9f6) 4.35:1 می‌شد و رد می‌شد. */
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: rgba(20, 184, 166, 0.3);
+  --border: #d6e7ea;
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
