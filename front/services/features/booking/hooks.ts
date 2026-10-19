@@ -26,7 +26,8 @@ export const useAvailableSlots = (
 
     enabled: !!barberId && !!date && serviceIds.length > 0,
 
-    staleTime: 2 * 60 * 1000,
+    staleTime: 0,
+    refetchInterval: 30 * 1000,
   });
 };
 

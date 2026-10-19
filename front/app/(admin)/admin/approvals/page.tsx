@@ -41,9 +41,7 @@ export default function Users() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-between items-center">
-        {/* <Button size="lg">افزودن</Button> */}
-        <span />
+      <div className="flex items-center justify-end">
         <Input
           placeholder="جستجو"
           value={search}
@@ -51,7 +49,7 @@ export default function Users() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="bg-white w-96"
+          className="w-full bg-white sm:w-96"
         />
       </div>
       <div className="bg-white rounded-sm overflow-hidden">
