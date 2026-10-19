@@ -137,7 +137,7 @@ export default function AdminReviewsPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="bg-white w-96"
+          className="w-full bg-white sm:w-96"
         />
       </div>
 

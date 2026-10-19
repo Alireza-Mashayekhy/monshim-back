@@ -40,7 +40,7 @@ export default function AdminTicketsPage() {
   const total = data?.pagination?.total ?? 0;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-[calc(100dvh-2rem)]">
+    <div className="flex h-[calc(100dvh-5rem)] flex-col gap-4 sm:h-[calc(100dvh-5.5rem)] md:h-[calc(100dvh-2.5rem)] lg:flex-row">
       {/* لیست تیکت‌ها */}
       <div
         className={`${

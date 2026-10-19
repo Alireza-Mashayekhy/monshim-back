@@ -22,6 +22,7 @@ interface Step2BookConfirmProps {
   selectedServiceIds: string[];
   availableTimes: string[];
   timesLoading: boolean;
+  timesFetching: boolean;
   selectedDateISO: string | null;
   selectedTime: string | null;
   onSelectDateISO: (iso: string) => void;
@@ -36,6 +37,7 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
   selectedServiceIds,
   availableTimes,
   timesLoading,
+  timesFetching,
   selectedDateISO,
   selectedTime,
   onSelectDateISO,
@@ -100,6 +102,8 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
   }, [viewJy, viewJm, today]);
 
   const formattedDate = selectedDate ? formatJalaliDate(selectedDate) : 'تاریخ';
+  const selectedTimeAvailable =
+    !!selectedTime && availableTimes.includes(selectedTime) && !timesFetching;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -191,8 +195,8 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
             ) : (
               <div className="grid grid-cols-4 gap-3">
                 {availableTimes.map(time => {
-                  const disabled = false;
-                  const selected = selectedTime === time;
+                  const disabled = timesFetching;
+                  const selected = selectedTime === time && !timesFetching;
                   return (
                     <button
                       key={time}
@@ -212,6 +216,18 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
                 })}
               </div>
             )}
+            {timesFetching && !timesLoading && (
+              <p className="mt-2 text-center text-xs text-gray-400">
+                در حال به‌روزرسانی ساعت‌های خالی...
+              </p>
+            )}
+            {selectedTime &&
+              !timesFetching &&
+              !availableTimes.includes(selectedTime) && (
+                <p className="mt-2 text-center text-xs text-amber-700">
+                  این ساعت دیگر در دسترس نیست؛ لطفاً ساعت دیگری انتخاب کنید.
+                </p>
+              )}
           </div>
         )}
 
@@ -239,7 +255,9 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-gray-500">تاریخ و ساعت</span>
               <span className="font-bold text-gray-900 text-base">
-                {selectedTime ? `${formattedDate}، ${selectedTime}` : '- ، -'}
+                {selectedTimeAvailable
+                  ? `${formattedDate}، ${selectedTime}`
+                  : '- ، -'}
               </span>
             </div>
 
@@ -271,7 +289,12 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
         </div>
         <Button
           onClick={onConfirm}
-          disabled={!selectedTime || !selectedDate || isSubmitting}
+          disabled={
+            !selectedTimeAvailable ||
+            !selectedDate ||
+            isSubmitting ||
+            timesFetching
+          }
           className="w-full h-14 rounded-2xl text-base font-bold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 disabled:shadow-none flex items-center justify-center gap-2"
           size="lg"
         >

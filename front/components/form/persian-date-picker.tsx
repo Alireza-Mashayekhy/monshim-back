@@ -17,6 +17,7 @@ interface PersianDatePickerProps {
   required?: boolean;
   className?: string;
   portalTarget?: HTMLElement | null;
+  disablePastDates?: boolean;
 }
 
 export function PersianDatePicker({
@@ -26,6 +27,7 @@ export function PersianDatePicker({
   required = false,
   className,
   portalTarget,
+  disablePastDates = false,
 }: PersianDatePickerProps) {
   const { setValue, control } = useFormContext();
   const formValue = useWatch({ name, control });
@@ -67,6 +69,11 @@ export function PersianDatePicker({
       <DatePicker
         calendar={persian}
         locale={persian_fa}
+        minDate={
+          disablePastDates
+            ? new DateObject({ calendar: persian, locale: persian_fa })
+            : undefined
+        }
         calendarPosition="bottom-right"
         portal={!!portalTarget}
         portalTarget={portalTarget ?? undefined}
