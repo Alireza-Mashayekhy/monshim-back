@@ -2,8 +2,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
+import { bookingWallTimeToUtc } from 'src/booking/booking-time';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
-import { IsNull, LessThan, Repository } from 'typeorm';
+import { IsNull, LessThan, MoreThan, Repository } from 'typeorm';
 
 import { BookingSmsService } from './booking-sms.service';
 
@@ -32,7 +33,12 @@ export class ReminderService {
       where: {
         sendSmsReminder: true,
         reminderSentAt: IsNull(),
+        reminderHours: MoreThan(0),
         status: BookingStatus.CONFIRMED,
+      },
+      order: {
+        date: 'ASC',
+        time: 'ASC',
       },
       relations: {
         customer: true,
@@ -49,10 +55,16 @@ export class ReminderService {
     );
 
     for (const booking of due) {
-      // زمان نوبت بر اساس ساعت لوکال سرور (به وقت ایران)
-      const bookingDateTime = new Date(
-        `${booking.date}T${booking.time.slice(0, 5)}:00`,
-      );
+      // زمان نوبت به وقت سالن (تهران) — مستقل از منطقه زمانی سرور
+      const bookingDateTime = bookingWallTimeToUtc(booking.date, booking.time);
+
+      if (!bookingDateTime) {
+        this.logger.warn(
+          `یادآوری نوبت ${booking.id}: تاریخ/ساعت نامعتبر است (${booking.date} ${booking.time})`,
+        );
+
+        continue;
+      }
 
       const sendAt =
         bookingDateTime.getTime() - (booking.reminderHours ?? 0) * 3600_000;

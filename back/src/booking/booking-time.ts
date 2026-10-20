@@ -11,6 +11,18 @@ const BOOKING_CLOCK_FORMATTER = new Intl.DateTimeFormat('en-GB', {
   hourCycle: 'h23',
 });
 
+/** Same fields as above but numeric-only, for machine parsing of zone offsets. */
+const BOOKING_WALL_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: BOOKING_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
 export interface BookingClock {
   date: string;
   minutesSinceMidnight: number;
@@ -49,6 +61,58 @@ function parseBookingDate(date: string): string | null {
   }
 
   return date;
+}
+
+/**
+ * Offset (ms) of the salon timezone for a given instant. Positive when the
+ * zone is ahead of UTC (Asia/Tehran is fixed at +03:30 since 2022 — no DST).
+ */
+function getSalonZoneOffsetMs(instant: Date): number {
+  const parts = BOOKING_WALL_FORMATTER.formatToParts(instant);
+  const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find(part => part.type === type)?.value ?? '0');
+
+  const wallAsUtc = Date.UTC(
+    getPart('year'),
+    getPart('month') - 1,
+    getPart('day'),
+    getPart('hour'),
+    getPart('minute'),
+    getPart('second'),
+  );
+
+  return wallAsUtc - instant.getTime();
+}
+
+/**
+ * Interprets the timezone-naive booking columns (`date` as 'YYYY-MM-DD' and
+ * `time` as 'HH:mm[:ss]') as salon-local wall clock (Asia/Tehran) and returns
+ * the true UTC instant, independent of the API host's TZ setting.
+ *
+ * `new Date(`${date}T${time}`)` would parse in the server's own timezone and
+ * is wrong on UTC hosts (e.g. the production Docker image) — use this instead.
+ * Returns `null` for malformed input.
+ */
+export function bookingWallTimeToUtc(date: string, time: string): Date | null {
+  const bookingDate = parseBookingDate(date);
+  const minutesSinceMidnight = parseBookingTime(time);
+
+  if (!bookingDate || minutesSinceMidnight === null) return null;
+
+  const totalSeconds = Math.round(minutesSinceMidnight * 60);
+  const [year, month, day] = bookingDate.split('-').map(Number);
+  const hour = Math.floor(totalSeconds / 3600);
+  const minute = Math.floor((totalSeconds % 3600) / 60);
+  const second = totalSeconds % 60;
+
+  // Treat the wall clock as if it were UTC, then correct by the zone offset.
+  // The second pass guards against offset changes across DST transitions.
+  const naiveAsUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+
+  let instant = naiveAsUtc - getSalonZoneOffsetMs(new Date(naiveAsUtc));
+  instant = naiveAsUtc - getSalonZoneOffsetMs(new Date(instant));
+
+  return new Date(instant);
 }
 
 function parseBookingTime(time: string): number | null {
