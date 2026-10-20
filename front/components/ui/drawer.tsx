@@ -4,6 +4,8 @@ import { cn } from 'cn';
 import * as React from 'react';
 import { Drawer as DrawerPrimitive } from 'vaul';
 
+import { useKeyboardCloseFix } from '@/hooks/use-keyboard-close-fix';
+
 function Drawer({
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
@@ -47,12 +49,34 @@ function DrawerOverlay({
 function DrawerContent({
   className,
   children,
+  ref: forwardedRef,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // بعد از بستن کیبورد موبایل، استایل‌های جاافتادهٔ vaul را پاک می‌کند تا
+  // شیت به جای خودش برگردد (باگ «شیت بالا گیر می‌کند»).
+  useKeyboardCloseFix(contentRef);
+
+  const setRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      contentRef.current = node;
+
+      if (typeof forwardedRef === 'function') {
+        forwardedRef(node);
+      } else if (forwardedRef) {
+        (forwardedRef as React.RefObject<HTMLDivElement | null>).current =
+          node;
+      }
+    },
+    [forwardedRef],
+  );
+
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
       <DrawerPrimitive.Content
+        ref={setRef}
         data-slot="drawer-content"
         className={cn(
           'group/drawer-content fixed z-50 flex h-auto flex-col bg-white text-sm text-popover-foreground data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:overlay-fit data-[vaul-drawer-direction=bottom]:rounded-t-xl data-[vaul-drawer-direction=bottom]:border-t data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:start-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:rounded-e-xl data-[vaul-drawer-direction=left]:border-e data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:end-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:rounded-s-xl data-[vaul-drawer-direction=right]:border-s data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:overlay-fit data-[vaul-drawer-direction=top]:rounded-b-xl data-[vaul-drawer-direction=top]:border-b data-[vaul-drawer-direction=left]:sm:max-w-sm data-[vaul-drawer-direction=right]:sm:max-w-sm',

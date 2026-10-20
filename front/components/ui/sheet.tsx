@@ -5,6 +5,7 @@ import { Dialog as SheetPrimitive } from 'radix-ui';
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useKeyboardCloseFix } from '@/hooks/use-keyboard-close-fix';
 import { cn } from '@/lib/utils';
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -50,15 +51,37 @@ function SheetContent({
   children,
   side = 'right',
   showCloseButton = true,
+  ref: forwardedRef,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: 'top' | 'right' | 'bottom' | 'left';
   showCloseButton?: boolean;
 }) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
+
+  // بعد از بستن کیبورد موبایل، اگر مرورگر اسکرول صفحه را جا گذاشته باشد
+  // برمی‌گرداند تا شیت «بالا گیر» نکند.
+  useKeyboardCloseFix(contentRef);
+
+  const setRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      contentRef.current = node;
+
+      if (typeof forwardedRef === 'function') {
+        forwardedRef(node);
+      } else if (forwardedRef) {
+        (forwardedRef as React.RefObject<HTMLDivElement | null>).current =
+          node;
+      }
+    },
+    [forwardedRef],
+  );
+
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
+        ref={setRef}
         data-slot="sheet-content"
         data-side={side}
         className={cn(
