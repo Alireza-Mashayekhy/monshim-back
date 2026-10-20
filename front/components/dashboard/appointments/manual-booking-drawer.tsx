@@ -171,6 +171,12 @@ export function ManualBookingDrawer({
   fixedCustomer = null,
 }: ManualBookingDrawerProps) {
   const [customerSearch, setCustomerSearch] = useState('');
+  // مشتریِ انتخاب‌شده به‌صورت آبجکت نگه داشته می‌شود؛ مشتق‌کردن آن از
+  // نتایجِ لحظه‌ای جستجو باعث می‌شد با پاک‌شدن جستجو (و خالی‌شدن لیست)
+  // انتخاب «بپرد» و کارت مشتری ناپدید شود.
+  const [pickedCustomer, setPickedCustomer] = useState<ClubCustomer | null>(
+    fixedCustomer,
+  );
   const debouncedSearch = useDebounce(customerSearch, 400);
 
   const methods = useForm<FormValues, any, FormOutput>({
@@ -187,7 +193,6 @@ export function ManualBookingDrawer({
   } = methods;
 
   const customerMode = useWatch({ control, name: 'customerMode' });
-  const existingCustomerId = useWatch({ control, name: 'existingCustomerId' });
   const serviceId = useWatch({ control, name: 'serviceId' });
   const jalaliDate = useWatch({ control, name: 'date' });
   const time = useWatch({ control, name: 'time' });
@@ -258,13 +263,7 @@ export function ManualBookingDrawer({
     [customersData],
   );
 
-  const selectedCustomer = useMemo(
-    () =>
-      fixedCustomer ??
-      customerResults.find(c => c.id === existingCustomerId) ??
-      null,
-    [customerResults, existingCustomerId, fixedCustomer],
-  );
+  const selectedCustomer = fixedCustomer ?? pickedCustomer;
 
   // تاریخ‌های سریع امروز / فردا
   const quickDates = useMemo(() => {
@@ -299,6 +298,7 @@ export function ManualBookingDrawer({
   }, [serviceId, isoDate, setValue]);
 
   const handleSelectCustomer = (customer: ClubCustomer) => {
+    setPickedCustomer(customer);
     setValue('existingCustomerId', customer.id, { shouldValidate: true });
     setCustomerSearch('');
   };
@@ -307,6 +307,7 @@ export function ManualBookingDrawer({
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       reset(DEFAULT_VALUES);
+      setPickedCustomer(null);
       setCustomerSearch('');
     }
 
@@ -353,6 +354,11 @@ export function ManualBookingDrawer({
         reminderHours:
           reminder && values.reminderHours ? values.reminderHours : undefined,
       });
+
+      // مسیر موفق ثبت، از handleOpenChange رد نمی‌شود؛ پس انتخاب را اینجا هم پاک می‌کنیم
+      // تا دفعه‌ی بعد که شیت باز می‌شود مشتریِ انتخاب‌شده‌ی قبلی باقی نماند.
+      setPickedCustomer(null);
+      setCustomerSearch('');
 
       onOpenChange(false);
     } catch {
@@ -493,7 +499,10 @@ export function ManualBookingDrawer({
 
                         <button
                           type="button"
-                          onClick={() => setValue('existingCustomerId', '')}
+                          onClick={() => {
+                            setPickedCustomer(null);
+                            setValue('existingCustomerId', '');
+                          }}
                           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
                           aria-label="حذف انتخاب"
                         >
