@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -28,8 +29,18 @@ import {
 import { UserSubscriptionService } from 'src/subscription/user-subscription.service';
 import { User } from 'src/users/entities/user.entity';
 import { WalletService } from 'src/wallet/wallet.service';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  LessThanOrEqual,
+  Repository,
+} from 'typeorm';
 
+import {
+  CancellationAmounts,
+  computeCancellationAmounts,
+} from './booking-refund';
 import {
   bookingWallTimeToUtc,
   getBookingClock,
@@ -39,13 +50,19 @@ import {
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
-import { Booking, BookingStatus } from './entities/booking.entity';
+import {
+  Booking,
+  BookingStatus,
+  SLOT_HOLDING_STATUSES,
+} from './entities/booking.entity';
 
 const CONFIRMATION_SMS_COST = 2;
 const REMINDER_SMS_COST = 2;
 
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name);
+
   constructor(
     @InjectRepository(Booking)
     private bookingRepo: Repository<Booking>,
@@ -194,7 +211,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date: dto.date,
-        status: BookingStatus.CONFIRMED,
+        status: In(SLOT_HOLDING_STATUSES),
       },
       relations: {
         service: true,
@@ -585,11 +602,11 @@ export class BookingsService {
         }
 
         for (const payment of paidPayments) {
-          const refundAmount = this.getCancellationRefundAmount(
+          const { barberDebit, customerRefund } = this.getCancellationAmounts(
             payment,
             lockedBookings,
           );
-          if (refundAmount > 0) {
+          if (barberDebit > 0) {
             await this.walletService.debitBarberAndQueueRefund(
               queryRunner.manager,
               {
@@ -597,7 +614,8 @@ export class BookingsService {
                 customerUserId: booking.customerId,
                 bookingId: id,
                 paymentId: payment.id,
-                amount: refundAmount,
+                amount: barberDebit,
+                customerRefundAmount: customerRefund,
               },
             );
           }
@@ -764,42 +782,14 @@ export class BookingsService {
     return [...new Set(ids)];
   }
 
-  private getCancellationRefundAmount(
+  /**
+   * محاسبهٔ مبلغ لغو (جزئیات و تست‌ها در `booking-refund.ts`).
+   */
+  private getCancellationAmounts(
     payment: Payment,
     linkedBookings: Booking[],
-  ) {
-    const paidAmount = Number(payment.amount);
-    if (!Number.isFinite(paidAmount) || paidAmount <= 0) return 0;
-
-    const metadata = this.parsePaymentMetadata(payment);
-    const isDepositLink =
-      metadata?.depositLink === true ||
-      String(metadata?.depositLink).toLowerCase() === 'true';
-    if (isDepositLink) return paidAmount;
-
-    const customerCanceledBookings = linkedBookings.filter(
-      booking => booking.canceledBy === 'customer',
-    );
-    if (!customerCanceledBookings.length) return paidAmount;
-
-    const metadataTotal = Number(metadata?.totalPrice);
-    const totalServiceAmount =
-      Number.isFinite(metadataTotal) && metadataTotal >= 0
-        ? metadataTotal
-        : linkedBookings.reduce(
-            (total, booking) => total + Number(booking.price || 0),
-            0,
-          );
-    const customerCanceledAmount = customerCanceledBookings.reduce(
-      (total, booking) => total + Number(booking.price || 0),
-      0,
-    );
-
-    // Keep the customer-canceled service and the one-time site commission;
-    // only refund services that the barber is canceling.
-    return Number(
-      Math.max(0, totalServiceAmount - customerCanceledAmount).toFixed(2),
-    );
+  ): CancellationAmounts {
+    return computeCancellationAmounts(payment, linkedBookings);
   }
 
   private metadataString(value: unknown) {
@@ -816,6 +806,64 @@ export class BookingsService {
 
   private normalizeBookingDate(value: unknown) {
     return this.metadataString(value).slice(0, 10);
+  }
+
+  /**
+   * آیا زمان شروع نوبت رسیده است؟ (۱۵ دقیقه ارفاق برای ثبت زودترِ پایان نوبت)
+   * تاریخ و ساعت نوبت به وقت سالن (تهران) ذخیره می‌شوند.
+   */
+  private hasBookingStarted(date: string, time: string): boolean {
+    const clock = getBookingClock();
+    if (date < clock.date) return true;
+    if (date > clock.date) return false;
+
+    const [hours, minutes] = time.split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return true;
+
+    return hours * 60 + minutes <= clock.minutesSinceMidnight + 15;
+  }
+
+  /**
+   * بررسی تداخل یک نوبت با نوبت‌های قطعی/انجام‌شدهٔ همان روز و همان آرایشگر.
+   * برای «تایید» یک درخواست در انتظار استفاده می‌شود.
+   */
+  private async assertNoSlotConflict(booking: Booking): Promise<void> {
+    const sameDay = await this.bookingRepo.find({
+      where: {
+        barberId: booking.barberId,
+        date: booking.date,
+        status: In(SLOT_HOLDING_STATUSES),
+      },
+      relations: { service: true },
+    });
+
+    const toMinutes = (value: string) => {
+      const [hours, minutes] = value.split(':').map(Number);
+
+      return hours * 60 + minutes;
+    };
+
+    const start = toMinutes(booking.time);
+    const duration =
+      (await this.serviceRepo.findOne({ where: { id: booking.serviceId } }))
+        ?.durationMinutes ?? 30;
+    const end = start + duration;
+
+    const hasConflict = sameDay.some(existing => {
+      if (existing.id === booking.id) return false;
+
+      const existingStart = toMinutes(existing.time);
+      const existingEnd =
+        existingStart + (existing.service?.durationMinutes ?? 30);
+
+      return start < existingEnd && end > existingStart;
+    });
+
+    if (hasConflict) {
+      throw new BadRequestException(
+        'این ساعت با نوبت دیگری تداخل دارد و قابل تایید نیست',
+      );
+    }
   }
 
   async updateStatus(
@@ -897,6 +945,25 @@ export class BookingsService {
     // ==========================================
     else if (currentStatus === BookingStatus.CANCELED) {
       throw new BadRequestException('رزرو لغو شده قابل تغییر نیست');
+    }
+
+    // «انجام شد» فقط بعد از شروع نوبت منطقی است؛ جلوگیری از تکمیل زودهنگام
+    // که حق ثبت نظر و شمارندهٔ رفرال را بی‌دلیل جلو می‌برد.
+    if (
+      newStatus === BookingStatus.COMPLETED &&
+      !this.hasBookingStarted(booking.date, booking.time)
+    ) {
+      throw new BadRequestException(
+        'نوبتی که هنوز شروع نشده را نمی‌توان «انجام شد» کرد',
+      );
+    }
+
+    // تایید یک نوبت در انتظار هم باید تداخل را دوباره بررسی کند.
+    if (
+      newStatus === BookingStatus.CONFIRMED &&
+      currentStatus === BookingStatus.PENDING
+    ) {
+      await this.assertNoSlotConflict(booking);
     }
 
     const previousStatus = booking.status;
@@ -1039,7 +1106,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date: dto.date,
-        status: BookingStatus.CONFIRMED,
+        status: In(SLOT_HOLDING_STATUSES),
       },
       relations: { service: true },
     });
@@ -1405,11 +1472,16 @@ export class BookingsService {
       (Number.isFinite(graceHours) && graceHours >= 0 ? graceHours : 2) *
       3600_000;
 
+    // فقط امروز و قبل‌ترها؛ نوبت‌های آینده هیچ‌وقت بخشی از این اسکن نیستند.
+    const today = getBookingClock().date;
     const candidates = await this.bookingRepo.find({
-      where: { status: BookingStatus.CONFIRMED },
+      where: {
+        status: BookingStatus.CONFIRMED,
+        date: LessThanOrEqual(today),
+      },
       relations: { service: true },
       order: { date: 'ASC', time: 'ASC' },
-      take: 200,
+      take: 500,
     });
 
     const now = Date.now();
@@ -1440,8 +1512,11 @@ export class BookingsService {
         });
 
         completedCount += 1;
-      } catch {
+      } catch (error) {
         // یک خطا نباید تکمیل بقیهٔ نوبت‌ها را متوقف کند
+        this.logger.warn(
+          `تکمیل خودکار نوبت ${booking.id} ناموفق بود: ${String(error)}`,
+        );
       }
     }
 
@@ -1561,7 +1636,11 @@ export class BookingsService {
     let services: Service[] = [];
     if (serviceIds.length > 0) {
       services = await this.serviceRepo.find({
-        where: serviceIds.map(id => ({ id, isActive: true })),
+        where: serviceIds.map(id => ({
+          id,
+          isActive: true,
+          barberId: barber.userId,
+        })),
       });
       if (services.length !== serviceIds.length) {
         throw new NotFoundException('یک یا چند سرویس معتبر نیستند');
@@ -1597,7 +1676,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date,
-        status: BookingStatus.CONFIRMED,
+        status: In(SLOT_HOLDING_STATUSES),
       },
       relations: {
         service: true,

@@ -105,7 +105,23 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
     booking.service?.price != null
       ? Math.round(Number(booking.service.price) * 0.1)
       : 0;
-  const cancelable = canCancelBooking(booking.status);
+  /**
+   * لغو نوبتی که زمانش گذشته در سرور هم رد می‌شود؛ دکمه را نشان نمی‌دهیم
+   * تا کاربر با خطا مواجه نشود.
+   */
+  const isPastSlot = (() => {
+    const diff = dayDiffFromToday(booking.date);
+    if (Number.isNaN(diff)) return false;
+    if (diff < 0) return true;
+    if (diff > 0) return false;
+
+    const [hours, minutes] = booking.time.split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return false;
+
+    const now = new Date();
+    return hours * 60 + minutes < now.getHours() * 60 + now.getMinutes();
+  })();
+  const cancelable = canCancelBooking(booking.status) && !isPastSlot;
   const salonId = booking.barber?.userId ?? booking.barber?.id;
   const reviewBarberId = booking.barber?.userId ?? booking.barber?.id;
   const imageUrl = getFullImageUrl(booking.barber?.profileImage);
@@ -208,7 +224,9 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
 
           {commission > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-400">کمیسیون سایت</span>
+              <span className="text-[11px] text-gray-400">
+                کمیسیون سایت (تخمینی)
+              </span>
               <span className="text-[11px] font-bold text-primary-600">
                 {formatPrice(commission)} تومان
               </span>

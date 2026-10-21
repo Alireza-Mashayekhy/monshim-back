@@ -2,6 +2,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,6 +26,8 @@ import {
 
 @Injectable()
 export class WalletService {
+  private readonly logger = new Logger(WalletService.name);
+
   constructor(
     @InjectRepository(Wallet)
     private walletRepo: Repository<Wallet>,
@@ -66,7 +69,9 @@ export class WalletService {
 
   async getBalance(userId: number): Promise<{ balance: number }> {
     const wallet = await this.getOrCreateWallet(userId);
-    return { balance: wallet.balance };
+    // ستون decimal درایور MySQL رشته برمی‌گرداند؛ عدد برگردانده می‌شود
+    // تا مقایسه‌ها و نمایش منفی/مثبت در کلاینت درست باشد.
+    return { balance: Number(wallet.balance) };
   }
 
   async getTransactions(userId: number, query: TransactionQueryDto) {
@@ -211,7 +216,14 @@ export class WalletService {
       customerUserId: number;
       bookingId: string;
       paymentId: string;
+      /** مبلغی که از کیف پول آرایشگر کسر می‌شود (همان درآمدی که گرفته بود) */
       amount: number;
+      /**
+       * مبلغی که باید به مشتری برگردد. اگر داده نشود برابر `amount` است.
+       * تفاوت این دو، سهم کمیسیون سایتی است که هرگز وارد کیف پول آرایشگر
+       * نشده و باید از طرف سامانه بازپرداخت شود.
+       */
+      customerRefundAmount?: number;
     },
   ): Promise<void> {
     const amount = Number(params.amount.toFixed(2));
@@ -236,10 +248,23 @@ export class WalletService {
       where: { userId: params.barberUserId },
       lock: { mode: 'pessimistic_write' },
     });
-    const currentBalance = Number(barberWallet?.balance ?? 0);
-    if (!barberWallet || currentBalance < amount) {
-      throw new BadRequestException(
-        'موجودی کیف پول آرایشگر برای بازپرداخت کامل به مشتری کافی نیست؛ لغو انجام نشد.',
+    if (!barberWallet) {
+      throw new NotFoundException('کیف پول آرایشگر یافت نشد');
+    }
+
+    /**
+     * لغو نوبت هرگز نباید به موجودی کیف پول گره بخورد.
+     *
+     * پیش از این اگر آرایشگر درآمدش را تسویه کرده بود، دکمهٔ لغو کار
+     * نمی‌کرد و نوبت برای همیشه در وضعیت «تاییدشده» قفل می‌ماند — نه لغو
+     * می‌شد، نه مسیر «انجام شد» برایش منطقی بود. اکنون در صورت کمبود
+     * موجودی، کیف پول منفی می‌شود (بدهی آرایشگر) و همین بدهی در برداشت‌های
+     * بعدی تسویه می‌گردد.
+     */
+    const currentBalance = Number(barberWallet.balance ?? 0);
+    if (currentBalance < amount) {
+      this.logger.warn(
+        `کیف پول آرایشگر ${params.barberUserId} برای بازپرداخت ${amount} کافی نبود (موجودی: ${currentBalance})؛ بدهی ثبت شد.`,
       );
     }
 
@@ -256,7 +281,11 @@ export class WalletService {
       }),
     );
 
-    await this.createPendingCustomerRefund(manager, customerWallet, params);
+    await this.createPendingCustomerRefund(manager, customerWallet, {
+      bookingId: params.bookingId,
+      paymentId: params.paymentId,
+      amount: params.customerRefundAmount ?? amount,
+    });
   }
 
   async queueCustomerRefund(params: {
@@ -350,12 +379,8 @@ export class WalletService {
   // ==================== برداشت ====================
 
   async requestWithdraw(userId: number, dto: WithdrawRequestDto) {
-    const wallet = await this.getOrCreateWallet(userId);
-
-    // بررسی موجودی
-    if (wallet.balance < dto.amount) {
-      throw new BadRequestException('موجودی کافی نیست');
-    }
+    // کیف پول باید وجود داشته باشد؛ ساخت آن خارج از تراکنش انجام می‌شود
+    await this.getOrCreateWallet(userId);
 
     // بررسی کارت
     const card = await this.bankCardRepo.findOne({
@@ -365,19 +390,43 @@ export class WalletService {
       throw new NotFoundException('کارت بانکی یافت نشد');
     }
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    return this.dataSource.transaction(async manager => {
+      /**
+       * قفل ردیف کیف پول و بررسی موجودی *داخل* تراکنش.
+       *
+       * پیش از این موجودی بیرون از تراکنش خوانده و بررسی می‌شد و بعد
+       * `save` انجام می‌شد؛ دو درخواست هم‌زمان می‌توانستند هر دو از یک
+       * موجودی عبور کنند و کیف پول بیش از اندازه برداشت شود.
+       */
+      const wallet = await manager
+        .getRepository(Wallet)
+        .createQueryBuilder('wallet')
+        .where('wallet.userId = :userId', { userId })
+        .setLock('pessimistic_write')
+        .getOne();
 
-    try {
-      // کاهش موجودی
-      wallet.balance = Number(wallet.balance) - dto.amount;
-      await queryRunner.manager.save(wallet);
+      if (!wallet) {
+        throw new NotFoundException('کیف پول یافت نشد');
+      }
 
-      // ثبت تراکنش با وضعیت PENDING (منتظر تأیید ادمین)
-      const transaction = queryRunner.manager.create(Transaction, {
+      const balance = Number(wallet.balance);
+      const amount = Number(dto.amount);
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new BadRequestException('مبلغ برداشت معتبر نیست');
+      }
+
+      if (balance < amount) {
+        throw new BadRequestException('موجودی کافی نیست');
+      }
+
+      wallet.balance = balance - amount;
+      await manager.save(wallet);
+
+      // ثبت تراکنش با وضعیت PENDING (منتظر تایید ادمین)
+      const transaction = manager.create(Transaction, {
         walletId: wallet.id,
-        amount: dto.amount,
+        amount,
         type: TransactionType.WITHDRAWAL,
         status: TransactionStatus.PENDING,
         description:
@@ -385,20 +434,13 @@ export class WalletService {
           `برداشت به کارت ${card.bankName} - ${card.cardNumber.slice(-4)}`,
         referenceId: card.id,
       });
-      await queryRunner.manager.save(transaction);
-
-      await queryRunner.commitTransaction();
+      await manager.save(transaction);
 
       return {
         message: 'درخواست برداشت با موفقیت ثبت شد و در انتظار تأیید است',
         transaction,
       };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    });
   }
 
   /**
