@@ -117,18 +117,24 @@ describe('ReminderService', () => {
     await service.processReminders();
 
     const findArg = bookingRepo.find.mock.calls[0][0] as {
-      where: Record<string, unknown>;
+      where: Array<Record<string, unknown>>;
     };
 
-    expect(findArg.where.sendSmsReminder).toBe(true);
-    expect(findArg.where.status).toBe(BookingStatus.CONFIRMED);
+    // دو شرط: نوبت بدون لینک بیعانه، و نوبتِ بیعانه‌ای که بیعانه‌اش پرداخت شده
+    expect(findArg.where).toHaveLength(2);
+
+    const [direct, deposit] = findArg.where;
+
+    expect(direct.sendDepositLink).toBe(false);
+    expect(direct.sendSmsReminder).toBe(true);
+    expect(direct.status).toBe(BookingStatus.CONFIRMED);
     // reminderSentAt IS NULL و reminderHours > 0 باید در SQL فیلتر شوند
-    expect((findArg.where.reminderSentAt as { _type?: string })._type).toBe(
-      'isNull',
-    );
-    expect((findArg.where.reminderHours as { _type?: string })._type).toBe(
-      'moreThan',
-    );
+    expect((direct.reminderSentAt as { _type?: string })._type).toBe('isNull');
+    expect((direct.reminderHours as { _type?: string })._type).toBe('moreThan');
+
+    // یادآوری نوبت بیعانه‌ای فقط وقتی می‌رود که بیعانه پرداخت شده باشد
+    expect(deposit.sendDepositLink).toBe(true);
+    expect(deposit.depositPaidAt).toBeDefined();
   });
 
   it('skips bookings whose reminderHours is missing', async () => {

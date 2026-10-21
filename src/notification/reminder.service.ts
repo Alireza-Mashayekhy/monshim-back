@@ -4,7 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { bookingWallTimeToUtc } from 'src/booking/booking-time';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
-import { IsNull, LessThan, MoreThan, Repository } from 'typeorm';
+import { IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
 
 import { BookingSmsService } from './booking-sms.service';
 
@@ -29,13 +29,29 @@ export class ReminderService {
   async processReminders() {
     const now = new Date();
 
+    /**
+     * یادآوری فقط برای نوبتی می‌رود که «بیعانه‌اش پرداخت شده» باشد.
+     *
+     * نوبتی که با لینک بیعانه ثبت شده تا وقتی مشتری بیعانه را نداده، عملاً
+     * قطعی نیست؛ فرستادن یادآوری برای آن هم مشتری را گمراه می‌کند و هم
+     * اعتبار پیامک آرایشگر را هدر می‌دهد.
+     */
+    const paidReminderFilter = {
+      sendSmsReminder: true,
+      reminderSentAt: IsNull(),
+      reminderHours: MoreThan(0),
+      status: BookingStatus.CONFIRMED,
+    };
+
     const bookings = await this.bookingRepo.find({
-      where: {
-        sendSmsReminder: true,
-        reminderSentAt: IsNull(),
-        reminderHours: MoreThan(0),
-        status: BookingStatus.CONFIRMED,
-      },
+      where: [
+        { ...paidReminderFilter, sendDepositLink: false },
+        {
+          ...paidReminderFilter,
+          sendDepositLink: true,
+          depositPaidAt: Not(IsNull()),
+        },
+      ],
       order: {
         date: 'ASC',
         time: 'ASC',
@@ -122,12 +138,18 @@ export class ReminderService {
    * (عمومی) نوبت‌های دارای یادآوریِ ارسال‌نشده — برای استفاده‌های بعدی
    */
   async countPendingReminders() {
+    const base = {
+      sendSmsReminder: true,
+      reminderSentAt: IsNull(),
+      reminderHours: LessThan(100000),
+    };
+
+    // همان قاعدهٔ ارسال: بیعانه‌پرداخت‌نشده در شمارش هم حساب نمی‌شود.
     return this.bookingRepo.count({
-      where: {
-        sendSmsReminder: true,
-        reminderSentAt: IsNull(),
-        reminderHours: LessThan(100000),
-      },
+      where: [
+        { ...base, sendDepositLink: false },
+        { ...base, sendDepositLink: true, depositPaidAt: Not(IsNull()) },
+      ],
     });
   }
 }

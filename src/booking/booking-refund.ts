@@ -57,9 +57,31 @@ export function computeCancellationAmounts(
     metadata?.depositLink === true ||
     String(metadata?.depositLink).toLowerCase() === 'true';
 
-  // لینک بیعانه: همان مبلغ بیعانه به کیف پول آرایشگر رفته و همان برمی‌گردد.
+  /**
+   * لینک بیعانه: پرداخت شامل «بیعانه + ۱۰٪ کمیسیون» است، اما فقط بیعانه به
+   * کیف پول آرایشگر رفته است. پس:
+   *   barberDebit    = مبلغ بیعانه
+   *   customerRefund = بیعانه + کمیسیون (کل مبلغ پرداختی مشتری)
+   * برای پرداخت‌های قدیمی که `depositAmount` ندارند، رفتار قبلی حفظ می‌شود.
+   */
   if (isDepositLink) {
-    return { barberDebit: paidAmount, customerRefund: paidAmount };
+    const depositAmount = Number(metadata?.depositAmount);
+    const commissionAmount = Number(metadata?.commissionAmount);
+
+    const barberDebit =
+      Number.isFinite(depositAmount) && depositAmount > 0
+        ? Math.min(paidAmount, depositAmount)
+        : paidAmount;
+
+    const commissionShare =
+      Number.isFinite(commissionAmount) && commissionAmount > 0
+        ? Math.min(commissionAmount, Math.max(0, paidAmount - barberDebit))
+        : 0;
+
+    return {
+      barberDebit: Number(barberDebit.toFixed(2)),
+      customerRefund: Number((barberDebit + commissionShare).toFixed(2)),
+    };
   }
 
   const metadataTotal = Number(metadata?.totalPrice);

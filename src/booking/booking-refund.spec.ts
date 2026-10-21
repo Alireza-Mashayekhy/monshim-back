@@ -60,7 +60,27 @@ describe('computeCancellationAmounts', () => {
     expect(result.customerRefund).toBe(157_500);
   });
 
-  it('برای لینک بیعانه، همان مبلغ بیعانه کسر و برگردانده می‌شود', () => {
+  it('لینک بیعانه: فقط بیعانه از آرایشگر کسر و بیعانه + کمیسیون به مشتری برمی‌گردد', () => {
+    // بیعانه ۳۰٬۰۰۰ + کمیسیون ۱۰٬۰۰۰ = ۴۰٬۰۰۰ پرداخت‌شده
+    const payment = makePayment(40_000, {
+      depositLink: true,
+      bookingId: 'booking-1',
+      depositAmount: 30_000,
+      commissionAmount: 10_000,
+      totalPrice: 100_000,
+    });
+
+    const result = service.getCancellationAmounts(payment, [
+      makeBooking(100_000),
+    ]);
+
+    // تنها مبلغی که به کیف پول آرایشگر رفته، بیعانه است
+    expect(result.barberDebit).toBe(30_000);
+    // مشتری هر چه داده (بیعانه + کمیسیون) را پس می‌گیرد
+    expect(result.customerRefund).toBe(40_000);
+  });
+
+  it('لینک بیعانهٔ قدیمی (بدون تفکیک کمیسیون): کل مبلغ پرداختی برمی‌گردد', () => {
     const payment = makePayment(30_000, {
       depositLink: true,
       bookingId: 'booking-1',

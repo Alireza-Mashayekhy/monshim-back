@@ -15,6 +15,7 @@ import { WalletModule } from 'src/wallet/wallet.module';
 import { BookingsController } from './booking.controller';
 import { BookingsService } from './booking.service';
 import { Booking } from './entities/booking.entity';
+import { SlotHold } from './entities/slot-hold.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { Booking } from './entities/booking.entity';
       BarberWorkHours,
       UserSubscription,
       Payment,
+      SlotHold,
     ]),
     WalletModule,
     ReferralModule,

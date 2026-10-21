@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
@@ -16,6 +17,8 @@ import {
   BookingStatus,
   SLOT_HOLDING_STATUSES,
 } from 'src/booking/entities/booking.entity';
+import { SlotHold } from 'src/booking/entities/slot-hold.entity';
+import { hasOverlap, timeToMinutes } from 'src/booking/slot-intervals';
 import {
   DEFAULT_APP_ORIGIN,
   DEFAULT_FRONT_ORIGIN,
@@ -33,8 +36,21 @@ import {
 } from 'src/subscription/entities/user-subscription.entity';
 import { User } from 'src/users/entities/user.entity';
 import { WalletService } from 'src/wallet/wallet.service';
-import { DataSource, In, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  IsNull,
+  LessThan,
+  MoreThan,
+  Repository,
+} from 'typeorm';
 
+import {
+  COMMISSION_RATE,
+  computeDepositAmounts,
+  DepositAmounts,
+} from './deposit-amount';
 import { ChargeWalletDto } from './dto/charge-wallet.dto';
 import { InitiateBookingPaymentDto } from './dto/initiate-booking-payment.dto';
 import { InitiateSubscriptionPaymentDto } from './dto/initiate-subscription-payment.dto';
@@ -44,7 +60,8 @@ import {
   PaymentStatus,
 } from './entities/payment.entity';
 
-const COMMISSION_RATE = 0.1;
+/** مدت نگه‌داشتن موقت ساعت هنگام رفتن به درگاه (دقیقه) */
+const DEFAULT_SLOT_HOLD_MINUTES = 30;
 
 @Injectable()
 export class PaymentService {
@@ -74,6 +91,9 @@ export class PaymentService {
 
     @InjectRepository(Booking)
     private readonly bookingRepo: Repository<Booking>,
+
+    @InjectRepository(SlotHold)
+    private readonly slotHoldRepo: Repository<SlotHold>,
 
     @InjectRepository(SiteSettings)
     private readonly settingsRepo: Repository<SiteSettings>,
@@ -259,6 +279,8 @@ export class PaymentService {
     cardNumber?: string;
     paidAt?: Date;
     message: string;
+    /** خطای موقت (شبکه/درگاه): وضعیت پرداخت نامشخص است، نه ناموفق */
+    transient?: boolean;
   }> {
     const merchant = this.getMerchant();
 
@@ -293,14 +315,33 @@ export class PaymentService {
       };
     } catch (error: any) {
       this.logger.warn(`Zibal gateway verify error: ${error.message}`);
-      // حالت شبیه‌ساز تست
+
+      /**
+       * پیش از این هر خطای شبکه‌ای در «تأیید» تراکنش، پرداخت را موفق اعلام
+       * می‌کرد — بدون این‌که زیبال چیزی تأیید کرده باشد. یعنی با یک قطعی
+       * لحظه‌ای، رزرو بدون پول «پرداخت‌شده» ثبت می‌شد.
+       *
+       * اکنون شبیه‌سازی فقط در حالت تست (همان شرط درخواست درگاه) فعال است؛
+       * در غیر این صورت نتیجه «نامشخص» برمی‌گردد تا پرداخت PENDING بماند و
+       * کرونِ تطبیق بعداً آن را بررسی کند.
+       */
+      if (this.isMockGatewayEnabled()) {
+        return {
+          success: true,
+          result: 100,
+          refNumber: String(Math.floor(100000000 + Math.random() * 900000000)),
+          cardNumber: '603799******1234',
+          paidAt: new Date(),
+          message: 'تراکنش با موفقیت تأیید شد (حالت تستی)',
+        };
+      }
+
       return {
-        success: true,
-        result: 100,
-        refNumber: String(Math.floor(100000000 + Math.random() * 900000000)),
-        cardNumber: '603799******1234',
-        paidAt: new Date(),
-        message: 'تراکنش با موفقیت تأیید شد (حالت تستی)',
+        success: false,
+        result: -1,
+        transient: true,
+        message:
+          'ارتباط با درگاه پرداخت برقرار نشد؛ وضعیت این پرداخت هنوز مشخص نیست',
       };
     }
   }
@@ -537,14 +578,18 @@ export class PaymentService {
       relations: { service: true },
     });
 
+    // نگه‌داشتن‌های موقتِ رزروهای در جریان هم ساعت را اشغال کرده‌اند.
+    const activeHolds = await this.getActiveHoldIntervals(barber.id, dto.date);
+
     const blockEnd = firstStart + totalDuration;
 
-    const hasConflict = existingConfirmed.some(booking => {
-      const s = toMinutes(booking.time);
-      const dur = booking.service?.durationMinutes ?? 30;
-      const e = s + dur;
-      return firstStart < e && blockEnd > s;
-    });
+    const hasConflict =
+      existingConfirmed.some(booking => {
+        const s = toMinutes(booking.time);
+        const dur = booking.service?.durationMinutes ?? 30;
+        const e = s + dur;
+        return firstStart < e && blockEnd > s;
+      }) || hasOverlap({ start: firstStart, end: blockEnd }, activeHolds);
 
     if (hasConflict) {
       throw new BadRequestException('این زمان با رزروهای قطعی تداخل دارد');
@@ -583,28 +628,119 @@ export class PaymentService {
       };
     });
 
-    const payment = this.paymentRepo.create({
-      userId: customerId,
-      amount: amountToPay,
-      trackId,
-      orderId,
-      purpose: PaymentPurpose.BOOKING,
-      purposeId: null,
-      metadata: JSON.stringify({
-        customerId,
-        barberUserId: barber.userId,
-        barberProfileId: barber.id,
-        date: dto.date,
-        note: dto.note ?? '',
-        items: bookingItems,
-        totalPrice,
-        commissionAmount,
-      }),
-      status: PaymentStatus.PENDING,
-      description: `رزرو ${services.length} سرویس + کمیسیون سایت`,
-    });
+    const holdMinutesRaw = Number(process.env.SLOT_HOLD_MINUTES ?? 30);
+    const holdMinutes =
+      Number.isFinite(holdMinutesRaw) && holdMinutesRaw >= 5
+        ? holdMinutesRaw
+        : DEFAULT_SLOT_HOLD_MINUTES;
+    const holdExpiresAt = new Date(Date.now() + holdMinutes * 60_000);
 
-    await this.paymentRepo.save(payment);
+    /**
+     * ساخت رزرو در یک تراکنش انجام می‌شود تا بررسی تداخل و ثبت
+     * «نگه‌داشتن ساعت» اتمیک باشد. قفل روی ردیف آرایشگر، دو درخواست
+     * هم‌زمان را پشت سر هم اجرا می‌کند؛ بدون آن، هر دو می‌توانستند
+     * ساعت آزاد را ببینند و هر دو پول بدهند.
+     */
+    await this.dataSource.transaction(async manager => {
+      await manager
+        .getRepository(BarberProfile)
+        .createQueryBuilder('barber')
+        .setLock('pessimistic_write')
+        .where('barber.id = :id', { id: barber.id })
+        .getOne();
+
+      // نگه‌داشتن‌های منقضی این روز پاک می‌شوند تا مانع اشتباه نسازند.
+      await manager
+        .getRepository(SlotHold)
+        .createQueryBuilder()
+        .delete()
+        .where('barber_id = :barberId', { barberId: barber.id })
+        .andWhere('date = :date', { date: dto.date })
+        .andWhere('expires_at <= :now', { now: new Date() })
+        .execute();
+
+      const lockedBookings = await manager.getRepository(Booking).find({
+        where: {
+          barberId: barber.id,
+          date: dto.date,
+          status: In(SLOT_HOLDING_STATUSES),
+        },
+        relations: { service: true },
+      });
+
+      const lockedHolds = await manager.getRepository(SlotHold).find({
+        where: {
+          barberId: barber.id,
+          date: dto.date,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      const busy = [
+        ...lockedBookings.map(booking => {
+          const start = timeToMinutes(booking.time);
+          return {
+            start,
+            end: start + (booking.service?.durationMinutes ?? 30),
+          };
+        }),
+        ...lockedHolds.map(hold => ({
+          start: hold.startMinutes,
+          end: hold.endMinutes,
+        })),
+      ];
+
+      const conflict = bookingItems.some(item => {
+        const start = timeToMinutes(item.time);
+        return hasOverlap({ start, end: start + item.durationMinutes }, busy);
+      });
+
+      if (conflict) {
+        throw new BadRequestException(
+          'این ساعت همین حالا توسط شخص دیگری انتخاب شد؛ لطفاً ساعت دیگری انتخاب کنید',
+        );
+      }
+
+      const holdRepo = manager.getRepository(SlotHold);
+      await holdRepo.save(
+        bookingItems.map(item => {
+          const start = timeToMinutes(item.time);
+          return holdRepo.create({
+            barberId: barber.id,
+            date: dto.date,
+            startMinutes: start,
+            endMinutes: start + item.durationMinutes,
+            orderId,
+            expiresAt: holdExpiresAt,
+          });
+        }),
+      );
+
+      const paymentRepo = manager.getRepository(Payment);
+      const payment = paymentRepo.create({
+        userId: customerId,
+        amount: amountToPay,
+        trackId,
+        orderId,
+        purpose: PaymentPurpose.BOOKING,
+        purposeId: null,
+        metadata: JSON.stringify({
+          customerId,
+          barberUserId: barber.userId,
+          barberProfileId: barber.id,
+          date: dto.date,
+          note: dto.note ?? '',
+          items: bookingItems,
+          totalPrice,
+          commissionAmount,
+          holdOrderId: orderId,
+        }),
+        status: PaymentStatus.PENDING,
+        description: `رزرو ${services.length} سرویس + کمیسیون سایت`,
+      });
+
+      await paymentRepo.save(payment);
+    });
 
     return {
       trackId,
@@ -698,9 +834,9 @@ export class PaymentService {
       );
     }
 
-    const amount = await this.getBookingDepositAmount(booking);
+    const amounts = await this.getBookingDepositAmount(booking);
 
-    if (amount <= 0) {
+    if (amounts.amountToPay <= 0) {
       throw new BadRequestException('مبلغ بیعانه این نوبت مشخص نیست');
     }
 
@@ -713,7 +849,7 @@ export class PaymentService {
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
-      amountTomans: amount,
+      amountTomans: amounts.amountToPay,
       callbackUrl,
       description: `پرداخت بیعانه نوبت - ${salonName} - منشیم`,
       orderId,
@@ -722,7 +858,7 @@ export class PaymentService {
 
     const payment = this.paymentRepo.create({
       userId: booking.customerId,
-      amount,
+      amount: amounts.amountToPay,
       trackId,
       orderId,
       purpose: PaymentPurpose.BOOKING,
@@ -731,14 +867,26 @@ export class PaymentService {
         depositLink: true,
         bookingId: booking.id,
         barberUserId: barber?.userId,
+        // مبلغ بیعانه و کمیسیون جدا نگه داشته می‌شوند تا هم واریز به کیف پول
+        // آرایشگر و هم بازپرداختِ احتمالی دقیق باشد.
+        depositAmount: amounts.depositAmount,
+        commissionAmount: amounts.commissionAmount,
+        totalPrice: Number(booking.price),
       }),
       status: PaymentStatus.PENDING,
-      description: `پرداخت بیعانه نوبت ${service?.name ?? ''} - ${salonName}`,
+      description: `پرداخت بیعانه نوبت ${service?.name ?? ''} (شامل ۱۰٪ کمیسیون سایت) - ${salonName}`,
     });
 
     await this.paymentRepo.save(payment);
 
-    return { trackId, paymentUrl, orderId, amount };
+    return {
+      trackId,
+      paymentUrl,
+      orderId,
+      amount: amounts.amountToPay,
+      depositAmount: amounts.depositAmount,
+      commissionAmount: amounts.commissionAmount,
+    };
   }
 
   /**
@@ -767,15 +915,15 @@ export class PaymentService {
   }
 
   /**
-   * مبلغ بیعانه نوبت: قیمت بیعانه خدمت در صورت ثبت، وگرنه درصد بیعانه سایت
+   * مبلغ لینک بیعانه = بیعانه + ۱۰٪ کمیسیون سایت.
+   *
+   * بیعانه یا مبلغ ثابت خدمت است یا درصد تنظیمات سایت. کمیسیون همان قاعدهٔ
+   * رزرو آنلاین را دارد (۱۰٪ ارزش خدمت) تا مشتریِ لینک بیعانه کمتر از
+   * مشتریِ رزرو آنلاین پرداخت نکند.
    */
-  private async getBookingDepositAmount(booking: Booking): Promise<number> {
-    const depositPrice = Number(booking.service?.depositPrice ?? 0);
-
-    if (depositPrice > 0) {
-      return Math.round(depositPrice);
-    }
-
+  private async getBookingDepositAmount(
+    booking: Booking,
+  ): Promise<DepositAmounts> {
     let depositPercent = 30;
 
     try {
@@ -788,7 +936,11 @@ export class PaymentService {
       // تنظیمات موجود نیست — از مقدار پیش‌فرض ۳۰٪ استفاده می‌شود
     }
 
-    return Math.round((Number(booking.price) * depositPercent) / 100);
+    return computeDepositAmounts({
+      price: booking.price,
+      depositPrice: booking.service?.depositPrice,
+      depositPercent,
+    });
   }
 
   // =========================================================
@@ -838,6 +990,8 @@ export class PaymentService {
         { id: payment.id, status: PaymentStatus.PENDING },
         { status: PaymentStatus.CANCELED },
       );
+      // ساعت نگه‌داشته‌شده فوراً آزاد می‌شود؛ منتظر انقضای مهلت نمی‌مانیم.
+      await this.releaseSlotHolds(payment.orderId);
       const currentPayment = await this.paymentRepo.findOne({
         where: { id: payment.id },
       });
@@ -853,10 +1007,24 @@ export class PaymentService {
     );
 
     if (!verifyResult.success) {
+      /**
+       * خطای موقت (شبکه) به معنی «پرداخت ناموفق» نیست؛ اگر پرداخت را FAILED
+       * کنیم، پولی که شاید گرفته شده باشد گم می‌شود. پرداخت PENDING می‌ماند و
+       * کرون تطبیق دوباره بررسی می‌کند.
+       */
+      if (verifyResult.transient) {
+        return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
+          payment.trackId || ''
+        }&orderId=${payment.orderId}&message=${encodeURIComponent(
+          'ارتباط با درگاه پرداخت برقرار نشد؛ وضعیت این پرداخت هنوز مشخص نیست و به‌صورت خودکار بررسی می‌شود',
+        )}`;
+      }
+
       await this.paymentRepo.update(
         { id: payment.id, status: PaymentStatus.PENDING },
         { status: PaymentStatus.FAILED },
       );
+      await this.releaseSlotHolds(payment.orderId);
       const currentPayment = await this.paymentRepo.findOne({
         where: { id: payment.id },
       });
@@ -866,7 +1034,59 @@ export class PaymentService {
       return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
     }
 
-    // فقط یک کال‌بک می‌تواند پرداخت در انتظار را نهایی و عملیات رزرو را اجرا کند.
+    /**
+     * ثبت قطعی پرداخت و اجرای عملیات وابسته.
+     * فقط یک فراخوان می‌تواند وضعیت را از PENDING به PAID ببرد؛ بقیه فقط
+     * نتیجه را می‌خوانند (کال‌بک تکراری، کرون تطبیق).
+     */
+    const settle = await this.settleVerifiedPayment(payment, verifyResult);
+
+    if (settle.outcome === 'refunded') {
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
+        payment.trackId || ''
+      }&orderId=${payment.orderId}&message=${encodeURIComponent(
+        'این ساعت هم‌زمان توسط شخص دیگری رزرو شد. مبلغ پرداختی شما ثبت شد و در صف بازگشت به کیف پول قرار گرفت.',
+      )}`;
+    }
+
+    if (settle.outcome === 'retry') {
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
+        payment.trackId || ''
+      }&orderId=${payment.orderId}&message=${encodeURIComponent(
+        settle.message ||
+          'پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید',
+      )}`;
+    }
+
+    if (settle.outcome === 'closed') {
+      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
+        payment.trackId || ''
+      }&orderId=${payment.orderId}&message=${encodeURIComponent(
+        'این پرداخت لغو شده یا قبلاً ناموفق شده است',
+      )}`;
+    }
+
+    return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+  }
+
+  /**
+   * ثبت قطعی پرداخت (PENDING → PAID) و اجرای عملیات وابسته.
+   *
+   * فقط یک فراخوان می‌تواند این گذار را انجام دهد؛ کال‌بک تکراری، کال‌بک
+   * هم‌زمان و کرون تطبیق همه از همین مسیر رد می‌شوند تا رزرو/واریز دوباره
+   * ساخته نشود.
+   */
+  private async settleVerifiedPayment(
+    payment: Payment,
+    verifyResult: {
+      refNumber?: string;
+      cardNumber?: string;
+      paidAt?: Date;
+    },
+  ): Promise<{
+    outcome: 'paid' | 'refunded' | 'retry' | 'closed';
+    message?: string;
+  }> {
     const paidAt = verifyResult.paidAt || new Date();
     const updateResult = await this.paymentRepo.update(
       { id: payment.id, status: PaymentStatus.PENDING },
@@ -877,48 +1097,32 @@ export class PaymentService {
         paidAt,
       },
     );
+
     if (updateResult.affected === 0) {
       const currentPayment = await this.paymentRepo.findOne({
         where: { id: payment.id },
       });
-      if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
-      }
-      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('این پرداخت لغو شده یا قبلاً ناموفق شده است')}`;
+
+      return currentPayment?.status === PaymentStatus.PAID
+        ? { outcome: 'paid' }
+        : { outcome: 'closed' };
     }
+
     payment.status = PaymentStatus.PAID;
     payment.refNumber = verifyResult.refNumber || null;
     payment.cardNumber = verifyResult.cardNumber || null;
     payment.paidAt = paidAt;
 
-    // انجام عملیات وابسته به هدف پرداخت (اشتراک / نوبت / کیف پول)
     try {
-      if (
-        payment.purpose === PaymentPurpose.SUBSCRIPTION &&
-        payment.purposeId
-      ) {
-        await this.activateSubscriptionAfterPayment(
-          payment.userId,
-          payment.purposeId,
-        );
-      } else if (payment.purpose === PaymentPurpose.BOOKING) {
-        await this.completeBookingPayment(payment);
-      } else if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
-        await this.publicPageService.activateAfterPayment(payment);
-      } else if (payment.purpose === PaymentPurpose.WALLET) {
-        await this.walletService.deposit(
-          payment.userId,
-          payment.amount,
-          'شارژ آنلاین کیف پول از درگاه زیبال',
-          payment.refNumber || payment.id,
-        );
-      }
+      const fulfillment = await this.fulfillPayment(payment);
+
+      return { outcome: fulfillment.refunded ? 'refunded' : 'paid' };
     } catch (e: any) {
       this.logger.error(`Error fulfilling payment purpose: ${e.message}`);
+
       if (payment.purpose === PaymentPurpose.BOOKING) {
         try {
-          // Booking fulfillment is transactional and idempotent; make a failed
-          // fulfillment retryable instead of leaving a paid orphan payment.
+          // رزرو تراکنشی و idempotent است؛ پرداخت برای تلاش دوباره باز می‌شود.
           await this.paymentRepo.update(
             { id: payment.id, status: PaymentStatus.PAID },
             { status: PaymentStatus.PENDING, paidAt: null },
@@ -928,11 +1132,231 @@ export class PaymentService {
             `Could not reopen booking payment ${payment.id} for retry: ${retryError?.message ?? String(retryError)}`,
           );
         }
-        return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید')}`;
+
+        return {
+          outcome: 'retry',
+          message:
+            'پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید',
+        };
+      }
+
+      // برای بقیهٔ اهداف، پرداخت ثبت‌شده می‌ماند و خطا فقط لاگ می‌شود.
+      return { outcome: 'paid' };
+    }
+  }
+
+  /** اجرای عملیات وابسته به هدف پرداخت */
+  private async fulfillPayment(
+    payment: Payment,
+  ): Promise<{ refunded: boolean }> {
+    if (payment.purpose === PaymentPurpose.SUBSCRIPTION && payment.purposeId) {
+      await this.activateSubscriptionAfterPayment(
+        payment.userId,
+        payment.purposeId,
+      );
+
+      return { refunded: false };
+    }
+
+    if (payment.purpose === PaymentPurpose.BOOKING) {
+      return this.completeBookingPayment(payment);
+    }
+
+    if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
+      await this.publicPageService.activateAfterPayment(payment);
+
+      return { refunded: false };
+    }
+
+    if (payment.purpose === PaymentPurpose.WALLET) {
+      await this.walletService.deposit(
+        payment.userId,
+        payment.amount,
+        'شارژ آنلاین کیف پول از درگاه زیبال',
+        payment.refNumber || payment.id,
+      );
+    }
+
+    return { refunded: false };
+  }
+
+  /** آزاد کردن فوری ساعت‌هایی که این سفارش نگه داشته بود */
+  private async releaseSlotHolds(orderId: string): Promise<void> {
+    try {
+      await this.slotHoldRepo.delete({ orderId });
+    } catch (error: any) {
+      this.logger.warn(
+        `آزادسازی نگه‌داشتن ساعت سفارش ${orderId} ناموفق بود: ${error?.message ?? String(error)}`,
+      );
+    }
+  }
+
+  private async getActiveHoldIntervals(
+    barberId: string,
+    date: string,
+    manager?: EntityManager,
+  ) {
+    const repo = manager ? manager.getRepository(SlotHold) : this.slotHoldRepo;
+    const holds = await repo.find({
+      where: { barberId, date, expiresAt: MoreThan(new Date()) },
+    });
+
+    return holds.map(hold => ({
+      start: hold.startMinutes,
+      end: hold.endMinutes,
+    }));
+  }
+
+  /**
+   * تطبیق پرداخت‌های رزرو.
+   *
+   * دو حالت را جمع می‌کند:
+   *  ۱) پرداختی که در زیبال تأیید و PAID شده اما ثبت رزروش نیمه‌کاره مانده
+   *     (مثلاً ری‌استارت سرور بین ثبت پرداخت و ساخت رزرو).
+   *  ۲) پرداختی که مشتری پول داده ولی از درگاه برنگشته (کال‌بک نیامده).
+   *     برای این‌ها وضعیت مستقیماً از زیبال پرسیده می‌شود.
+   *
+   * با `PAYMENT_RECONCILE=false` می‌توان خاموشش کرد.
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async reconcileBookingPayments(): Promise<number> {
+    if ((process.env.PAYMENT_RECONCILE ?? 'true') === 'false') return 0;
+
+    let handled = 0;
+    const now = Date.now();
+
+    // نگه‌داشتن‌های مدتی‌منقضی‌شده پاک می‌شوند (فقط برای تمیز ماندن جدول؛
+    // از قبل هم در هیچ بررسی تداخلی حساب نمی‌شوند).
+    try {
+      await this.slotHoldRepo
+        .createQueryBuilder()
+        .delete()
+        .where('expires_at <= :cutoff', {
+          cutoff: new Date(now - 24 * 3600_000),
+        })
+        .execute();
+    } catch (error: any) {
+      this.logger.warn(
+        `پاک‌سازی نگه‌داشتن‌های منقضی ناموفق بود: ${error?.message ?? String(error)}`,
+      );
+    }
+
+    // ---- ۱) PAID اما بدون رزرو ----
+    const stuckPaid = await this.paymentRepo.find({
+      where: {
+        purpose: PaymentPurpose.BOOKING,
+        status: PaymentStatus.PAID,
+        purposeId: IsNull(),
+        createdAt: LessThan(new Date(now - 10 * 60_000)),
+      },
+      order: { createdAt: 'ASC' },
+      take: 20,
+    });
+
+    for (const payment of stuckPaid) {
+      // پرداخت‌هایی که آگاهانه بازپرداخت شده‌اند دوباره تلاش نمی‌شوند.
+      if (payment.metadata?.includes('"refundQueued":true')) continue;
+
+      try {
+        const result = await this.completeBookingPayment(payment);
+
+        handled += 1;
+        this.logger.log(
+          `پرداخت ${payment.id} در کرون تطبیق تکمیل شد${
+            result.refunded ? ' (با بازپرداخت)' : ''
+          }.`,
+        );
+      } catch (error: any) {
+        this.logger.warn(
+          `تکمیل پرداخت ${payment.id} در کرون تطبیق ناموفق بود: ${error?.message ?? String(error)}`,
+        );
       }
     }
 
-    return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+    // ---- ۲) PENDING های قدیمی: شاید مشتری پول داده و برنگشته ----
+    const pending = await this.paymentRepo.find({
+      where: {
+        purpose: PaymentPurpose.BOOKING,
+        status: PaymentStatus.PENDING,
+        createdAt: LessThan(new Date(now - 15 * 60_000)),
+      },
+      order: { createdAt: 'ASC' },
+      take: 20,
+    });
+
+    for (const payment of pending) {
+      // فقط پرداخت‌های سه روز اخیر؛ قدیمی‌ترها عملاً بسته‌اند.
+      if (
+        !payment.trackId ||
+        payment.createdAt.getTime() < now - 3 * 24 * 3600_000
+      ) {
+        continue;
+      }
+
+      try {
+        const verifyResult = await this.verifyZibalPayment(
+          Number(payment.trackId),
+        );
+
+        // هنوز پرداخت نشده یا وضعیت نامشخص است؛ PENDING می‌ماند.
+        if (!verifyResult.success) continue;
+
+        const settle = await this.settleVerifiedPayment(payment, verifyResult);
+
+        if (settle.outcome !== 'closed') {
+          handled += 1;
+          this.logger.log(
+            `پرداخت ${payment.id} از طریق کرون تطبیق نهایی شد (${settle.outcome}).`,
+          );
+        }
+      } catch (error: any) {
+        this.logger.warn(
+          `بررسی پرداخت ${payment.id} در کرون تطبیق ناموفق بود: ${error?.message ?? String(error)}`,
+        );
+      }
+    }
+
+
+    // ---- ۳) بیعانهٔ پرداخت‌شده‌ای که ثبتش نیمه‌کاره مانده ----
+    const paidDeposits = await this.paymentRepo.find({
+      where: {
+        purpose: PaymentPurpose.BOOKING,
+        status: PaymentStatus.PAID,
+        createdAt: LessThan(new Date(now - 10 * 60_000)),
+        paidAt: MoreThan(new Date(now - 24 * 3600_000)),
+      },
+      order: { paidAt: 'ASC' },
+      take: 20,
+    });
+
+    for (const payment of paidDeposits) {
+      if (!payment.metadata?.includes('"depositLink":true')) continue;
+
+      try {
+        const meta = JSON.parse(payment.metadata);
+        const bookingId = String(meta.bookingId || payment.purposeId || '');
+        if (!bookingId) continue;
+
+        const booking = await this.bookingRepo.findOne({
+          where: { id: bookingId },
+        });
+
+        // قبلاً ثبت شده است
+        if (!booking || booking.depositPaidAt) continue;
+
+        await this.completeDepositAfterPayment(payment);
+        handled += 1;
+        this.logger.log(
+          `ثبت بیعانهٔ پرداخت ${payment.id} در کرون تطبیق تکمیل شد.`,
+        );
+      } catch (error: any) {
+        this.logger.warn(
+          `تکمیل بیعانهٔ پرداخت ${payment.id} در کرون تطبیق ناموفق بود: ${error?.message ?? String(error)}`,
+        );
+      }
+    }
+
+    return handled;
   }
 
   // فعال‌سازی اشتراک پس از تایید پرداخت
@@ -970,17 +1394,19 @@ export class PaymentService {
     await this.userSubscriptionRepo.save(userSubscription);
   }
 
-  private async completeBookingPayment(payment: Payment) {
+  private async completeBookingPayment(
+    payment: Payment,
+  ): Promise<{ refunded: boolean }> {
     if (payment.metadata?.includes('"depositLink":true')) {
-      await this.completeDepositAfterPayment(payment);
-
-      return;
+      return this.completeDepositAfterPayment(payment);
     }
 
-    await this.confirmBookingAfterPayment(payment);
+    return this.confirmBookingAfterPayment(payment);
   }
 
-  private async completeDepositAfterPayment(payment: Payment) {
+  private async completeDepositAfterPayment(
+    payment: Payment,
+  ): Promise<{ refunded: boolean }> {
     if (!payment.metadata) {
       throw new BadRequestException('اطلاعات بیعانه در پرداخت ثبت نشده است.');
     }
@@ -992,6 +1418,20 @@ export class PaymentService {
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('مبلغ بیعانه در پرداخت معتبر نیست.');
     }
+
+    /**
+     * مبلغ پرداختی شامل ۱۰٪ کمیسیون سایت است، اما فقط مبلغ بیعانه به کیف
+     * پول آرایشگر می‌رود؛ کمیسیون نزد سامانه می‌ماند (مثل رزرو آنلاین).
+     * برای پرداخت‌های قدیمی که این فیلد را ندارند، کل مبلغ واریز می‌شود تا
+     * رفتار قبلی حفظ شود.
+     */
+    const depositAmount = Number(meta.depositAmount);
+    const barberCredit =
+      Number.isFinite(depositAmount) && depositAmount > 0
+        ? Math.min(depositAmount, amount)
+        : amount;
+
+    let refunded = false;
 
     await this.dataSource.transaction(async manager => {
       const booking = bookingId
@@ -1021,48 +1461,111 @@ export class PaymentService {
         await manager.getRepository(Booking).save(booking);
       }
 
-      if (booking?.canceledBy === 'barber' || booking?.canceledBy === 'admin') {
-        // A deposit link may be paid after the barber has already canceled.
-        // Record the incoming deposit, then debit the same full amount so the
-        // refund is funded and the ledger remains auditable.
+      /**
+       * لینک بیعانه ممکن است بعد از لغو نوبت هم پرداخت شود (مسابقهٔ زمانی).
+       * در این حالت پول باید به مشتری برگردد. استثنا: اگر خود مشتری نوبت را
+       * لغو کرده باشد، بیعانه نزد آرایشگر می‌ماند (قاعدهٔ فعلی محصول).
+       */
+      const bookingWasCanceled = Boolean(
+        booking &&
+        (booking.status === BookingStatus.CANCELED ||
+          booking.status === BookingStatus.REJECTED),
+      );
+      const refundCustomer =
+        bookingWasCanceled && booking?.canceledBy !== 'customer';
+
+      if (refundCustomer) {
+        // ابتدا همان مبلغ بیعانه به کیف پول آرایشگر واریز می‌شود تا برای
+        // بازپرداخت، موجودی و رکورد حسابداری قابل ردیابی وجود داشته باشد.
         await this.walletService.depositOnceWithManager(manager, {
           userId: barberUserId,
-          amount,
+          amount: barberCredit,
           description: `درآمد رزرو نوبت ${payment.orderId} - منشیم`,
           paymentId: payment.id,
           legacyReference: payment.refNumber,
         });
         await this.walletService.debitBarberAndQueueRefund(manager, {
           barberUserId,
-          customerUserId: booking.customerId,
-          bookingId: booking.id,
+          customerUserId: booking!.customerId,
+          bookingId: booking!.id,
           paymentId: payment.id,
-          amount,
+          amount: barberCredit,
+          // مشتری کل مبلغی که داده (بیعانه + کمیسیون) را پس می‌گیرد.
+          customerRefundAmount: amount,
         });
+        refunded = true;
         return;
       }
 
-      // لغو توسط مشتری بازپرداخت ایجاد نمی‌کند و مبلغ همچنان برای آرایشگر می‌ماند.
+      // لغو توسط مشتری بازپرداخت ایجاد نمی‌کند و بیعانه برای آرایشگر می‌ماند.
       await this.walletService.depositOnceWithManager(manager, {
         userId: barberUserId,
-        amount,
+        amount: barberCredit,
         description: `درآمد رزرو نوبت ${payment.orderId} - منشیم`,
         paymentId: payment.id,
         legacyReference: payment.refNumber,
       });
     });
+
+    return { refunded };
   }
 
   // ایجاد رزروها، ثبت پیوند پرداخت و واریز درآمد باید اتمیک باشد تا لغو هم‌زمان
   // نتواند پیش از ثبت درآمد، کیف پول آرایشگر را بابت همان پرداخت دوباره بدهکار کند.
-  private async confirmBookingAfterPayment(payment: Payment) {
+  private async confirmBookingAfterPayment(
+    payment: Payment,
+  ): Promise<{ refunded: boolean }> {
     if (!payment.metadata) {
       throw new BadRequestException('اطلاعات رزرو در پرداخت ثبت نشده است.');
     }
     const meta = JSON.parse(payment.metadata);
     const createdBookings: Booking[] = [];
+    const holdOrderId = meta.holdOrderId ? String(meta.holdOrderId) : null;
+    let refunded = false;
 
     await this.dataSource.transaction(async manager => {
+      /**
+       * همان قفلی که هنگام ساخت نگه‌داشتن گرفته می‌شود؛ اینجا هم گرفته
+       * می‌شود تا «آزاد کردن نگه‌داشتن + ساخت رزرو» با یک رزرو هم‌زمان
+       * دیگر گره نخورد.
+       */
+      if (meta.barberProfileId) {
+        await manager
+          .getRepository(BarberProfile)
+          .createQueryBuilder('barber')
+          .setLock('pessimistic_write')
+          .where('barber.id = :id', { id: String(meta.barberProfileId) })
+          .getOne();
+      }
+
+      // نگه‌داشتن موقت کار خودش را کرده است؛ همین حالا آزاد می‌شود.
+      if (holdOrderId) {
+        await manager.getRepository(SlotHold).delete({ orderId: holdOrderId });
+      }
+
+      /**
+       * اگر مهلت نگه‌داشتن تمام شده باشد، ممکن است شخص دیگری همان ساعت را
+       * رزرو کرده باشد. در این حالت پول گرفته شده اما نوبتی وجود ندارد؛
+       * پس به‌جای ساختن رزروِ روی‌هم‌افتاده، بازپرداخت در صف قرار می‌گیرد.
+       */
+      if (await this.hasFulfillmentConflict(manager, meta)) {
+        refunded = true;
+        await this.walletService.queueCustomerRefundWithManager(manager, {
+          customerUserId: payment.userId,
+          bookingId: holdOrderId || payment.orderId,
+          paymentId: payment.id,
+          amount: Number(payment.amount),
+        });
+        payment.metadata = JSON.stringify({ ...meta, refundQueued: true });
+        await manager.getRepository(Payment).save(payment);
+
+        this.logger.warn(
+          `پرداخت ${payment.id} به دلیل پُر شدن ساعت بازپرداخت شد.`,
+        );
+
+        return;
+      }
+
       const bookingRepo = manager.getRepository(Booking);
       const paymentRepo = manager.getRepository(Payment);
       const baseBooking = {
@@ -1147,6 +1650,48 @@ export class PaymentService {
     for (const booking of createdBookings) {
       void this.sendPaidBookingSms(booking);
     }
+
+    return { refunded };
+  }
+
+  /**
+   * آیا رزروهایی که بعد از پرداخت ساخته می‌شوند با نوبت‌های موجود تداخل دارند؟
+   *
+   * فقط وقتی می‌تواند «بله» باشد که مهلت نگه‌داشتن ساعت تمام شده و شخص
+   * دیگری آن ساعت را رزرو کرده باشد؛ در حالت عادی همیشه «خیر» است.
+   */
+  private async hasFulfillmentConflict(
+    manager: EntityManager,
+    meta: any,
+  ): Promise<boolean> {
+    const items = Array.isArray(meta?.items) ? meta.items : [];
+    if (!items.length || !meta?.date || !meta?.barberProfileId) return false;
+
+    const existing = await manager.getRepository(Booking).find({
+      where: {
+        barberId: String(meta.barberProfileId),
+        date: String(meta.date),
+        status: In(SLOT_HOLDING_STATUSES),
+      },
+      relations: { service: true },
+    });
+
+    if (!existing.length) return false;
+
+    const busy = existing.map(booking => {
+      const start = timeToMinutes(booking.time);
+      return {
+        start,
+        end: start + (booking.service?.durationMinutes ?? 30),
+      };
+    });
+
+    return items.some(item => {
+      const start = timeToMinutes(String(item.time));
+      const duration = Number(item.durationMinutes) || 30;
+
+      return hasOverlap({ start, end: start + duration }, busy);
+    });
   }
 
   private async sendPaidBookingSms(booking: Booking): Promise<void> {
