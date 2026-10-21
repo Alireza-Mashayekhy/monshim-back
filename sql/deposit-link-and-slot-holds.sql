@@ -7,7 +7,7 @@ ALTER TABLE bookings
 
 -- ۲) نگه‌داشتن موقت ساعت هنگام رفتن مشتری به درگاه پرداخت
 CREATE TABLE IF NOT EXISTS slot_holds (
-  id CHAR(36) NOT NULL PRIMARY KEY,
+  id VARCHAR(36) NOT NULL PRIMARY KEY,
   barber_id CHAR(36) NOT NULL,
   date DATE NOT NULL,
   start_minutes INT NOT NULL,
