@@ -15,6 +15,7 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { getRequestOrigin } from 'src/common/utils/public-url.util';
 
 import { ChargeWalletDto } from './dto/charge-wallet.dto';
 import { InitiateBookingPaymentDto } from './dto/initiate-booking-payment.dto';
@@ -33,7 +34,11 @@ export class PaymentController {
     @Req() req: any,
     @Body() dto: InitiateSubscriptionPaymentDto,
   ) {
-    return this.paymentService.initiateSubscriptionPayment(req.user.id, dto);
+    return this.paymentService.initiateSubscriptionPayment(
+      req.user.id,
+      dto,
+      getRequestOrigin(req),
+    );
   }
 
   // ۱.۱. خرید پکیج «صفحهٔ عمومی آرایشگاه» (یک‌باره، مادام‌العمر)
@@ -41,26 +46,44 @@ export class PaymentController {
   @Roles(Role.Barber, Role.Admin)
   @Post('public-page')
   async payPublicPage(@Req() req: any) {
-    return this.paymentService.initiatePublicPagePayment(req.user.id);
+    return this.paymentService.initiatePublicPagePayment(
+      req.user.id,
+      getRequestOrigin(req),
+    );
   }
 
   // ۲. درخواست پرداخت آنلاین نوبت (رزرو بیعانه/کل مبلغ)
   @UseGuards(AuthGuard)
   @Post('booking')
   async payBooking(@Req() req: any, @Body() dto: InitiateBookingPaymentDto) {
-    return this.paymentService.initiateBookingPayment(req.user.id, dto);
+    return this.paymentService.initiateBookingPayment(
+      req.user.id,
+      dto,
+      getRequestOrigin(req),
+    );
   }
 
   // ۳. درخواست شارژ آنلاین کیف پول
   @UseGuards(AuthGuard)
   @Post('wallet')
   async chargeWallet(@Req() req: any, @Body() dto: ChargeWalletDto) {
-    return this.paymentService.initiateWalletCharge(req.user.id, dto);
+    return this.paymentService.initiateWalletCharge(
+      req.user.id,
+      dto,
+      getRequestOrigin(req),
+    );
   }
 
   @Get('deposit/:token')
-  async depositLink(@Param('token') token: string, @Res() res: Response) {
-    const redirectUrl = await this.paymentService.getDepositRedirectUrl(token);
+  async depositLink(
+    @Param('token') token: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const redirectUrl = await this.paymentService.getDepositRedirectUrl(
+      token,
+      getRequestOrigin(req),
+    );
 
     return res.redirect(redirectUrl);
   }
@@ -72,6 +95,7 @@ export class PaymentController {
     @Query('success') success: string,
     @Query('status') status: string,
     @Query('orderId') orderId: string,
+    @Req() req: any,
     @Res() res: Response,
   ) {
     const redirectUrl = await this.paymentService.handleCallback({
@@ -79,6 +103,7 @@ export class PaymentController {
       success,
       status,
       orderId,
+      requestOrigin: getRequestOrigin(req),
     });
 
     return res.redirect(redirectUrl);
@@ -90,6 +115,7 @@ export class PaymentController {
     @Body('success') success: string,
     @Body('status') status: string,
     @Body('orderId') orderId: string,
+    @Req() req: any,
     @Res() res: Response,
   ) {
     const redirectUrl = await this.paymentService.handleCallback({
@@ -97,6 +123,7 @@ export class PaymentController {
       success,
       status,
       orderId,
+      requestOrigin: getRequestOrigin(req),
     });
 
     return res.redirect(redirectUrl);

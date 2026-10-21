@@ -4,6 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BarberService } from 'src/barber/barber.service';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Booking } from 'src/booking/entities/booking.entity';
+import {
+  DEFAULT_FRONT_ORIGIN,
+  resolvePublicOrigin,
+} from 'src/common/utils/public-url.util';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { Brackets, In, Repository, WhereExpressionBuilder } from 'typeorm';
 
@@ -75,9 +79,14 @@ export class PublicPageService {
   ) {}
 
   private publicUrl(barberUserId: number) {
-    const frontUrl = (
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000'
-    ).replace(/\/+$/, '');
+    // فقط origin استفاده می‌شود تا مقدار اضافه‌ای مثل `/panel` در FRONTEND_URL
+    // باعث تولید لینک اشتباه (مثل `.../panel/barber/1`) نشود.
+    const frontUrl = resolvePublicOrigin({
+      configured: this.configService.get<string>('FRONTEND_URL'),
+      fallback: DEFAULT_FRONT_ORIGIN,
+      isProduction: process.env.NODE_ENV === 'production',
+    }).origin;
+
     return `${frontUrl}/barber/${barberUserId}`;
   }
 

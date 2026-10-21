@@ -11,6 +11,11 @@ import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { getBookingClock, isBookingSlotInPast } from 'src/booking/booking-time';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
+import {
+  DEFAULT_APP_ORIGIN,
+  DEFAULT_FRONT_ORIGIN,
+  resolvePublicOrigin,
+} from 'src/common/utils/public-url.util';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { PUBLIC_PAGE_PACKAGE_PRICE_TOMANS } from 'src/public-page/constants';
 import { PublicPageService } from 'src/public-page/public-page.service';
@@ -39,6 +44,9 @@ const COMMISSION_RATE = 0.1;
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
+
+  /** پیام‌های هشداری که قبلاً لاگ شده‌اند (برای جلوگیری از تکرار) */
+  private readonly warnedMessages = new Set<string>();
 
   constructor(
     @InjectRepository(Payment)
@@ -79,16 +87,67 @@ export class PaymentService {
     return this.configService.get<string>('ZIBAL_MERCHANT') || 'zibal';
   }
 
-  private getAppUrl(): string {
-    return (
-      this.configService.get<string>('APP_URL') || 'http://localhost:4000'
-    ).replace(/\/+$/, '');
+  /** origin بک‌اند برای callback درگاه (مثلاً https://monshiim.ir) */
+  private getAppUrl(requestOrigin?: string | null): string {
+    return this.resolveOrigin({
+      key: 'APP_URL',
+      requestOrigin,
+      fallback: DEFAULT_APP_ORIGIN,
+      extra: 'آدرس کال‌بک درگاه پرداخت روی این origin ساخته می‌شود',
+    });
   }
 
-  private getFrontUrl(): string {
-    return (
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000'
-    ).replace(/\/+$/, '');
+  /** origin فرانت برای ریدایرکت کاربر بعد از پرداخت (مثلاً https://monshiim.ir) */
+  private getFrontUrl(requestOrigin?: string | null): string {
+    return this.resolveOrigin({
+      key: 'FRONTEND_URL',
+      requestOrigin,
+      fallback: DEFAULT_FRONT_ORIGIN,
+      extra: 'کاربر بعد از پرداخت به این origin ریدایرکت می‌شود',
+    });
+  }
+
+  /**
+   * انتخاب origin با هشدار یک‌باره.
+   *
+   * مقدار env به origin تبدیل می‌شود (مسیر اضافه مثل `/panel` حذف می‌شود)
+   * و اگر نبود/نامعتبر بود یا در production به localhost اشاره می‌کرد، از
+   * origin همان درخواست استفاده می‌شود تا کاربر به localhost نرود.
+   */
+  private resolveOrigin(params: {
+    key: 'APP_URL' | 'FRONTEND_URL';
+    requestOrigin?: string | null;
+    fallback: string;
+    extra: string;
+  }): string {
+    const configured = this.configService.get<string>(params.key);
+
+    const { origin, source } = resolvePublicOrigin({
+      configured,
+      requestOrigin: params.requestOrigin,
+      fallback: params.fallback,
+      isProduction: process.env.NODE_ENV === 'production',
+    });
+
+    if (source !== 'config') {
+      this.warnOnce(
+        `${params.key}: ${JSON.stringify(configured ?? null)} قابل استفاده نبود؛ از origin درخواست (${origin}) استفاده شد. ${params.extra}. لطفاً ${params.key} را در .env سرور به‌صورت origin کامل تنظیم کنید (مثل https://monshiim.ir بدون /panel و بدون اسلش انتهایی).`,
+      );
+    } else if (configured && configured.trim().replace(/\/+$/, '') !== origin) {
+      this.warnOnce(
+        `${params.key} (${configured}) شامل مسیر اضافه است؛ فقط origin آن (${origin}) استفاده می‌شود.`,
+      );
+    }
+
+    return origin;
+  }
+
+  /** هر پیام هشدار فقط یک‌بار در لاگ ثبت می‌شود تا لاگ پر نشود */
+  private warnOnce(message: string): void {
+    if (this.warnedMessages.has(message)) return;
+
+    this.warnedMessages.add(message);
+    this.logger.warn(message);
   }
 
   // =========================================================
@@ -213,6 +272,7 @@ export class PaymentService {
   async initiateSubscriptionPayment(
     userId: number,
     dto: InitiateSubscriptionPaymentDto,
+    requestOrigin?: string | null,
   ) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
@@ -227,7 +287,7 @@ export class PaymentService {
     }
 
     const orderId = `SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const appUrl = this.getAppUrl();
+    const appUrl = this.getAppUrl(requestOrigin);
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
@@ -268,7 +328,10 @@ export class PaymentService {
    * پکیج یک‌باره و مادام‌العمر است؛ اگر صفحه از قبل (با خرید یا با حد نصاب
    * نوبت‌های پرداخت‌شده) فعال شده باشد، پرداخت دوباره پذیرفته نمی‌شود.
    */
-  async initiatePublicPagePayment(userId: number) {
+  async initiatePublicPagePayment(
+    userId: number,
+    requestOrigin?: string | null,
+  ) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('کاربر یافت نشد');
@@ -289,7 +352,7 @@ export class PaymentService {
     }
 
     const orderId = `PAGE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const appUrl = this.getAppUrl();
+    const appUrl = this.getAppUrl(requestOrigin);
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
@@ -327,6 +390,7 @@ export class PaymentService {
   async initiateBookingPayment(
     customerId: number,
     dto: InitiateBookingPaymentDto,
+    requestOrigin?: string | null,
   ) {
     if (isBookingSlotInPast(dto.date, dto.time, getBookingClock())) {
       throw new BadRequestException(
@@ -440,7 +504,7 @@ export class PaymentService {
     const amountToPay = totalPrice + commissionAmount;
 
     const orderId = `BOOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const appUrl = this.getAppUrl();
+    const appUrl = this.getAppUrl(requestOrigin);
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
@@ -499,14 +563,18 @@ export class PaymentService {
   // =========================================================
   // ۳. شارژ آنلاین کیف پول (WALLET)
   // =========================================================
-  async initiateWalletCharge(userId: number, dto: ChargeWalletDto) {
+  async initiateWalletCharge(
+    userId: number,
+    dto: ChargeWalletDto,
+    requestOrigin?: string | null,
+  ) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('کاربر یافت نشد');
     }
 
     const orderId = `WAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const appUrl = this.getAppUrl();
+    const appUrl = this.getAppUrl(requestOrigin);
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
@@ -538,7 +606,10 @@ export class PaymentService {
     };
   }
 
-  async initiateDepositPaymentByToken(token: string) {
+  async initiateDepositPaymentByToken(
+    token: string,
+    requestOrigin?: string | null,
+  ) {
     const booking = await this.bookingRepo.findOne({
       where: { depositToken: token },
       relations: {
@@ -576,7 +647,7 @@ export class PaymentService {
     const service = booking.service;
 
     const orderId = `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const appUrl = this.getAppUrl();
+    const appUrl = this.getAppUrl(requestOrigin);
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
@@ -611,9 +682,15 @@ export class PaymentService {
   /**
    * URL ریدایرکت لینک بیعانه: در صورت خطا، صفحه خطای فرانت
    */
-  async getDepositRedirectUrl(token: string): Promise<string> {
+  async getDepositRedirectUrl(
+    token: string,
+    requestOrigin?: string | null,
+  ): Promise<string> {
     try {
-      const { paymentUrl } = await this.initiateDepositPaymentByToken(token);
+      const { paymentUrl } = await this.initiateDepositPaymentByToken(
+        token,
+        requestOrigin,
+      );
 
       return paymentUrl;
     } catch (error: any) {
@@ -623,7 +700,7 @@ export class PaymentService {
           'خطا در شروع پرداخت بیعانه',
       );
 
-      return `${this.getFrontUrl()}/panel/payment/callback?status=failed&message=${message}`;
+      return `${this.getFrontUrl(requestOrigin)}/panel/payment/callback?status=failed&message=${message}`;
     }
   }
 
@@ -660,8 +737,10 @@ export class PaymentService {
     success?: string | number;
     status?: string | number;
     orderId?: string;
+    /** origin درخواستی که از درگاه برگشته است (برای fallback آدرس فرانت) */
+    requestOrigin?: string | null;
   }): Promise<string> {
-    const frontUrl = this.getFrontUrl();
+    const frontUrl = this.getFrontUrl(params.requestOrigin);
     const trackIdNum = params.trackId ? Number(params.trackId) : null;
     const isSuccess =
       String(params.success) === '1' || String(params.status) === '2';
