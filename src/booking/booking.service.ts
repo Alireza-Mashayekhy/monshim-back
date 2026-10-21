@@ -1542,10 +1542,22 @@ export class BookingsService {
 
       if (finishesAt > now) continue;
 
-      booking.status = BookingStatus.COMPLETED;
-
       try {
-        await this.bookingRepo.save(booking);
+        /**
+         * گذارِ شرطی confirmed → completed.
+         *
+         * اگر دو نمونه از سرویس هم‌زمان همین نوبت را ببینند، فقط یکی
+         * `affected=1` می‌گیرد؛ در نتیجه شمارندهٔ رفرال و آمار «انجام‌شده»
+         * دو بار جلو نمی‌رود.
+         */
+        const claim = await this.bookingRepo.update(
+          { id: booking.id, status: BookingStatus.CONFIRMED },
+          { status: BookingStatus.COMPLETED },
+        );
+
+        if (!claim.affected) continue;
+
+        booking.status = BookingStatus.COMPLETED;
 
         await this.referralService.onBookingCompleted(booking.barberId);
         await this.clubService.addFromSuccessfulBooking({
@@ -1573,7 +1585,7 @@ export class BookingsService {
    * برای همیشه از تقویم حذف می‌ماند و آرایشگر نمی‌تواند آن را به کس دیگری
    * بفروشد.
    *
-   * مهلت پیش‌فرض ۲۴ ساعت است و با `DEPOSIT_PAYMENT_TIMEOUT_HOURS` تنظیم
+   * مهلت پیش‌فرض ۶ ساعت است و با `DEPOSIT_PAYMENT_TIMEOUT_HOURS` تنظیم
    * می‌شود. هر بار که لینک دوباره ارسال شود، مهلت از نو شروع می‌شود.
    *
    * لغو با یک UPDATE شرطی انجام می‌شود (`deposit_paid_at IS NULL`) تا اگر
@@ -1583,9 +1595,9 @@ export class BookingsService {
   async expireUnpaidDepositBookings(): Promise<number> {
     if ((process.env.EXPIRE_UNPAID_DEPOSITS ?? 'true') === 'false') return 0;
 
-    const configured = Number(process.env.DEPOSIT_PAYMENT_TIMEOUT_HOURS ?? 24);
+    const configured = Number(process.env.DEPOSIT_PAYMENT_TIMEOUT_HOURS ?? 6);
     const timeoutHours =
-      Number.isFinite(configured) && configured >= 1 ? configured : 24;
+      Number.isFinite(configured) && configured >= 1 ? configured : 6;
     const cutoff = new Date(Date.now() - timeoutHours * 3600_000);
 
     /**

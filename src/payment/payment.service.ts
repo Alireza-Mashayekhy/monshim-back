@@ -1316,7 +1316,6 @@ export class PaymentService {
       }
     }
 
-
     // ---- ۳) بیعانهٔ پرداخت‌شده‌ای که ثبتش نیمه‌کاره مانده ----
     const paidDeposits = await this.paymentRepo.find({
       where: {
