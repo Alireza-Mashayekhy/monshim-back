@@ -10,6 +10,7 @@ import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { ClubService } from 'src/club/club.service';
 import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
+import { DEPOSIT_TOKEN_BYTES } from 'src/common/constants/constants';
 import { getPagination } from 'src/common/query';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import {
@@ -1047,7 +1048,7 @@ export class BookingsService {
 
       if (booking.sendDepositLink) {
         // فقط توکن را می‌فرستیم؛ دامنه و مسیر ثابت در قالب SMS.ir قرار می‌گیرد.
-        const paymentToken = randomBytes(24).toString('hex');
+        const paymentToken = this.createDepositToken();
         booking.depositToken = paymentToken;
 
         await this.bookingRepo.save(booking);
@@ -1074,6 +1075,18 @@ export class BookingsService {
     } catch {
       // خطای پیامک هرگز ثبت نوبت دستی را نمی‌شکند
     }
+  }
+
+  /**
+   * ساخت توکن لینک بیعانه.
+   *
+   * SMS.ir مقدار هر پارامتر قالب را حداکثر ۲۵ کاراکتر می‌پذیرد (کد وضعیت
+   * 114 و پاسخ HTTP 400). توکن باید داخل لینک #PAYMENT_LINK# جا شود، پس
+   * ۱۲ بایت تصادفی = ۲۴ کاراکتر هگز (۹۶ بیت آنتروپی) تولید می‌کنیم؛
+   * هم حدس‌ناپذیر است و هم زیر سقف پیامک می‌ماند.
+   */
+  private createDepositToken(): string {
+    return randomBytes(DEPOSIT_TOKEN_BYTES).toString('hex');
   }
 
   private async hasSmsCredit(barberUserId: number): Promise<boolean> {

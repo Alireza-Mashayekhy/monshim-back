@@ -1,5 +1,6 @@
 // src/notification/sms-templates.ts
 import * as jalaali from 'jalaali-js';
+import { SMS_PARAM_MAX_LENGTH } from 'src/common/constants/constants';
 
 /**
  * کد قالب‌های پیامک سرویس SMS IR
@@ -57,6 +58,28 @@ export function formatTimeForSms(time: string): string {
   return toFaDigits(time.slice(0, 5));
 }
 
+/**
+ * کوتاه‌کردن مقادیر نمایشی (نام، نام سالن، نام خدمت) تا سقف مجاز SMS.ir.
+ *
+ * سرویس SMS.ir مقدار هر پارامتر قالب را حداکثر ۲۵ کاراکتر می‌پذیرد و در
+ * صورت عبور از این حد، درخواست را با HTTP 400 (کد وضعیت 114) رد می‌کند.
+ * برای متن‌های توضیحی، کوتاه‌کردن بهتر از ارسال‌نشدن پیامک است.
+ */
+export function clipForSms(
+  value: string | null | undefined,
+  fallback = '',
+  maxLength: number = SMS_PARAM_MAX_LENGTH,
+): string {
+  const text = String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) return fallback;
+  if (text.length <= maxLength) return text;
+
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 export interface BookingSmsParams {
   customerName: string;
   serviceName: string;
@@ -81,19 +104,19 @@ export interface DepositLinkParams {
 /** پارامترهای مشترک قالب‌های نوبت */
 export function bookingParams(params: BookingSmsParams) {
   return [
-    { name: 'NAME', value: params.customerName },
-    { name: 'SERVICE', value: params.serviceName },
+    { name: 'NAME', value: clipForSms(params.customerName, 'مشتری') },
+    { name: 'SERVICE', value: clipForSms(params.serviceName, 'خدمت') },
     { name: 'DATE', value: formatJalaliDateForSms(params.date) },
     { name: 'TIME', value: formatTimeForSms(params.time) },
-    { name: 'SALON_NAME', value: params.salonName },
+    { name: 'SALON_NAME', value: clipForSms(params.salonName, 'سالن') },
   ];
 }
 
 /** پارامترهای قالب «رزرو جدید برای آرایشگر» (#NAME# = نام مشتری) */
 export function barberNewBookingParams(params: BarberParams) {
   return [
-    { name: 'NAME', value: params.customerName },
-    { name: 'SERVICE', value: params.serviceName },
+    { name: 'NAME', value: clipForSms(params.customerName, 'مشتری') },
+    { name: 'SERVICE', value: clipForSms(params.serviceName, 'خدمت') },
     { name: 'DATE', value: formatJalaliDateForSms(params.date) },
     { name: 'TIME', value: formatTimeForSms(params.time) },
   ];
@@ -104,11 +127,17 @@ export function barberCanceledParams(params: BarberParams) {
   return barberNewBookingParams(params);
 }
 
-/** پارامترهای قالب «لینک بیعانه» */
+/**
+ * پارامترهای قالب «لینک بیعانه».
+ *
+ * توجه: مقدار #PAYMENT_LINK# توکن لینک پرداخت است و نباید کوتاه شود؛
+ * توکن هنگام ساخت نوبت با طول امنِ ۲۴ کاراکتر تولید می‌شود
+ * (DEPOSIT_TOKEN_BYTES در constants) تا زیر سقف ۲۵ کاراکتر SMS.ir بماند.
+ */
 export function depositLinkParams(params: DepositLinkParams) {
   return [
-    { name: 'NAME', value: params.customerName },
-    { name: 'SALON_NAME', value: params.salonName },
-    { name: 'PAYMENT_LINK', value: params.paymentToken },
+    { name: 'NAME', value: clipForSms(params.customerName, 'مشتری') },
+    { name: 'SALON_NAME', value: clipForSms(params.salonName, 'سالن') },
+    { name: 'PAYMENT_LINK', value: String(params.paymentToken ?? '').trim() },
   ];
 }
