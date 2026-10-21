@@ -45,6 +45,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { DEPOSIT_PAYMENT_TIMEOUT_HOURS } from '@/constants/booking';
 import { useDebounce } from '@/hooks/use-debounce';
 import { jalaliToIso } from '@/lib/date-utils';
 import { gregorianToJalali } from '@/lib/jalali';
@@ -220,6 +221,26 @@ export function ManualBookingDrawer({
   const canSendSmsReminder = !!subscription && smsRemaining >= reminderSmsCost;
 
   const { data: services, isLoading: servicesLoading } = useMyServices();
+
+  /**
+   * پیش‌نمایش مبلغ لینک بیعانه.
+   * فقط وقتی مبلغ بیعانهٔ ثابتِ خدمت تعیین شده باشد عدد دقیق نشان می‌دهیم؛
+   * در غیر این صورت درصد بیعانه در تنظیمات سایت است و عدد ثابتی در فرانت نیست.
+   * کمیسیون همیشه ۱۰٪ ارزش خدمت است (همان قاعدهٔ بک‌اند).
+   */
+  const selectedService = services?.data?.find(item => item.id === serviceId);
+  const fixedDeposit = Number(selectedService?.depositPrice ?? 0);
+  const depositPreview =
+    selectedService &&
+    Number.isFinite(fixedDeposit) &&
+    fixedDeposit > 0
+      ? {
+          deposit: Math.round(
+            Math.min(fixedDeposit, Number(selectedService.price)),
+          ),
+          commission: Math.round(Number(selectedService.price) * 0.1),
+        }
+      : null;
   const { data: barberProfile } = useMyBarberProfile();
   const addCustomer = useAddClubCustomer();
   const createManualBooking = useCreateManualBooking();
@@ -834,7 +855,7 @@ export function ManualBookingDrawer({
                   </span>
 
                   <span className="mt-1 block text-[10px] font-medium leading-5 text-gray-500">
-                    تأیید با پیامک؛ اعتبار پیامک از پلن کسر می‌شود
+                    تأیید با پیامک؛ ۲ اعتبار از پلن کسر می‌شود
                   </span>
                 </button>
 
@@ -855,9 +876,44 @@ export function ManualBookingDrawer({
                   </span>
 
                   <span className="mt-1 block text-[10px] font-medium leading-5 text-gray-500">
-                    مشتری اول بیعانه را پرداخت می‌کند؛ پیامک رایگان است
+                    پیامک رایگان؛ مشتری اول بیعانه را پرداخت می‌کند
                   </span>
                 </button>
+              </div>
+
+              {/* جمع‌بندی همان انتخاب: اعتبار یا مبلغی که مشتری می‌پردازد */}
+              <div className="rounded-xl border border-white bg-white/80 px-2.5 py-2 text-[10px] font-bold leading-5 text-gray-600">
+                {effectiveDepositLink ? (
+                  depositPreview ? (
+                    <span>
+                      مشتری{' '}
+                      <span className="text-primary">
+                        {toPersianDigits(
+                          formatPrice(
+                            depositPreview.deposit + depositPreview.commission,
+                          ),
+                        )}{' '}
+                        تومان
+                      </span>{' '}
+                      پرداخت می‌کند: {toPersianDigits(formatPrice(depositPreview.deposit))}{' '}
+                      بیعانه +{' '}
+                      {toPersianDigits(formatPrice(depositPreview.commission))}{' '}
+                      کمیسیون
+                    </span>
+                  ) : (
+                    <span>
+                      مبلغ پرداختی مشتری = بیعانه + ۱۰٪ کمیسیون سایت
+                    </span>
+                  )
+                ) : (
+                  <span>
+                    اعتبار باقیماندهٔ پلن:{' '}
+                    <span className="text-primary">
+                      {toPersianDigits(smsRemaining)}
+                    </span>{' '}
+                    — این نوبت ۲ اعتبار
+                  </span>
+                )}
               </div>
 
               <ul className="space-y-1 text-[10px] font-medium leading-5 text-gray-500">
@@ -868,7 +924,8 @@ export function ManualBookingDrawer({
                       کمیسیون به کیف پول شما اضافه نمی‌شود.
                     </li>
                     <li>
-                      • تا ۶ ساعت پس از ارسال لینک، اگر بیعانه پرداخت نشود نوبت
+                      • تا {toPersianDigits(DEPOSIT_PAYMENT_TIMEOUT_HOURS)}{' '}
+                      ساعت پس از ارسال لینک، اگر بیعانه پرداخت نشود نوبت
                       خودکار لغو می‌شود (ارسال مجدد لینک مهلت را از نو شروع
                       می‌کند).
                     </li>

@@ -55,9 +55,19 @@ export const useUpdateBookingStatus = () => {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: Booking['status'] }) =>
       updateBookingStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['barber-bookings'] });
-      toast.success('وضعیت نوبت با موفقیت تغییر کرد.');
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+
+      const messages: Record<Booking['status'], string> = {
+        pending: 'نوبت به حالت «در انتظار تایید» برگشت.',
+        confirmed: 'نوبت تایید شد و پیامک تایید برای مشتری ارسال شد.',
+        completed: 'نوبت «انجام شده» ثبت شد.',
+        rejected: 'درخواست رد شد؛ مبلغ در صف بازپرداخت مشتری ثبت شد.',
+        canceled: 'نوبت لغو شد.',
+      };
+
+      toast.success(messages[variables.status]);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'خطا در تغییر وضعیت نوبت');

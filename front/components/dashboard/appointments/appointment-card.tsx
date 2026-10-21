@@ -6,6 +6,8 @@ import {
   BellRing,
   Check,
   CheckCheck,
+  ChevronLeft,
+  Clock3,
   Link2,
   NotebookPen,
   Phone,
@@ -30,7 +32,9 @@ import { Button } from '@/components/ui/button';
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL,
+  DEPOSIT_PAYMENT_TIMEOUT_HOURS,
 } from '@/constants/booking';
+import { getDepositDeadlineLabel } from '@/lib/deposit-deadline';
 import { toISODate } from '@/lib/jalali';
 import { cn, formatPrice, toPersianDigits } from '@/lib/utils';
 import {
@@ -42,6 +46,18 @@ import { Booking } from '@/services/features/booking/types';
 interface AppointmentCardProps {
   booking: Booking;
 }
+
+/**
+ * آیا زمان شروع نوبت رسیده است؟
+ *
+ * «انجام شد» دستی و تکمیل خودکار فقط بعد از شروع نوبت معنا دارند؛ بک‌اند
+ * زودتر از آن را رد می‌کند.
+ */
+const hasSlotStarted = (date: string, time: string): boolean => {
+  const start = new Date(`${date}T${time || '00:00'}`).getTime();
+
+  return Number.isFinite(start) && start <= new Date().getTime();
+};
 
 export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const { customer, service, time, status, price } = booking;
@@ -66,6 +82,15 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const isConfirmed = status === 'confirmed';
   const isDone =
     status === 'completed' || status === 'canceled' || status === 'rejected';
+
+  /**
+   * «انجام شد» دستی فقط بعد از شروع نوبت معنا دارد؛ بک‌اند هم زودتر از آن را
+   * رد می‌کند. برای نوبت‌های آینده دکمه را نشان نمی‌دهیم تا آرایشگر با خطا
+   * روبه‌رو نشود (تکمیل خودکار بعد از پایان نوبت انجام می‌شود).
+   */
+  const slotStarted = hasSlotStarted(booking.date, time);
+
+  const depositDeadline = getDepositDeadlineLabel(booking.depositRequestedAt);
 
   return (
     <div
@@ -181,6 +206,30 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
           </div>
         )}
 
+        {/* مسیر نوبت پرداخت‌شده: پرداخت → تایید → تکمیل خودکار */}
+        {isPending && booking.onlinePaidAt && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 rounded-xl border border-amber-200/70 bg-white/70 px-2.5 py-2 text-[10px] font-black">
+            <span className="inline-flex items-center gap-1 text-emerald-700">
+              <Check size={11} />
+              پرداخت انجام شد
+            </span>
+
+            <ChevronLeft size={11} className="text-gray-300" />
+
+            <span className="inline-flex items-center gap-1 text-amber-700">
+              <Clock3 size={11} />
+              منتظر تایید شما
+            </span>
+
+            <ChevronLeft size={11} className="text-gray-300" />
+
+            <span className="inline-flex items-center gap-1 text-gray-400">
+              <CheckCheck size={11} />
+              تکمیل خودکار
+            </span>
+          </div>
+        )}
+
         {/* نشان یادآوری / بیعانه */}
         {(booking.sendSmsReminder ||
           booking.sendDepositLink ||
@@ -234,6 +283,32 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
           </div>
         )}
 
+        {/* هشدار بیعانهٔ پرداخت‌نشده: ساعت اشغال است ولی نوبت تضمینی نیست */}
+        {booking.sendDepositLink &&
+          !booking.depositPaidAt &&
+          (isPending || isConfirmed) && (
+            <div className="mt-2.5 flex items-start gap-1.5 rounded-xl border border-blue-200 bg-blue-50/70 px-2.5 py-2 text-[10px] font-semibold leading-5 text-blue-800">
+              <Clock3 size={12} className="mt-0.5 shrink-0" />
+              <span>
+                <span className="block font-black">
+                  {depositDeadline ?? 'مهلت پرداخت ۶ ساعته'}
+                </span>
+                اگر مشتری در مهلت{' '}
+                {toPersianDigits(DEPOSIT_PAYMENT_TIMEOUT_HOURS)} ساعته پرداخت
+                نکند، نوبت خودکار لغو و ساعت آزاد می‌شود. «ارسال مجدد لینک»
+                مهلت را از نو شروع می‌کند.
+              </span>
+            </div>
+          )}
+
+        {/* تکمیل خودکار نوبت قطعی */}
+        {isConfirmed && (!booking.sendDepositLink || booking.depositPaidAt) && (
+          <p className="mt-2 flex items-center gap-1 text-[10px] font-medium text-gray-400">
+            <CheckCheck size={11} />
+            بعد از پایان زمان نوبت، خودکار «انجام شده» می‌شود.
+          </p>
+        )}
+
         {/* عملیات */}
         {!isDone && (
           <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-gray-50 pt-3">
@@ -271,31 +346,27 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                     <XCircle size={13} className="ml-1" />
                     رد
                   </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 rounded-lg text-[11px] font-bold text-red-500 hover:bg-red-50 hover:text-red-600"
-                    onClick={() => setCancelOpen(true)}
-                    disabled={updateStatus.isPending}
-                  >
-                    <XCircle size={13} className="ml-1" />
-                    لغو
-                  </Button>
                 </>
               )}
 
               {isConfirmed && (
                 <>
-                  <Button
-                    size="sm"
-                    className="h-8 rounded-lg text-[11px] font-black"
-                    onClick={() => handleStatus('completed')}
-                    disabled={updateStatus.isPending}
-                  >
-                    <CheckCheck size={13} className="ml-1" />
-                    انجام شد
-                  </Button>
+                  {slotStarted ? (
+                    <Button
+                      size="sm"
+                      className="h-8 rounded-lg text-[11px] font-black"
+                      onClick={() => handleStatus('completed')}
+                      disabled={updateStatus.isPending}
+                    >
+                      <CheckCheck size={13} className="ml-1" />
+                      انجام شد
+                    </Button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2 py-1.5 text-[10px] font-bold text-gray-400">
+                      <CheckCheck size={12} />
+                      پس از شروع نوبت
+                    </span>
+                  )}
 
                   <Button
                     size="sm"

@@ -77,6 +77,7 @@ export interface MyBooking {
   price?: number;
   status: BookingStatus;
   sendDepositLink?: boolean;
+  depositToken?: string | null;
   depositPaidAt?: string | null;
   depositRequestedAt?: string | null;
   onlinePaidAt?: string | null;

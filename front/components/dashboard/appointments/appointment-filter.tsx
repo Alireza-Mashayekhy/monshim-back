@@ -1,7 +1,7 @@
 // components/dashboard/appointments/AppointmentFilter.tsx
 'use client';
 
-import { cn } from '@/lib/utils';
+import { cn, toPersianDigits } from '@/lib/utils';
 
 export type AppointmentFilterKey =
   | 'pending'
@@ -12,8 +12,9 @@ export type AppointmentFilterKey =
   | 'all';
 
 const filters: { key: AppointmentFilterKey; label: string }[] = [
-  { key: 'today', label: 'امروز' },
+  // «در انتظار تایید» اول می‌آید: کاری که باید همین حالا انجام شود.
   { key: 'pending', label: 'در انتظار تایید' },
+  { key: 'today', label: 'امروز' },
   { key: 'tomorrow', label: 'فردا' },
   { key: 'week', label: 'این هفته' },
   { key: 'month', label: 'این ماه' },
@@ -23,11 +24,14 @@ const filters: { key: AppointmentFilterKey; label: string }[] = [
 interface AppointmentFilterProps {
   value: AppointmentFilterKey;
   onChange: (filter: AppointmentFilterKey) => void;
+  /** تعداد درخواست‌های بازِ همهٔ تاریخ‌ها؛ روی تب «در انتظار تایید» می‌نشیند. */
+  pendingCount?: number;
 }
 
 export default function AppointmentFilter({
   value,
   onChange,
+  pendingCount = 0,
 }: AppointmentFilterProps) {
   return (
     <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
@@ -44,6 +48,19 @@ export default function AppointmentFilter({
           )}
         >
           {item.label}
+
+          {item.key === 'pending' && pendingCount > 0 && (
+            <span
+              className={cn(
+                'ms-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-black',
+                value === 'pending'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-amber-100 text-amber-700',
+              )}
+            >
+              {toPersianDigits(pendingCount)}
+            </span>
+          )}
         </button>
       ))}
     </div>

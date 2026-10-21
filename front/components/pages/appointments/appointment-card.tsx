@@ -5,6 +5,7 @@ import {
   CalendarClock,
   CalendarDays,
   Clock3,
+  CreditCard,
   Eye,
   Loader2,
   MapPin,
@@ -27,11 +28,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { canCancelBooking } from '@/constants/booking';
+import {
+  canCancelBooking,
+  DEPOSIT_PAYMENT_TIMEOUT_HOURS,
+} from '@/constants/booking';
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL,
 } from '@/constants/booking';
+import { getDepositDeadlineLabel } from '@/lib/deposit-deadline';
 import { toFa } from '@/lib/jalali';
 import { cn, formatPrice, getFullImageUrl } from '@/lib/utils';
 import { useMyBarberReviews } from '@/services/features/barber/hooks';
@@ -106,6 +111,30 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
     booking.service?.price != null
       ? Math.round(Number(booking.service.price) * 0.1)
       : 0;
+  /**
+   * کمیسیون فقط وقتی به مشتری مربوط است که آنلاین پرداخت کرده باشد
+   * (رزرو کامل یا لینک بیعانه). در نوبت دستیِ پلن پیامکی، پرداخت در سالن
+   * انجام می‌شود و نمایش کمیسیون فقط گیج‌کننده است.
+   */
+  const showCommission =
+    commission > 0 && (!!booking.onlinePaidAt || !!booking.depositPaidAt);
+  /**
+   * لینک مستقیم پرداخت بیعانه از پنل مشتری.
+   *
+   * همان توکنی است که در پیامک فرستاده می‌شود؛ اگر مشتری پیامک را گم کند
+   * می‌تواند از همین‌جا مستقیم به درگاه برود. اگر آدرس API در بیلد ست نشده
+   * باشد، فقط متن راهنما نمایش داده می‌شود.
+   */
+  const depositPayUrl = (() => {
+    const token = booking.depositToken?.trim();
+    const apiBase = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
+    if (!token || !apiBase) return null;
+
+    return `${apiBase}/payment/deposit/${token}`;
+  })();
+  const depositUnpaid =
+    !!booking.sendDepositLink && !booking.depositPaidAt;
+  const depositDeadline = getDepositDeadlineLabel(booking.depositRequestedAt);
   /**
    * لغو نوبتی که زمانش گذشته در سرور هم رد می‌شود؛ دکمه را نشان نمی‌دهیم
    * تا کاربر با خطا مواجه نشود.
@@ -202,9 +231,40 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
             <Clock3 size={13} className="mt-0.5 shrink-0" />
             <span>
               {booking.onlinePaidAt
-                ? 'پرداخت شما انجام شده است؛ نوبت پس از تایید آرایشگر قطعی می‌شود.'
+                ? 'پرداخت شما انجام شده است؛ نوبت پس از تایید آرایشگر قطعی می‌شود. اگر آرایشگر تا شروع نوبت پاسخ ندهد، مبلغ به شما بازگردانده می‌شود.'
                 : 'این درخواست در انتظار تایید آرایشگر است.'}
             </span>
+          </div>
+        )}
+
+        {/* بیعانهٔ پرداخت‌نشده: نوبت ثبت شده اما تضمینی نیست */}
+        {depositUnpaid && booking.status === 'confirmed' && (
+          <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-2.5 text-[11px] font-medium leading-5 text-blue-900">
+            <p className="flex items-start gap-2">
+              <CreditCard size={13} className="mt-0.5 shrink-0" />
+              <span>
+                <span className="block font-black">
+                  {depositDeadline ?? 'بیعانه پرداخت نشده است'}
+                </span>
+                نوبت شما رزرو شده است، اما بیعانه هنوز پرداخت نشده. اگر تا{' '}
+                {toFa(DEPOSIT_PAYMENT_TIMEOUT_HOURS)} ساعت پس از ارسال لینک
+                پرداخت نکنید، نوبت خودکار لغو می‌شود.
+              </span>
+            </p>
+
+            {depositPayUrl ? (
+              <a
+                href={depositPayUrl}
+                className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-[11px] font-black text-white transition hover:bg-blue-700"
+              >
+                <CreditCard size={13} />
+                پرداخت بیعانه
+              </a>
+            ) : (
+              <p className="text-[10px] font-semibold text-blue-700">
+                لینک پرداخت برای شما پیامک شده است.
+              </p>
+            )}
           </div>
         )}
 
@@ -235,7 +295,7 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
             </span>
           </div>
 
-          {commission > 0 && (
+          {showCommission && (
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-gray-400">
                 کمیسیون سایت (تخمینی)
