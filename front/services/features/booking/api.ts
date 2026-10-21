@@ -75,6 +75,14 @@ export const updateBookingStatus = async (
   return data;
 };
 
+// ارسال دوبارهٔ پیامک لینک بیعانه
+export const resendDepositLink = async (
+  id: string,
+): Promise<{ message: string; depositToken: string }> => {
+  const { data } = await api.post(`/bookings/${id}/deposit-link`);
+  return data;
+};
+
 // تأیید نوبت توسط آرایشگر (اختیاری)
 export const confirmBooking = async (id: string): Promise<Booking> => {
   const { data } = await api.patch(`/bookings/${id}/confirm`);

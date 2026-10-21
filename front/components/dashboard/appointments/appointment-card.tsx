@@ -9,6 +9,7 @@ import {
   Link2,
   NotebookPen,
   Phone,
+  RefreshCw,
   StickyNote,
   XCircle,
 } from 'lucide-react';
@@ -32,7 +33,10 @@ import {
 } from '@/constants/booking';
 import { toISODate } from '@/lib/jalali';
 import { cn, formatPrice, toPersianDigits } from '@/lib/utils';
-import { useUpdateBookingStatus } from '@/services/features/booking/hooks';
+import {
+  useResendDepositLink,
+  useUpdateBookingStatus,
+} from '@/services/features/booking/hooks';
 import { Booking } from '@/services/features/booking/types';
 
 interface AppointmentCardProps {
@@ -42,6 +46,7 @@ interface AppointmentCardProps {
 export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const { customer, service, time, status, price } = booking;
   const updateStatus = useUpdateBookingStatus();
+  const resendDepositLink = useResendDepositLink();
   const [cancelOpen, setCancelOpen] = useState(false);
 
   const handleCall = () => {
@@ -175,7 +180,9 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
         )}
 
         {/* نشان یادآوری / بیعانه */}
-        {(booking.sendSmsReminder || booking.sendDepositLink) && (
+        {(booking.sendSmsReminder ||
+          booking.sendDepositLink ||
+          booking.onlinePaidAt) && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {booking.sendSmsReminder && booking.reminderHours ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-primary-2 px-2 py-1 text-[10px] font-black text-primary">
@@ -184,11 +191,43 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
               </span>
             ) : null}
 
-            {booking.sendDepositLink ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-600">
-                <Link2 size={11} />
-                لینک بیعانه
+            {booking.onlinePaidAt ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+                <Check size={11} />
+                پرداخت آنلاین انجام شد
               </span>
+            ) : null}
+
+            {booking.sendDepositLink ? (
+              booking.depositPaidAt ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+                  <Check size={11} />
+                  بیعانه پرداخت شد
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-600">
+                  <Link2 size={11} />
+                  لینک بیعانه (پرداخت‌نشده)
+                </span>
+              )
+            ) : null}
+
+            {booking.sendDepositLink &&
+            !booking.depositPaidAt &&
+            (isPending || isConfirmed) &&
+            customer?.phone ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2 py-1 text-[10px] font-black text-blue-700 transition hover:bg-blue-50 disabled:opacity-50"
+                onClick={() => resendDepositLink.mutate(booking.id)}
+                disabled={resendDepositLink.isPending}
+              >
+                <RefreshCw
+                  size={11}
+                  className={resendDepositLink.isPending ? 'animate-spin' : ''}
+                />
+                ارسال مجدد لینک
+              </button>
             ) : null}
           </div>
         )}

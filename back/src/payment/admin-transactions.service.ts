@@ -11,6 +11,7 @@ import {
   CUSTOMER_REFUND_PENDING_PREFIX,
   CUSTOMER_REFUND_SETTLED_PREFIX,
 } from 'src/wallet/refund.constants';
+import { WalletService } from 'src/wallet/wallet.service';
 import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { AdminTransactionQueryDto } from './dto/admin-transaction-query.dto';
@@ -102,6 +103,8 @@ export class AdminTransactionsService {
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
+
+    private readonly walletService: WalletService,
   ) {}
 
   async list(query: AdminTransactionQueryDto) {
@@ -243,6 +246,16 @@ export class AdminTransactionsService {
     }
 
     return this.transactionRepo.findOne({ where: { id } });
+  }
+
+  /** تایید برداشت آرایشگر (موجودی قبلاً کسر شده است) */
+  async approveWithdrawal(id: string, transferReference?: string) {
+    return this.walletService.approveWithdrawal(id, transferReference);
+  }
+
+  /** رد برداشت آرایشگر + برگرداندن مبلغ به کیف پول */
+  async rejectWithdrawal(id: string, reason?: string) {
+    return this.walletService.rejectWithdrawal(id, reason);
   }
 
   private createPaymentQuery(query: AdminTransactionQueryDto) {

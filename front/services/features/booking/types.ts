@@ -17,6 +17,8 @@ export interface Booking {
   barberNote?: string | null;
   customerNote?: string | null;
   sendDepositLink?: boolean;
+  depositPaidAt?: string | null;
+  onlinePaidAt?: string | null;
   sendSmsReminder?: boolean;
   reminderHours?: number | null;
   createdAt: string;

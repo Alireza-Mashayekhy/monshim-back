@@ -36,12 +36,12 @@ export class BarberAdminController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.barberService.findOne(+id);
+    return this.barberService.findOneByProfileId(id);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateBarberDto: UpdateBarberDto) {
-    return this.barberService.update(+id, updateBarberDto);
+    return this.barberService.updateByProfileId(id, updateBarberDto);
   }
 
   @Delete(':id')

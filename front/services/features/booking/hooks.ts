@@ -10,6 +10,7 @@ import {
   getAvailableSlots,
   getBarberBookings,
   getMyBookings,
+  resendDepositLink,
   updateBookingStatus,
 } from './api';
 import { Booking, BookingQueryParams, MyBookingsQuery } from './types';
@@ -60,6 +61,22 @@ export const useUpdateBookingStatus = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'خطا در تغییر وضعیت نوبت');
+    },
+  });
+};
+
+export const useResendDepositLink = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => resendDepositLink(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['barber-bookings'] });
+      toast.success('لینک بیعانه دوباره برای مشتری پیامک شد.');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'ارسال دوبارهٔ لینک بیعانه ناموفق بود',
+      );
     },
   });
 };

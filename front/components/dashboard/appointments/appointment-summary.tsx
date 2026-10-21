@@ -84,9 +84,9 @@ export default function AppointmentSummary() {
 
         <StatTile
           icon={Wallet}
-          label="درآمد امروز"
+          label="مبلغ نوبت‌های امروز"
           value={`${toPersianDigits(formatPrice(income))}`}
-          sub="تومان — نوبت‌های فعال"
+          sub="جمع قیمت خدمات — نه لزوماً دریافتی"
         />
 
         <StatTile

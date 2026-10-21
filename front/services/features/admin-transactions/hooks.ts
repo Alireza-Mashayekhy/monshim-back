@@ -1,11 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  approveAdminWithdrawal,
   exportAdminTransactions,
   getAdminTransactions,
+  rejectAdminWithdrawal,
   settleAdminRefund,
 } from './api';
-import { AdminTransactionFilters, SettleAdminRefundInput } from './types';
+import {
+  AdminTransactionFilters,
+  ReviewWithdrawalInput,
+  SettleAdminRefundInput,
+} from './types';
 
 export const adminTransactionKeys = {
   all: ['admin-transactions'] as const,
@@ -37,5 +43,28 @@ export function useSettleAdminRefund() {
       queryClient.invalidateQueries({ queryKey: adminTransactionKeys.all });
       queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
     },
+  });
+}
+
+function invalidateTransactionCaches(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: adminTransactionKeys.all });
+  queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
+  queryClient.invalidateQueries({ queryKey: ['wallet-balance'] });
+}
+
+export function useApproveAdminWithdrawal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ReviewWithdrawalInput) =>
+      approveAdminWithdrawal(input),
+    onSuccess: () => invalidateTransactionCaches(queryClient),
+  });
+}
+
+export function useRejectAdminWithdrawal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ReviewWithdrawalInput) => rejectAdminWithdrawal(input),
+    onSuccess: () => invalidateTransactionCaches(queryClient),
   });
 }

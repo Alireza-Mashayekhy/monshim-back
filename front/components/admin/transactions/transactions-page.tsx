@@ -51,7 +51,9 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
 import {
   useAdminTransactions,
+  useApproveAdminWithdrawal,
   useExportAdminTransactions,
+  useRejectAdminWithdrawal,
   useSettleAdminRefund,
 } from '@/services/features/admin-transactions/hooks';
 import {
@@ -269,6 +271,15 @@ export default function AdminTransactionsPage() {
   const refundQuery = useAdminTransactions(refundFilters);
   const exportMutation = useExportAdminTransactions();
   const settleRefundMutation = useSettleAdminRefund();
+  const approveWithdrawalMutation = useApproveAdminWithdrawal();
+  const rejectWithdrawalMutation = useRejectAdminWithdrawal();
+  const [withdrawalAction, setWithdrawalAction] = useState<{
+    id: string;
+    action: 'approve' | 'reject';
+  } | null>(null);
+  const [withdrawalNote, setWithdrawalNote] = useState('');
+  const isReviewingWithdrawal =
+    approveWithdrawalMutation.isPending || rejectWithdrawalMutation.isPending;
   const transactions = data?.data?.transactions ?? [];
   const summary = data?.data?.summary;
   const pagination = data?.pagination;
@@ -730,6 +741,8 @@ export default function AdminTransactionsPage() {
                   const outgoing =
                     transaction.source === 'wallet' &&
                     transaction.type === 'WITHDRAWAL';
+                  const pendingWithdrawal =
+                    outgoing && transaction.status === 'PENDING';
                   const commissionUnknown =
                     transaction.source === 'gateway' &&
                     transaction.type === 'BOOKING' &&
@@ -865,6 +878,39 @@ export default function AdminTransactionsPage() {
                         >
                           {getStatusLabel(transaction.status)}
                         </Badge>
+                        {pendingWithdrawal && (
+                          <div className="mt-2 flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-7 rounded-lg bg-emerald-600 px-2 text-[10px] font-bold text-white hover:bg-emerald-700"
+                              onClick={() => {
+                                setWithdrawalNote('');
+                                setWithdrawalAction({
+                                  id: transaction.id,
+                                  action: 'approve',
+                                });
+                              }}
+                            >
+                              تایید واریز
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 rounded-lg border-rose-200 px-2 text-[10px] font-bold text-rose-600 hover:bg-rose-50"
+                              onClick={() => {
+                                setWithdrawalNote('');
+                                setWithdrawalAction({
+                                  id: transaction.id,
+                                  action: 'reject',
+                                });
+                              }}
+                            >
+                              رد
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -974,6 +1020,107 @@ export default function AdminTransactionsPage() {
               {settleRefundMutation.isPending
                 ? 'در حال ثبت…'
                 : 'تأیید و ثبت واریز'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={withdrawalAction !== null}
+        onOpenChange={open => {
+          if (!open && !isReviewingWithdrawal) {
+            setWithdrawalAction(null);
+            setWithdrawalNote('');
+          }
+        }}
+      >
+        <AlertDialogContent dir="rtl" className="max-w-md rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {withdrawalAction?.action === 'approve'
+                ? 'تایید برداشت آرایشگر'
+                : 'رد درخواست برداشت'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {withdrawalAction?.action === 'approve'
+                ? 'با تایید، این برداشت «انجام‌شده» ثبت می‌شود. لطفاً فقط پس از واریز واقعی وجه ادامه دهید.'
+                : 'با رد کردن، مبلغ به کیف پول آرایشگر برگردانده می‌شود و تراکنش «ناموفق» ثبت می‌گردد.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="withdrawal-note"
+              className="block text-xs font-medium text-gray-600"
+            >
+              {withdrawalAction?.action === 'approve'
+                ? 'شناسه پیگیری واریز (اختیاری)'
+                : 'دلیل رد (اختیاری)'}
+            </label>
+            <Input
+              id="withdrawal-note"
+              value={withdrawalNote}
+              onChange={event => setWithdrawalNote(event.target.value)}
+              maxLength={128}
+              className="bg-white"
+              placeholder={
+                withdrawalAction?.action === 'approve'
+                  ? 'شناسه حواله یا رسید بانکی'
+                  : 'مثلاً شماره کارت نامعتبر است'
+              }
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isReviewingWithdrawal}>
+              انصراف
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isReviewingWithdrawal || !withdrawalAction}
+              className={
+                withdrawalAction?.action === 'reject'
+                  ? 'bg-rose-600 text-white hover:bg-rose-700'
+                  : 'bg-primary text-white hover:bg-primary/90'
+              }
+              onClick={event => {
+                event.preventDefault();
+                if (!withdrawalAction) return;
+
+                const onSuccess = () => {
+                  toast.success(
+                    withdrawalAction.action === 'approve'
+                      ? 'برداشت تایید شد.'
+                      : 'برداشت رد و مبلغ به کیف پول برگردانده شد.',
+                  );
+                  setWithdrawalAction(null);
+                  setWithdrawalNote('');
+                };
+                const onError = (error: unknown) =>
+                  toast.error(
+                    getApiErrorMessage(
+                      error,
+                      'بررسی درخواست برداشت ناموفق بود.',
+                    ),
+                  );
+
+                if (withdrawalAction.action === 'approve') {
+                  approveWithdrawalMutation.mutate(
+                    {
+                      id: withdrawalAction.id,
+                      transferReference: withdrawalNote,
+                    },
+                    { onSuccess, onError },
+                  );
+                } else {
+                  rejectWithdrawalMutation.mutate(
+                    { id: withdrawalAction.id, reason: withdrawalNote },
+                    { onSuccess, onError },
+                  );
+                }
+              }}
+            >
+              {isReviewingWithdrawal
+                ? 'در حال ثبت…'
+                : withdrawalAction?.action === 'approve'
+                  ? 'تایید برداشت'
+                  : 'رد و برگشت مبلغ'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

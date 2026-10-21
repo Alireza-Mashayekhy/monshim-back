@@ -15,6 +15,10 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 
 import { AdminTransactionsService } from './admin-transactions.service';
 import { AdminTransactionQueryDto } from './dto/admin-transaction-query.dto';
+import {
+  ApproveWithdrawalDto,
+  RejectWithdrawalDto,
+} from './dto/review-withdrawal.dto';
 import { SettleAdminRefundDto } from './dto/settle-admin-refund.dto';
 
 @ApiTags('Admin transactions')
@@ -37,6 +41,22 @@ export class AdminTransactionsController {
       id,
       dto.transferReference,
     );
+  }
+
+  @Patch(':id/approve-withdrawal')
+  approveWithdrawal(
+    @Param('id') id: string,
+    @Body() dto: ApproveWithdrawalDto,
+  ) {
+    return this.adminTransactionsService.approveWithdrawal(
+      id,
+      dto.transferReference,
+    );
+  }
+
+  @Patch(':id/reject-withdrawal')
+  rejectWithdrawal(@Param('id') id: string, @Body() dto: RejectWithdrawalDto) {
+    return this.adminTransactionsService.rejectWithdrawal(id, dto.reason);
   }
 
   @Get('export')

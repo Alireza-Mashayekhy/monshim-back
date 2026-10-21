@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -85,6 +86,19 @@ export class PaymentService {
 
   private getMerchant(): string {
     return this.configService.get<string>('ZIBAL_MERCHANT') || 'zibal';
+  }
+
+  /**
+   * شبیه‌سازی درگاه برای توسعه/تست.
+   * در production فقط با `ZIBAL_MOCK=true` فعال می‌شود؛ در بقیهٔ محیط‌ها
+   * به‌صورت پیش‌فرض روشن است تا توسعه بدون اینترنت زیبال ممکن بماند.
+   */
+  private isMockGatewayEnabled(): boolean {
+    const flag = (process.env.ZIBAL_MOCK ?? '').trim().toLowerCase();
+    if (flag === 'true' || flag === '1') return true;
+    if (flag === 'false' || flag === '0') return false;
+
+    return process.env.NODE_ENV !== 'production';
   }
 
   /** origin بک‌اند برای callback درگاه (مثلاً https://monshiim.ir) */
@@ -200,13 +214,34 @@ export class PaymentService {
     } catch (error: any) {
       if (error instanceof BadRequestException) throw error;
 
-      this.logger.warn(`Zibal gateway request network error: ${error.message}`);
-      // حالت پشتیبان تستی در صورت عدم دسترسی محیط ایزوله به اینترنت
-      const mockTrackId = Math.floor(10000000 + Math.random() * 90000000);
-      return {
-        trackId: mockTrackId,
-        paymentUrl: `https://gateway.zibal.ir/start/${mockTrackId}`,
-      };
+      this.logger.error(
+        `Zibal gateway request network error for ${params.orderId}: ${error.message}`,
+      );
+
+      /**
+       * حالت شبیه‌سازیِ درگاه فقط در محیط غیرِ production و با اجازهٔ صریح
+       * (`ZIBAL_MOCK=true`) یا به‌صورت پیش‌فرض در توسعه فعال است.
+       *
+       * قبلاً این شبیه‌سازی در همهٔ محیط‌ها (از جمله production) انجام می‌شد؛
+       * یعنی با قطع ارتباط به زیبال، یک کد رهگیری جعلی ساخته و در ادامه
+       * پرداخت «موفق» اعلام می‌شد. اکنون در production درخواست با خطای
+       * قابل‌فهم رد می‌شود تا هیچ رزروی بدون پرداختِ واقعی ثبت نشود.
+       */
+      if (this.isMockGatewayEnabled()) {
+        const mockTrackId = Math.floor(10000000 + Math.random() * 90000000);
+        this.logger.warn(
+          `ZIBAL_MOCK فعال است؛ تراکنش آزمایشی ${mockTrackId} برای ${params.orderId} ساخته شد.`,
+        );
+
+        return {
+          trackId: mockTrackId,
+          paymentUrl: `https://gateway.zibal.ir/start/${mockTrackId}`,
+        };
+      }
+
+      throw new ServiceUnavailableException(
+        'درگاه پرداخت در حال حاضر در دسترس نیست. لطفاً چند دقیقه بعد دوباره تلاش کنید.',
+      );
     }
   }
 
@@ -444,6 +479,21 @@ export class PaymentService {
       throw new NotFoundException('یک یا چند سرویس معتبر نیستند');
     }
 
+    /**
+     * هر خدمت باید متعلق به همین آرایشگر باشد.
+     * پیش از این فقط «فعال بودن» خدمت بررسی می‌شد و می‌شد خدمتِ آرایشگر
+     * دیگری (با قیمت/مدت متفاوت) را در سفارش این آرایشگر جا داد؛ نتیجه‌اش
+     * قیمت و درآمد اشتباه و رزرو با مدت نامعتبر بود.
+     */
+    const serviceNotOwnedByBarber = services.some(
+      service => Number(service.barberId) !== Number(barber.userId),
+    );
+    if (serviceNotOwnedByBarber) {
+      throw new BadRequestException(
+        'خدمت انتخاب‌شده متعلق به این آرایشگر نیست. لطفاً صفحه را بازخوانی کنید.',
+      );
+    }
+
     const toMinutes = (time: string) => {
       const [hours, minutes] = time.split(':').map(Number);
       return hours * 60 + minutes;
@@ -634,6 +684,14 @@ export class PaymentService {
       booking.status === BookingStatus.REJECTED
     ) {
       throw new BadRequestException('این نوبت لغو شده است');
+    }
+
+    // بیعانه برای نوبتی که زمانش گذشته معنا ندارد؛ پیش از این فقط
+    // لغو/ردشده‌ها مسدود بودند و لینک قدیمی روی نوبت گذشته هم پول می‌گرفت.
+    if (isBookingSlotInPast(booking.date, booking.time, getBookingClock())) {
+      throw new BadRequestException(
+        'زمان این نوبت گذشته است و امکان پرداخت بیعانه وجود ندارد',
+      );
     }
 
     const amount = await this.getBookingDepositAmount(booking);
