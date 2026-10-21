@@ -401,6 +401,125 @@ export class WalletService {
     }
   }
 
+  /**
+   * تایید برداشت توسط ادمین.
+   *
+   * موجودی هنگام ثبت درخواست کسر شده بود؛ اینجا فقط وضعیت تراکنش نهایی
+   * می‌شود. شناسهٔ پیگیری واریز بانکی (اختیاری) در توضیح ذخیره می‌شود تا
+   * بعداً قابل رهگیری باشد.
+   */
+  async approveWithdrawal(id: string, reference?: string) {
+    const transaction = await this.transactionRepo.findOne({ where: { id } });
+
+    if (!transaction) {
+      throw new NotFoundException('درخواست برداشت یافت نشد');
+    }
+
+    if (
+      transaction.type !== TransactionType.WITHDRAWAL ||
+      transaction.status !== TransactionStatus.PENDING
+    ) {
+      throw new BadRequestException(
+        'این درخواست برداشت در وضعیت قابل تایید نیست یا قبلاً بررسی شده است',
+      );
+    }
+
+    const note = reference?.trim();
+    const description = [
+      transaction.description,
+      note ? `شناسهٔ پیگیری واریز: ${note}` : '',
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    const result = await this.transactionRepo.update(
+      {
+        id,
+        type: TransactionType.WITHDRAWAL,
+        status: TransactionStatus.PENDING,
+      },
+      { status: TransactionStatus.COMPLETED, description },
+    );
+
+    if (result.affected === 0) {
+      throw new BadRequestException(
+        'این درخواست هم‌زمان توسط ادمین دیگری بررسی شد. صفحه را بازخوانی کنید.',
+      );
+    }
+
+    return this.transactionRepo.findOne({ where: { id } });
+  }
+
+  /**
+   * رد برداشت توسط ادمین.
+   *
+   * چون موجودی در لحظهٔ ثبت درخواست کسر شده بود، رد کردن بدون برگرداندن
+   * مبلغ یعنی از بین رفتن پول آرایشگر. اینجا مبلغ به کیف پول برگردانده
+   * می‌شود و یک تراکنش DEPOSIT برای شفافیت دفتر مالی ثبت می‌شود.
+   */
+  async rejectWithdrawal(id: string, reason?: string) {
+    return this.dataSource.transaction(async manager => {
+      const transactionRepo = manager.getRepository(Transaction);
+      const walletRepo = manager.getRepository(Wallet);
+
+      const transaction = await transactionRepo
+        .createQueryBuilder('transaction')
+        .where('transaction.id = :id', { id })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (!transaction) {
+        throw new NotFoundException('درخواست برداشت یافت نشد');
+      }
+
+      if (
+        transaction.type !== TransactionType.WITHDRAWAL ||
+        transaction.status !== TransactionStatus.PENDING
+      ) {
+        throw new BadRequestException(
+          'این درخواست برداشت در وضعیت قابل رد کردن نیست یا قبلاً بررسی شده است',
+        );
+      }
+
+      const wallet = await walletRepo
+        .createQueryBuilder('wallet')
+        .where('wallet.id = :id', { id: transaction.walletId })
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (!wallet) {
+        throw new NotFoundException('کیف پول یافت نشد');
+      }
+
+      const note = reason?.trim();
+      transaction.status = TransactionStatus.FAILED;
+      transaction.description = [
+        transaction.description,
+        note ? `رد شد: ${note}` : 'رد شد',
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      await transactionRepo.save(transaction);
+
+      wallet.balance = Number(wallet.balance) + Number(transaction.amount);
+      await walletRepo.save(wallet);
+
+      await transactionRepo.save(
+        transactionRepo.create({
+          walletId: wallet.id,
+          amount: transaction.amount,
+          type: TransactionType.DEPOSIT,
+          status: TransactionStatus.COMPLETED,
+          description: 'برگشت مبلغ برداشت ردشده',
+          referenceId: transaction.id,
+        }),
+      );
+
+      return transaction;
+    });
+  }
+
   // ==================== کارت‌های بانکی ====================
 
   async getCards(userId: number): Promise<BankCard[]> {

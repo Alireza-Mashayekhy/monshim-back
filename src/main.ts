@@ -20,6 +20,19 @@ async function bootstrap() {
     setupSwagger(app);
   }
 
+  /**
+   * پشت reverse proxy باید trust proxy فعال باشد تا محدودیت نرخ بر اساس
+   * IP واقعی کاربر اعمال شود (وگرنه همه یک IP مشترک دارند). به‌صورت
+   * پیش‌فرض خاموش است تا اگر سرویس مستقیم روی اینترنت است، کسی نتواند
+   * با هدر X-Forwarded-For محدودیت را دور بزند.
+   */
+  const trustProxy = (process.env.TRUST_PROXY ?? '').trim();
+  if (trustProxy === 'true' || trustProxy === '1') {
+    app.set('trust proxy', 1);
+  } else if (/^\d+$/.test(trustProxy)) {
+    app.set('trust proxy', Number(trustProxy));
+  }
+
   app.use(compression());
   app.use(cookieParser());
   app.useGlobalPipes(

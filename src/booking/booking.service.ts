@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
@@ -30,6 +31,7 @@ import { WalletService } from 'src/wallet/wallet.service';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import {
+  bookingWallTimeToUtc,
   getBookingClock,
   isBookingDateInPast,
   isBookingSlotInPast,
@@ -127,6 +129,13 @@ export class BookingsService {
 
     if (!service) {
       throw new NotFoundException('سرویس مورد نظر یافت نشد');
+    }
+
+    // خدمت باید متعلق به همین آرایشگر باشد (نه فقط «فعال»)
+    if (Number(service.barberId) !== Number(barber.userId)) {
+      throw new BadRequestException(
+        'خدمت انتخاب‌شده متعلق به این آرایشگر نیست. لطفاً صفحه را بازخوانی کنید.',
+      );
     }
 
     // بررسی اینکه زمان انتخابی داخل ساعت کاری آرایشگر باشد
@@ -984,6 +993,72 @@ export class BookingsService {
       throw new NotFoundException('سرویس مورد نظر یافت نشد');
     }
 
+    if (Number(service.barberId) !== Number(barberUserId)) {
+      throw new BadRequestException(
+        'خدمت انتخاب‌شده متعلق به شما نیست. لطفاً لیست خدمات را بازخوانی کنید.',
+      );
+    }
+
+    if (!service.isActive) {
+      throw new BadRequestException('این خدمت غیرفعال شده است');
+    }
+
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+
+      return hours * 60 + minutes;
+    };
+
+    const bookingStart = toMinutes(dto.time);
+    const bookingEnd = bookingStart + service.durationMinutes;
+
+    // ساعت کاری همان روز
+    const jsDay = new Date(dto.date).getDay();
+    const dayOfWeek = (jsDay + 1) % 7;
+    const workHours = await this.workHoursRepo.find({
+      where: { barberId: barber.id, dayOfWeek },
+    });
+
+    const fitsInWorkHours = workHours.some(workHour => {
+      const start = toMinutes(workHour.startTime);
+      const end = toMinutes(workHour.endTime);
+
+      return bookingStart >= start && bookingEnd <= end;
+    });
+
+    if (!fitsInWorkHours) {
+      throw new BadRequestException('زمان انتخاب‌شده خارج از ساعت کاری شماست');
+    }
+
+    /**
+     * بررسی تداخل با نوبت‌های تاییدشده همان روز.
+     * ثبت دستی پیش از این هیچ بررسی تداخلی نداشت و آرایشگر می‌توانست
+     * روی یک نوبت تاییدشده، نوبت دوم بگذارد.
+     */
+    const sameDayBookings = await this.bookingRepo.find({
+      where: {
+        barberId: barber.id,
+        date: dto.date,
+        status: BookingStatus.CONFIRMED,
+      },
+      relations: { service: true },
+    });
+
+    const hasConflict = sameDayBookings.some(existing => {
+      const existingStart = toMinutes(existing.time);
+      const existingEnd =
+        existingStart +
+        (existing.service?.durationMinutes ?? service.durationMinutes);
+
+      return bookingStart < existingEnd && bookingEnd > existingStart;
+    });
+
+    if (hasConflict) {
+      throw new BadRequestException(
+        'این زمان با نوبت دیگری تداخل دارد. لطفاً ساعت دیگری انتخاب کنید',
+      );
+    }
+
     const smsCost =
       (sendDeposit ? 0 : CONFIRMATION_SMS_COST) +
       (sendReminder ? REMINDER_SMS_COST : 0);
@@ -1110,6 +1185,81 @@ export class BookingsService {
     );
   }
 
+  /**
+   * ارسال دوبارهٔ لینک بیعانه.
+   *
+   * پیش از این اگر پیامک لینک پاک می‌شد یا به دست مشتری نمی‌رسید، هیچ راهی
+   * برای فرستادن مجدد وجود نداشت و آرایشگر مجبور بود نوبت جدید ثبت کند.
+   */
+  async resendDepositLink(
+    bookingId: string,
+    userId: number,
+    roles: string[],
+  ): Promise<{ message: string; depositToken: string }> {
+    const booking = await this.bookingRepo.findOne({
+      where: { id: bookingId },
+      relations: {
+        barber: true,
+        service: true,
+        customer: true,
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException('رزرو یافت نشد');
+    }
+
+    const isBarber = booking.barber?.userId === userId;
+    const isAdmin = roles?.includes('admin');
+
+    if (!isBarber && !isAdmin) {
+      throw new ForbiddenException('شما به این رزرو دسترسی ندارید');
+    }
+
+    if (
+      booking.status !== BookingStatus.PENDING &&
+      booking.status !== BookingStatus.CONFIRMED
+    ) {
+      throw new BadRequestException(
+        'برای این نوبت (لغوشده یا انجام‌شده) نمی‌توان لینک بیعانه فرستاد',
+      );
+    }
+
+    if (booking.depositPaidAt) {
+      throw new BadRequestException('بیعانهٔ این نوبت قبلاً پرداخت شده است');
+    }
+
+    if (isBookingSlotInPast(booking.date, booking.time, getBookingClock())) {
+      throw new BadRequestException(
+        'زمان این نوبت گذشته است و ارسال لینک بیعانه معنا ندارد',
+      );
+    }
+
+    const phone = booking.customer?.phone;
+    if (!phone) {
+      throw new BadRequestException('شمارهٔ تماس مشتری ثبت نشده است');
+    }
+
+    const token = booking.depositToken || this.createDepositToken();
+
+    if (!booking.depositToken) {
+      booking.depositToken = token;
+      booking.sendDepositLink = true;
+      await this.bookingRepo.save(booking);
+    }
+
+    await this.bookingSmsService.sendDepositLinkToCustomer(phone, {
+      customerName: booking.customer?.fullName ?? 'مشتری',
+      salonName: booking.barber?.salonName ?? 'سالن شما',
+      paymentToken: token,
+    });
+
+    return {
+      message: 'لینک بیعانه دوباره برای مشتری پیامک شد',
+      depositToken: token,
+    };
+  }
+
   // =========================================================
   // CANCEL BY CUSTOMER
   // =========================================================
@@ -1140,11 +1290,81 @@ export class BookingsService {
         );
       }
 
-      booking.status = BookingStatus.CANCELED;
-      booking.canceledBy = 'customer';
-      booking.canceledAt = new Date();
-      saved = await bookingRepo.save(booking);
+      // لغو نوبتی که زمانش گذشته، فقط آمار آرایشگر را خراب می‌کند.
+      if (isBookingSlotInPast(booking.date, booking.time, getBookingClock())) {
+        throw new BadRequestException(
+          'زمان این نوبت گذشته است و امکان لغو آن وجود ندارد',
+        );
+      }
+
+      /**
+       * یک پرداخت می‌تواند چند ردیف رزرو (چند خدمت) بسازد. قبلاً لغو مشتری
+       * فقط یک ردیف را می‌بست و بقیهٔ خدمات همان سفارش روی تقویم می‌ماندند،
+       * در حالی که لغو آرایشگر همهٔ ردیف‌ها را می‌بست. اکنون هر دو یکسان‌اند.
+       */
+      const bookingIds = new Set<string>([booking.id]);
+      const payment = await queryRunner.manager
+        .getRepository(Payment)
+        .createQueryBuilder('payment')
+        .where('payment.purpose = :purpose', {
+          purpose: PaymentPurpose.BOOKING,
+        })
+        .andWhere('payment.status = :status', {
+          status: PaymentStatus.PAID,
+        })
+        .andWhere('payment.userId = :customerId', {
+          customerId: booking.customerId,
+        })
+        .andWhere(
+          '(payment.purposeId = :bookingId OR payment.metadata LIKE :pattern)',
+          { bookingId: booking.id, pattern: `%${booking.id}%` },
+        )
+        .orderBy('payment.id', 'ASC')
+        .setLock('pessimistic_write')
+        .getOne();
+
+      if (payment && this.paymentReferencesBooking(payment, booking)) {
+        const relatedIds = await this.resolvePaymentBookingIds(
+          queryRunner.manager,
+          payment,
+          booking,
+        );
+        for (const relatedId of relatedIds) {
+          bookingIds.add(relatedId);
+        }
+      }
+
+      const group = await bookingRepo
+        .createQueryBuilder('booking')
+        .where('booking.id IN (:...ids)', {
+          ids: [...bookingIds].sort(),
+        })
+        .orderBy('booking.id', 'ASC')
+        .setLock('pessimistic_write')
+        .getMany();
+
+      const cancellable = group.filter(
+        item =>
+          item.customerId === userId &&
+          (item.status === BookingStatus.PENDING ||
+            item.status === BookingStatus.CONFIRMED),
+      );
+
+      if (!cancellable.length) {
+        throw new BadRequestException('این رزرو در وضعیت قابل لغو نیست');
+      }
+
+      const canceledAt = new Date();
+      for (const item of cancellable) {
+        item.status = BookingStatus.CANCELED;
+        item.canceledBy = 'customer';
+        item.canceledAt = canceledAt;
+      }
+
+      await bookingRepo.save(cancellable);
       await queryRunner.commitTransaction();
+
+      saved = cancellable.find(item => item.id === id) ?? cancellable[0];
     } catch (error) {
       if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
@@ -1155,9 +1375,77 @@ export class BookingsService {
     }
 
     // لغو توسط مشتری بازپرداخت ایجاد نمی‌کند؛ مبلغ پرداخت‌شده برای آرایشگر می‌ماند.
+    // برای سفارش چندخدمتی فقط یک پیامک می‌رود تا مشتری چند پیامک تکراری نگیرد.
     this.sendBookingCanceledSms(saved.id);
     this.sanitizeForCustomer(saved);
     return saved;
+  }
+
+  /**
+   * تکمیل خودکار نوبت‌های پرداخت‌شده‌ای که زمانشان گذشته است.
+   *
+   * چرا لازم است: پیش از این تنها راه رسیدن به وضعیت `completed` کلیک دستی
+   * آرایشگر بود. اگر او فراموش می‌کرد، نوبت همیشه `confirmed` می‌ماند و
+   * زنجیره‌های وابسته قفل می‌شدند: مشتری حق ثبت نظر نداشت، شمارندهٔ رفرال
+   * جلو نمی‌رفت و آمار «انجام‌شده» هیچ‌وقت درست نبود.
+   *
+   * فقط نوبت‌هایی تکمیل می‌شوند که پولی بابتشان ثبت شده باشد
+   * (`onlinePaidAt` یا `depositPaidAt`). نوبت دستیِ بدون پرداخت دست‌نخورده
+   * می‌ماند تا آرایشگر خودش دربارهٔ عدم‌حضور تصمیم بگیرد.
+   *
+   * با `AUTO_COMPLETE_BOOKINGS=false` می‌توان این رفتار را خاموش کرد؛
+   * مهلت پیش‌فرض بعد از پایان نوبت با `AUTO_COMPLETE_GRACE_HOURS` تنظیم می‌شود.
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async autoCompleteOverdueBookings(): Promise<number> {
+    if ((process.env.AUTO_COMPLETE_BOOKINGS ?? 'true') === 'false') return 0;
+
+    const graceHours = Number(process.env.AUTO_COMPLETE_GRACE_HOURS ?? 2);
+    const graceMs =
+      (Number.isFinite(graceHours) && graceHours >= 0 ? graceHours : 2) *
+      3600_000;
+
+    const candidates = await this.bookingRepo.find({
+      where: { status: BookingStatus.CONFIRMED },
+      relations: { service: true },
+      order: { date: 'ASC', time: 'ASC' },
+      take: 200,
+    });
+
+    const now = Date.now();
+    let completedCount = 0;
+
+    for (const booking of candidates) {
+      const isPaid = Boolean(booking.onlinePaidAt || booking.depositPaidAt);
+      if (!isPaid) continue;
+
+      const startsAt = bookingWallTimeToUtc(booking.date, booking.time);
+      if (!startsAt) continue;
+
+      const durationMs =
+        Math.max(booking.service?.durationMinutes ?? 30, 5) * 60_000;
+      const finishesAt = startsAt.getTime() + durationMs + graceMs;
+
+      if (finishesAt > now) continue;
+
+      booking.status = BookingStatus.COMPLETED;
+
+      try {
+        await this.bookingRepo.save(booking);
+
+        await this.referralService.onBookingCompleted(booking.barberId);
+        await this.clubService.addFromSuccessfulBooking({
+          barberId: booking.barberId,
+          customerId: booking.customerId,
+        });
+
+        completedCount += 1;
+      } catch {
+        // یک خطا نباید تکمیل بقیهٔ نوبت‌ها را متوقف کند
+      }
+    }
+
+    return completedCount;
   }
 
   private sendBookingRejectedSms(bookingId: string): void {

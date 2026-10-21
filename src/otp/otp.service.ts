@@ -95,8 +95,22 @@ export class OtpService {
    * @param consume اگر false باشد، کد مصرف نمی‌شود و فقط صحت آن بررسی می‌شود
    * (برای مرحلهٔ «تأیید کد» در ثبت‌نام چندمرحله‌ای).
    */
+  /**
+   * کد عمومیِ تست فقط زمانی فعال است که صریحاً با
+   * `OTP_UNIVERSAL_CODE=true` روشن شود، یا در محیط غیرِ production که
+   * مقدار تنظیم نشده باشد. در production به‌صورت پیش‌فرض خاموش است تا
+   * با دانستن شماره، امکان ورود به هیچ حسابی (از جمله ادمین) وجود نداشته باشد.
+   */
+  private isUniversalCodeEnabled(): boolean {
+    const flag = (process.env.OTP_UNIVERSAL_CODE ?? '').trim().toLowerCase();
+    if (flag === 'true' || flag === '1') return true;
+    if (flag === 'false' || flag === '0') return false;
+
+    return process.env.NODE_ENV !== 'production';
+  }
+
   async verifyOtp(phone: string, code: string, consume = true): Promise<true> {
-    if (code === '1111') return true;
+    if (this.isUniversalCodeEnabled() && code === '1111') return true;
 
     const redis = this.redisService.getClient();
 

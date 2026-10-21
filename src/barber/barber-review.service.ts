@@ -21,10 +21,14 @@ import {
   BarberReviewStatus,
 } from './entities/barber-review.entity';
 
-// وضعیت‌هایی که نشان‌دهنده «این کاربر از این آرایشگر نوبت رزرو کرده» هستند
+/**
+ * فقط نوبتی که واقعاً انجام شده حق ثبت نظر می‌دهد.
+ *
+ * پیش از این رزروهای `pending` و `confirmed` هم پذیرفته می‌شدند، در حالی که
+ * رابط کاربری دکمهٔ نظر را فقط برای `completed` نشان می‌دهد. یعنی با درخواست
+ * مستقیم می‌شد پیش از دریافت خدمت هم نظر و امتیاز ثبت کرد.
+ */
 const BOOKING_STATUSES_ELIGIBLE_FOR_REVIEW: BookingStatus[] = [
-  BookingStatus.PENDING,
-  BookingStatus.CONFIRMED,
   BookingStatus.COMPLETED,
 ];
 
@@ -99,7 +103,7 @@ export class BarberReviewService implements OnModuleInit {
 
     if (bookingCount === 0) {
       throw new ForbiddenException(
-        'فقط کاربرانی که قبلاً از این آرایشگر نوبت رزرو کرده‌اند می‌توانند نظر ثبت کنند',
+        'فقط کاربرانی که نوبتشان با این آرایشگر انجام شده می‌توانند نظر ثبت کنند',
       );
     }
 
