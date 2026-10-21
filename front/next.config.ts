@@ -11,6 +11,74 @@ import type { NextConfig } from 'next';
 const LONG_LIVED_STATIC_ASSETS =
   'public, max-age=31536000, stale-while-revalidate=86400';
 
+/**
+ * هاست فایل‌های آپلودشده از روی env ساخته می‌شود.
+ *
+ * عکس پروفایل، نمونه‌کارها و ... از بک‌اند می‌آیند و origin آن‌ها در
+ * `NEXT_PUBLIC_IMAGE_URL` (یا در نبودش، از `NEXT_PUBLIC_API_URL`) تعیین
+ * می‌شود. اگر هاست به `images.remotePatterns` اضافه نشود، بهینه‌ساز تصویر
+ * Next با ۴۰۰ پاسخ می‌دهد و تصویر (مثلاً آواتار هدر داشبورد) نمایش داده
+ * نمی‌شود. پس همان مقدار env را به pattern تبدیل می‌کنیم تا deploy در هر
+ * محیطی (لوکال/CDN/دامنهٔ اصلی) تصاویرش را نشان بدهد.
+ */
+const uploadImagePattern = (() => {
+  const candidates = [
+    process.env.NEXT_PUBLIC_IMAGE_URL,
+    // `https://monshiim.ir/api` → فایل‌ها روی همان دامنه زیر `/uploads` هستند
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/i, ''),
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate?.trim()) continue;
+
+    try {
+      const url = new URL(candidate);
+      const protocol = url.protocol.replace(':', '');
+
+      if (protocol !== 'http' && protocol !== 'https') continue;
+
+      return {
+        protocol: protocol as 'http' | 'https',
+        hostname: url.hostname,
+        port: url.port,
+        pathname: '/uploads/**',
+      };
+    } catch {
+      // مقدار نامعتبر env نادیده گرفته می‌شود
+    }
+  }
+
+  return null;
+})();
+
+/**
+ * آیا تصاویر آپلودشده از یک هاست لوکال (`localhost` / `127.0.0.1`) سرو می‌شوند؟
+ *
+ * Next به‌صورت پیش‌فرض بهینه‌ساز تصویر را از درخواست به IPهای خصوصی
+ * (همان `NEXT_PUBLIC_IMAGE_URL=http://localhost:4000` محیط توسعه) بازمی‌دارد و
+ * پاسخ `"url" parameter is not allowed` می‌دهد؛ نتیجه‌اش تصویر شکسته در آواتار
+ * هدر داشبورد است. این پرچم فقط زمانی فعال می‌شود که هاست تصاویر واقعاً لوکال
+ * باشد، پس در production هرگز باز نمی‌شود.
+ */
+const uploadsOriginIsLocal = (() => {
+  const configured = process.env.NEXT_PUBLIC_IMAGE_URL?.trim();
+
+  if (!configured) return false;
+
+  try {
+    const { hostname } = new URL(configured);
+
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '[::1]' ||
+      hostname === '::1'
+    );
+  } catch {
+    return false;
+  }
+})();
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
@@ -113,6 +181,8 @@ const nextConfig: NextConfig = {
      * حفظ می‌شود و فقط مصرف بایت تصاویر در مرورگرهای مدرن بهبود می‌یابد.
      */
     formats: ['image/avif', 'image/webp'],
+    // فقط در توسعه که هاست تصاویر localhost است
+    ...(uploadsOriginIsLocal ? { dangerouslyAllowLocalIP: true } : {}),
     /**
      * محدودسازی عرض‌های قابل تولید توسط بهینه‌ساز تصویر.
      *
@@ -166,6 +236,19 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.monshiim.ir',
         pathname: '/uploads/**',
       },
+      // اگر فایل‌ها از خود دامنهٔ سایت سرو می‌شوند (پروکسی ‎/uploads‎ در nginx)
+      {
+        protocol: 'https',
+        hostname: 'monshiim.ir',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.monshiim.ir',
+        pathname: '/uploads/**',
+      },
+      // هاستِ همان env (اگر با موارد بالا فرق داشته باشد)
+      ...(uploadImagePattern ? [uploadImagePattern] : []),
     ],
   },
 

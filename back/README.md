@@ -57,6 +57,30 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+## Payment redirect URLs (`APP_URL` / `FRONTEND_URL`)
+
+The payment flow builds two public URLs. Both must be **origins only** — no
+path, no trailing slash (the code strips them, but keep `.env` clean):
+
+| Variable       | What it is used for                                              | Production example      |
+| -------------- | ---------------------------------------------------------------- | ----------------------- |
+| `APP_URL`      | `.../api/payment/callback` given to the Zibal gateway             | `https://monshiim.ir`   |
+| `FRONTEND_URL` | Where the user is redirected after paying (`/panel/payment/callback`) | `https://monshiim.ir` |
+
+Wrong values produce broken redirects:
+
+- `FRONTEND_URL=http://localhost:3000` → the customer's browser is sent to its
+  own machine ("site can't be reached") after payment.
+- `FRONTEND_URL=https://monshiim.ir/panel` → `/panel/panel/payment/callback`.
+- `APP_URL=https://monshiim.ir/api` → `/api/api/payment/callback` (404).
+
+`src/common/utils/public-url.util.ts` normalizes both values to their origin and,
+if a value is missing/invalid, or still points at `localhost` while
+`NODE_ENV=production`, falls back to the origin of the incoming request
+(`X-Forwarded-Proto` / `X-Forwarded-Host` aware) and logs a one-time warning
+`[PaymentService]`. That keeps payments working even with a half-configured
+`.env`, but the warning should still be fixed at the source.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

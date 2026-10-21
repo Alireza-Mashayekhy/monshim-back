@@ -1,6 +1,7 @@
 // src/common/services/sms-ir.service.ts
 import {
   BadGatewayException,
+  BadRequestException,
   HttpException,
   Injectable,
   InternalServerErrorException,
@@ -8,11 +9,22 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError } from 'axios';
+import { SMS_PARAM_MAX_LENGTH } from 'src/common/constants/constants';
 
 interface VerifyParameter {
   name: string;
   value: string;
 }
+
+/** ساختار پاسخ سرویس SMS.ir (در پاسخ خطا هم همین شکل برمی‌گردد) */
+interface SmsIrResponseBody {
+  status?: number;
+  message?: string;
+  data?: { messageId: number; cost: number };
+}
+
+/** سقف زمان انتظار پاسخ SMS.ir تا درخواست هیچ‌وقت معلق نماند */
+const SMS_REQUEST_TIMEOUT_MS = 15_000;
 
 @Injectable()
 export class SmsIrService {
@@ -82,22 +94,21 @@ export class SmsIrService {
       return null;
     }
 
+    const normalized = this.normalizeParameters(parameters);
+
+    this.assertParameterLimits(templateId, normalized);
+
     const payload = {
       mobile,
       templateId: templateId,
-      parameters,
+      parameters: normalized,
     };
 
-    let response: {
-      data?: {
-        status?: number;
-        message?: string;
-        data?: { messageId: number; cost: number };
-      };
-    };
+    let response: { data?: SmsIrResponseBody };
 
     try {
       response = await axios.post(this.verifyUrl, payload, {
+        timeout: SMS_REQUEST_TIMEOUT_MS,
         headers: {
           'X-API-KEY': this.apiKey,
           Accept: 'application/json',
@@ -110,13 +121,20 @@ export class SmsIrService {
       }
 
       if (error instanceof AxiosError) {
-        const status = error.response?.status;
-        // جزئیات خطای سرویس پیامک فقط در لاگ سرور ثبت میشود
+        const httpStatus = error.response?.status;
+        const body = error.response?.data as SmsIrResponseBody | undefined;
+        const hint =
+          body?.status === 114
+            ? ` — طول مقدار پارامتر از ${SMS_PARAM_MAX_LENGTH} کاراکتر بیشتر است`
+            : '';
+
+        // جزئیات خطای سرویس پیامک فقط در لاگ سرور ثبت می‌شود
         this.logger.error(
-          `sms.ir request failed (status=${status ?? 'no-response'}): ${
-            error.message
-          }`,
+          `sms.ir request failed (http=${httpStatus ?? 'no-response'}, status=${
+            body?.status ?? '-'
+          }): ${body?.message ?? error.message}${hint}`,
         );
+
         throw new BadGatewayException(
           'ارتباط با سرویس پیامک برقرار نشد. لطفاً بعداً تلاش کنید',
         );
@@ -129,9 +147,9 @@ export class SmsIrService {
 
     if (response.data?.status !== 1 || !response.data.data) {
       this.logger.error(
-        `sms.ir rejected the request: ${
-          response.data?.message ?? 'unknown error'
-        }`,
+        `sms.ir rejected the request (status=${
+          response.data?.status ?? '-'
+        }): ${response.data?.message ?? 'unknown error'}`,
       );
       throw new BadGatewayException(
         'ارسال پیامک با خطا مواجه شد. لطفاً بعداً تلاش کنید',
@@ -139,6 +157,45 @@ export class SmsIrService {
     }
 
     const { messageId, cost } = response.data.data;
+
     return { messageId, cost };
+  }
+
+  /** یکسان‌سازی مقادیر پارامترها: حذف فاصله‌های اضافی و تبدیل به رشته */
+  private normalizeParameters(
+    parameters: VerifyParameter[],
+  ): VerifyParameter[] {
+    return (parameters ?? []).map(parameter => ({
+      name: String(parameter?.name ?? '').trim(),
+      value: String(parameter?.value ?? '').trim(),
+    }));
+  }
+
+  /**
+   * SMS.ir برای مقدار هر پارامتر قالب سقف ۲۵ کاراکتر دارد و در صورت عبور
+   * از آن، درخواست را با HTTP 400 (کد وضعیت 114) رد می‌کند.
+   * پیش از ارسال بررسی می‌کنیم تا خطا با پیام روشن و قابل ردیابی ثبت شود.
+   */
+  private assertParameterLimits(
+    templateId: number,
+    parameters: VerifyParameter[],
+  ): void {
+    const tooLong = parameters.filter(
+      parameter => parameter.value.length > SMS_PARAM_MAX_LENGTH,
+    );
+
+    if (!tooLong.length) return;
+
+    const detail = tooLong
+      .map(parameter => `${parameter.name}=${parameter.value.length}`)
+      .join(', ');
+
+    this.logger.error(
+      `قالب ${templateId}: طول مقدار پارامترها از سقف ${SMS_PARAM_MAX_LENGTH} کاراکتر SMS.ir بیشتر است (${detail})`,
+    );
+
+    throw new BadRequestException(
+      'طول یکی از مقادیر قالب پیامک بیش از حد مجاز سرویس پیامک است',
+    );
   }
 }

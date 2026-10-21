@@ -39,13 +39,53 @@ const FA_WEEKDAY_SHORT_FORMATTER = new Intl.DateTimeFormat('fa-IR', {
   weekday: 'short',
 });
 
+/**
+ * پایهٔ آدرس فایل‌های آپلودشده (`/uploads/...`).
+ *
+ * بک‌اند مسیر نسبی برمی‌گرداند (مثل ‎`/uploads/profiles/x.webp`‎) و مرورگر باید
+ * بداند آن را از کدام origin بگیرد:
+ *
+ *   ۱. `NEXT_PUBLIC_IMAGE_URL` اگر ست شده باشد (origin بک‌اند/CDN).
+ *   ۲. در غیر این صورت از `NEXT_PUBLIC_API_URL` استخراج می‌شود
+ *      (`https://monshiim.ir/api` → `https://monshiim.ir`).
+ *
+ * پیش‌تر اگر `NEXT_PUBLIC_IMAGE_URL` ست نشده بود، آدرس نسبی برمی‌گشت و
+ * مرورگر آن را از دامنهٔ فرانت می‌خواست (‎`https://monshiim.ir/uploads/...`‎)
+ * که در Next وجود ندارد → تصویر پروفایل در هدر موبایل/دسکتاپ شکسته می‌شد.
+ */
+const stripTrailingSlashes = (value: string) => value.trim().replace(/\/+$/, '');
+
+const resolveImageBaseUrl = (): string => {
+  const configured = process.env.NEXT_PUBLIC_IMAGE_URL;
+
+  if (configured?.trim()) return stripTrailingSlashes(configured);
+
+  const apiUrl = stripTrailingSlashes(process.env.NEXT_PUBLIC_API_URL || '');
+
+  // `.../api` پیشوند سراسری بک‌اند Nest است؛ فایل‌ها زیر `/uploads` سرو می‌شوند
+  return apiUrl.replace(/\/api$/i, '');
+};
+
+/**
+ * آدرس کامل یک فایل آپلودشده.
+ * - آدرس‌های absolute (`http...`)، داده‌ای (`data:`) و blob دست‌نخورده می‌مانند.
+ * - مسیر نسبی به origin تصاویر چسبانده می‌شود (با اسلش تکراری/جاافتاده).
+ */
 export const getFullImageUrl = (
   path: string | null | undefined,
 ): string | null => {
-  if (!path) return null;
-  return path.startsWith('http')
-    ? path
-    : `${process.env.NEXT_PUBLIC_IMAGE_URL || ''}${path}`;
+  const value = typeof path === 'string' ? path.trim() : '';
+
+  if (!value) return null;
+
+  if (/^(https?:)?\/\//i.test(value) || /^(data|blob):/i.test(value)) {
+    return value;
+  }
+
+  const base = resolveImageBaseUrl();
+  const relativePath = value.startsWith('/') ? value : `/${value}`;
+
+  return `${base}${relativePath}`;
 };
 
 export const formatPrice = (value: number | string): string => {

@@ -3,6 +3,20 @@ export const jwtConstants = {
   refreshSecret: process.env.JWT_REFRESH_SECRET,
 };
 
+/**
+ * سقف طول مقدار هر پارامتر در قالب‌های SMS.ir (کاراکتر).
+ * عبور از این حد، پاسخ HTTP 400 با کد وضعیت 114 می‌گیرد:
+ * «طول رشته مقدار پارامتر، بیش از حد مجاز (25 کاراکتر) می‌باشد»
+ */
+export const SMS_PARAM_MAX_LENGTH = 25;
+
+/**
+ * تعداد بایت تصادفی توکن لینک بیعانه.
+ * ۱۲ بایت = ۲۴ کاراکتر هگز = ۹۶ بیت آنتروپی؛ زیر سقف ۲۵ کاراکتر SMS.ir
+ * تا مقدار #PAYMENT_LINK# در قالب پیامک جا شود.
+ */
+export const DEPOSIT_TOKEN_BYTES = 12;
+
 export const ALLOWED_IMAGE_MIME_TYPES = [
   'image/jpeg',
   'image/jpg',

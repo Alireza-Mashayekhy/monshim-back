@@ -19,7 +19,22 @@ export default function MobileNavigation() {
 
   const { data: barberProfile } = useMyBarberProfile();
   const salonName = barberProfile?.data?.salonName;
-  const salonImage = getFullImageUrl(barberProfile?.data?.profileImage);
+
+  /**
+   * عکس پروفایل آرایشگر (همان «عکس کاربر» که در صفحهٔ پروفایل آپلود می‌شود).
+   *
+   * `unoptimized`: این تصویر ۴۰ پیکسلی است و بهینه‌ساز تصویر Next هیچ سودی
+   * برایش ندارد؛ در عوض اگر هاست تصویر در `images.remotePatterns` نباشد،
+   * بهینه‌ساز پاسخ ۴۰۰ می‌دهد و آواتار خالی می‌ماند. با `unoptimized` درخواست
+   * مستقیم به همان origin بک‌اند می‌رود.
+   */
+  const uploadedImage = getFullImageUrl(barberProfile?.data?.profileImage);
+
+  // آدرسی که بارگذاری‌اش شکست خورده؛ نگه‌داشتن «خودِ آدرس» (نه یک boolean)
+  // باعث می‌شود بعد از آپلود عکس جدید، به‌طور خودکار دوباره تلاش شود.
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const salonImage =
+    uploadedImage && uploadedImage !== failedImageSrc ? uploadedImage : null;
 
   return (
     <>
@@ -33,7 +48,9 @@ export default function MobileNavigation() {
                   alt={salonName || 'سالن'}
                   fill
                   sizes="40px"
+                  unoptimized
                   className="object-cover"
+                  onError={() => setFailedImageSrc(salonImage)}
                 />
               ) : (
                 <Store size={18} />
