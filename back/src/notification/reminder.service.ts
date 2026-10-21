@@ -88,14 +88,24 @@ export class ReminderService {
       // هنوز وقتش نشده
       if (sendAt > now.getTime()) continue;
 
-      // نوبت گذشته است؛ یادآوری بی‌معنی است — فقط علامت بزن
-      if (bookingDateTime <= now) {
-        booking.reminderSentAt = now;
+      /**
+       * «رزرو کردن» یادآوری با یک UPDATE شرطی.
+       *
+       * اگر دو نمونه از سرویس (یا دو اجرای هم‌زمان کرون) همین نوبت را ببینند،
+       * فقط یکی از آن‌ها می‌تواند `reminderSentAt` را از NULL پر کند؛ بقیه
+       * هیچ پیامکی نمی‌فرستند. بدون این قفل، مشتری چند پیامک تکراری می‌گرفت.
+       */
+      const claim = await this.bookingRepo.update(
+        { id: booking.id, reminderSentAt: IsNull() },
+        { reminderSentAt: now },
+      );
 
-        await this.bookingRepo.save(booking);
+      if (!claim.affected) continue;
 
-        continue;
-      }
+      booking.reminderSentAt = now;
+
+      // نوبت گذشته است؛ یادآوری بی‌معنی است — فقط علامت زده شد
+      if (bookingDateTime <= now) continue;
 
       const barberUserId = booking.barber?.userId;
       const customerPhone = booking.customer?.phone;
@@ -117,13 +127,18 @@ export class ReminderService {
           salonName: booking.barber?.salonName ?? 'سالن شما',
         });
 
-        booking.reminderSentAt = now;
-        await this.bookingRepo.save(booking);
-
         this.logger.log(
           `یادآوری نوبت ${booking.id} برای آرایشگر ${barberUserId} ارسال شد`,
         );
       } catch (error: any) {
+        // ارسال ناموفق بود؛ قفل آزاد می‌شود تا در اجرای بعدی دوباره تلاش شود.
+        await this.bookingRepo
+          .update(
+            { id: booking.id, reminderSentAt: now },
+            { reminderSentAt: null },
+          )
+          .catch(() => undefined);
+
         // خطای ارسال یادآوری نباید باعث شکست پردازش سایر نوبت‌ها شود.
         this.logger.warn(
           `یادآوری نوبت ${booking.id} ارسال نشد: ${

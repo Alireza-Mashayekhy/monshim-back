@@ -11,7 +11,7 @@ export interface Booking {
   time: string; // HH:mm
   price: number;
   status: BookingStatus;
-  canceledBy?: 'customer' | 'barber' | 'admin' | null;
+  canceledBy?: 'customer' | 'barber' | 'admin' | 'system' | null;
   canceledAt?: string | null;
   note?: string;
   barberNote?: string | null;
@@ -76,7 +76,7 @@ export interface MyBooking {
   time: string; // HH:mm
   price?: number;
   status: BookingStatus;
-  canceledBy?: 'customer' | 'barber' | 'admin' | null;
+  canceledBy?: 'customer' | 'barber' | 'admin' | 'system' | null;
   canceledAt?: string | null;
   note?: string;
   createdAt?: string;
