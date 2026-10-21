@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CalendarClock,
   CalendarDays,
+  Clock3,
   Eye,
   Loader2,
   MapPin,
@@ -194,6 +195,18 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
             )}
           </div>
         </div>
+
+        {/* وضعیت انتظار تایید: مشتری باید بداند پول کم شده ولی نوبت هنوز قطعی نیست */}
+        {booking.status === 'pending' && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] font-medium leading-5 text-amber-800">
+            <Clock3 size={13} className="mt-0.5 shrink-0" />
+            <span>
+              {booking.onlinePaidAt
+                ? 'پرداخت شما انجام شده است؛ نوبت پس از تایید آرایشگر قطعی می‌شود.'
+                : 'این درخواست در انتظار تایید آرایشگر است.'}
+            </span>
+          </div>
+        )}
 
         {/* آرایشگاه و خدمت */}
         {/* تاریخ و آدرس */}

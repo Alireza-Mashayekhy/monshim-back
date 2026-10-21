@@ -48,6 +48,8 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const updateStatus = useUpdateBookingStatus();
   const resendDepositLink = useResendDepositLink();
   const [cancelOpen, setCancelOpen] = useState(false);
+  // رد کردن یک درخواست پرداخت‌شده، بازپرداخت دارد؛ پس تایید می‌گیریم.
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   const handleCall = () => {
     if (customer?.phone) window.location.href = `tel:${customer.phone}`;
@@ -263,7 +265,7 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                     size="sm"
                     variant="destructive"
                     className="h-8 rounded-lg text-[11px] font-black"
-                    onClick={() => handleStatus('rejected')}
+                    onClick={() => setRejectOpen(true)}
                     disabled={updateStatus.isPending}
                   >
                     <XCircle size={13} className="ml-1" />
@@ -311,6 +313,49 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
           </div>
         )}
       </div>
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent dir="rtl" className="max-w-md rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>رد درخواست رزرو</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 leading-6">
+              <p>
+                درخواست {customer?.fullName || 'این مشتری'} برای تاریخ{' '}
+                {booking.date} ساعت {time} رد شود؟
+              </p>
+
+              {booking.onlinePaidAt ? (
+                <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-800">
+                  <AlertTriangle className="mt-0.5 shrink-0" size={15} />
+                  <span>
+                    مشتری مبلغ این نوبت را آنلاین پرداخت کرده است. با رد کردن،
+                    کل سفارش لغو می‌شود و مبلغ پرداختی (شامل کمیسیون) از کیف
+                    پول شما کسر و در صف بازپرداخت به مشتری ثبت می‌شود.
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  این رزرو پرداختی ندارد و فقط رد می‌شود.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateStatus.isPending}>
+              انصراف
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={updateStatus.isPending}
+              onClick={() => handleStatus('rejected')}
+            >
+              بله، رد کن
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent dir="rtl" className="max-w-md rounded-2xl">
           <AlertDialogHeader>
@@ -331,8 +376,9 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                 </span>
               </div>
               <p className="text-xs font-semibold text-rose-700">
-                اگر موجودی کیف پول برای کسر کامل مبلغ کافی نباشد، لغو انجام
-                نمی‌شود.
+                اگر موجودی کیف پول برای کسر کامل مبلغ کافی نباشد، لغو متوقف
+                نمی‌شود و کیف پول شما به اندازهٔ همان مبلغ منفی (بدهی) می‌شود.
+                این بدهی در برداشت‌های بعدی تسویه می‌گردد.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>

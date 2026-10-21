@@ -12,11 +12,7 @@ import axios from 'axios';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { getBookingClock, isBookingSlotInPast } from 'src/booking/booking-time';
-import {
-  Booking,
-  BookingStatus,
-  SLOT_HOLDING_STATUSES,
-} from 'src/booking/entities/booking.entity';
+import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { SlotHold } from 'src/booking/entities/slot-hold.entity';
 import { hasOverlap, timeToMinutes } from 'src/booking/slot-intervals';
 import {
@@ -39,7 +35,6 @@ import { WalletService } from 'src/wallet/wallet.service';
 import {
   DataSource,
   EntityManager,
-  In,
   IsNull,
   LessThan,
   MoreThan,
@@ -573,7 +568,7 @@ export class PaymentService {
       where: {
         barberId: barber.id,
         date: dto.date,
-        status: In(SLOT_HOLDING_STATUSES),
+        holdsSlot: true,
       },
       relations: { service: true },
     });
@@ -663,7 +658,7 @@ export class PaymentService {
         where: {
           barberId: barber.id,
           date: dto.date,
-          status: In(SLOT_HOLDING_STATUSES),
+          holdsSlot: true,
         },
         relations: { service: true },
       });
@@ -1567,12 +1562,19 @@ export class PaymentService {
 
       const bookingRepo = manager.getRepository(Booking);
       const paymentRepo = manager.getRepository(Payment);
+      /**
+       * رزرو آنلاین بعد از پرداخت مستقیم «قطعی» نمی‌شود:
+       * مشتری پول می‌دهد → نوبت در وضعیت «در انتظار تایید» می‌ماند →
+       * آرایشگر تایید یا رد می‌کند. چون پول گرفته شده، ساعت از همین لحظه
+       * اشغال است (holdsSlot) تا کس دیگری آن را نگیرد.
+       */
       const baseBooking = {
         customerId: meta.customerId,
         barberId: meta.barberProfileId,
         date: meta.date,
         note: meta.note || '',
-        status: BookingStatus.CONFIRMED,
+        status: BookingStatus.PENDING,
+        holdsSlot: true,
         // مبلغ نوبت به‌طور کامل از درگاه پرداخت شده است؛ این زمان مبنای
         // شمارش نوبت‌های پرداخت‌شده برای فعال‌سازی صفحهٔ عمومی آرایشگاه است.
         onlinePaidAt: payment.paidAt ?? new Date(),
@@ -1670,7 +1672,7 @@ export class PaymentService {
       where: {
         barberId: String(meta.barberProfileId),
         date: String(meta.date),
-        status: In(SLOT_HOLDING_STATUSES),
+        holdsSlot: true,
       },
       relations: { service: true },
     });
@@ -1708,7 +1710,6 @@ export class PaymentService {
 
       const customerName = savedBooking.customer?.fullName ?? 'مشتری';
       const serviceName = savedBooking.service?.name ?? 'خدمت';
-      const salonName = savedBooking.barber?.salonName ?? 'سالن شما';
       const barberParams = {
         customerName,
         serviceName,
@@ -1716,20 +1717,19 @@ export class PaymentService {
         time: savedBooking.time,
       };
 
-      await Promise.all([
-        this.bookingSmsService.sendBookingSuccessToCustomer(
-          savedBooking.customer?.phone ?? '',
-          { ...barberParams, salonName },
-        ),
-        this.bookingSmsService.sendNewBookingToBarber(
-          savedBooking.barber?.user?.phone ?? '',
-          barberParams,
-        ),
-      ]);
+      /**
+       * در این لحظه نوبت هنوز «در انتظار تایید» است؛ پس پیامک «تأیید رزرو»
+       * برای مشتری اشتباه و گمراه‌کننده می‌شد. مشتری پس از تایید آرایشگر
+       * پیامک تأیید می‌گیرد و فقط آرایشگر از رزرو جدید باخبر می‌شود.
+       */
+      await this.bookingSmsService.sendNewBookingToBarber(
+        savedBooking.barber?.user?.phone ?? '',
+        barberParams,
+      );
     } catch (error: any) {
       // خطای پیامک نباید پرداخت و ثبت رزرو را ناموفق کند.
       this.logger.error(
-        `Failed to send booking confirmation SMS for booking ${booking.id}: ${error?.message ?? String(error)}`,
+        `Failed to send new-booking SMS for booking ${booking.id}: ${error?.message ?? String(error)}`,
       );
     }
   }

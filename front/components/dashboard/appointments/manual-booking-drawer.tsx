@@ -371,6 +371,12 @@ export function ManualBookingDrawer({
   const handleDepositLinkChange = (enabled: boolean) => {
     setValue('sendDepositLink', enabled);
 
+    // در حالت لینک بیعانه، یادآوری معنا ندارد (تا پرداخت بیعانه نمی‌رود).
+    if (enabled && sendSmsReminder) {
+      setValue('sendSmsReminder', false);
+      setValue('reminderHours', null);
+    }
+
     if (
       !enabled &&
       sendSmsReminder &&
@@ -798,55 +804,95 @@ export function ManualBookingDrawer({
               </p>
             </div>
 
-            {/* لینک بیعانه + پیامک یادآوری */}
-            <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
-              {/* ارسال لینک بیعانه */}
-              <div className="space-y-2 pb-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-2/60 text-primary">
-                      <Wallet size={15} />
-                    </div>
+            {/* روش ثبت: پلن پیامکی یا لینک بیعانه */}
+            <div className="space-y-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+              <div>
+                <p className="text-xs font-black text-gray-900">
+                  این نوبت چطور ثبت شود؟
+                </p>
 
-                    <div className="min-w-0">
-                      <p className="text-xs font-black text-gray-900">
-                        ارسال لینک بیعانه
-                      </p>
-
-                      <p className="mt-0.5 text-[10px] font-medium text-gray-400">
-                        لینک پرداخت بیعانه برای مشتری ارسال می‌شود
-                      </p>
-                    </div>
-                  </div>
-
-                  <Switch
-                    checked={effectiveDepositLink}
-                    disabled={!smsEligible || isSubmitting}
-                    onCheckedChange={handleDepositLinkChange}
-                  />
-                </div>
-
-                <ul className="space-y-1 pr-10 text-[10px] font-medium leading-5 text-gray-500">
-                  <li>
-                    • برای ارسال پیامک تأیید بدون بیعانه، اشتراک فعال و اعتبار
-                    کافی لازم است.
-                  </li>
-                  <li>
-                    • خود پیامک لینک بیعانه رایگان است؛ اعتبار یادآوری در صورت
-                    انتخاب، همان موقع ثبت نوبت کسر می‌شود.{' '}
-                  </li>
-                  <li>
-                    • مبلغی که مشتری می‌پردازد = بیعانه + ۱۰٪ کمیسیون سایت؛
-                    کمیسیون به کیف پول شما اضافه نمی‌شود.
-                  </li>
-                  <li>
-                    • پیامک یادآوری فقط بعد از پرداخت بیعانه فرستاده می‌شود و
-                    اگر مشتری پرداخت نکند، نوبت در مهلت مقرر خودکار لغو می‌شود.
-                  </li>
-                </ul>
+                <p className="mt-0.5 text-[10px] font-medium text-gray-400">
+                  در هر دو حالت، نوبت بعد از گذشتن زمانش خودکار «انجام‌شده» می‌شود.
+                </p>
               </div>
 
-              {/* پیامک یادآوری */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={!smsEligible || isSubmitting}
+                  onClick={() => handleDepositLinkChange(false)}
+                  className={cn(
+                    'rounded-xl border p-3 text-right transition disabled:cursor-not-allowed disabled:opacity-50',
+                    !effectiveDepositLink
+                      ? 'border-primary bg-primary-2/60'
+                      : 'border-gray-200 bg-white hover:border-primary/40',
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-[11px] font-black text-gray-900">
+                    <BellRing size={13} />
+                    پلن پیامکی
+                  </span>
+
+                  <span className="mt-1 block text-[10px] font-medium leading-5 text-gray-500">
+                    تأیید با پیامک؛ اعتبار پیامک از پلن کسر می‌شود
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => handleDepositLinkChange(true)}
+                  className={cn(
+                    'rounded-xl border p-3 text-right transition disabled:cursor-not-allowed disabled:opacity-50',
+                    effectiveDepositLink
+                      ? 'border-primary bg-primary-2/60'
+                      : 'border-gray-200 bg-white hover:border-primary/40',
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-[11px] font-black text-gray-900">
+                    <Wallet size={13} />
+                    لینک بیعانه
+                  </span>
+
+                  <span className="mt-1 block text-[10px] font-medium leading-5 text-gray-500">
+                    مشتری اول بیعانه را پرداخت می‌کند؛ پیامک رایگان است
+                  </span>
+                </button>
+              </div>
+
+              <ul className="space-y-1 text-[10px] font-medium leading-5 text-gray-500">
+                {effectiveDepositLink ? (
+                  <>
+                    <li>
+                      • مبلغی که مشتری می‌پردازد = بیعانه + ۱۰٪ کمیسیون سایت؛
+                      کمیسیون به کیف پول شما اضافه نمی‌شود.
+                    </li>
+                    <li>
+                      • تا ۶ ساعت پس از ارسال لینک، اگر بیعانه پرداخت نشود نوبت
+                      خودکار لغو می‌شود (ارسال مجدد لینک مهلت را از نو شروع
+                      می‌کند).
+                    </li>
+                    <li>
+                      • پیامک یادآوری فقط بعد از پرداخت بیعانه فرستاده می‌شود.
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li>
+                      • پیامک تأیید به مشتری می‌رود و ۲ اعتبار از پلن کسر
+                      می‌شود.
+                    </li>
+                    <li>
+                      • نوبت از همان لحظه قطعی است و ساعت رزرو اشغال می‌شود.
+                    </li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+              {/* پیامک یادآوری (فقط در حالت پلن پیامکی معنا دارد) */}
+              {!effectiveDepositLink && (
               <div className="flex items-center justify-between gap-3 py-3">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-2/60 text-primary">
@@ -874,16 +920,17 @@ export function ManualBookingDrawer({
                   }}
                 />
               </div>
+              )}
 
               {smsEligible && !canSendSmsReminder && !effectiveDepositLink && (
                 <p className="pb-2 text-[10px] leading-5 text-amber-700">
-                  برای پیامک تأیید و یادآوری با هم، حداقل ۴ اعتبار لازم است؛ با
-                  فعال کردن لینک بیعانه فقط اعتبار یادآوری کسر می‌شود.
+                  برای پیامک تأیید و یادآوری با هم، حداقل ۴ اعتبار لازم است؛
+                  بدون اعتبار کافی، لینک بیعانه انتخاب می‌شود.
                 </p>
               )}
 
               {/* انتخاب ساعت یادآوری */}
-              {canSendSmsReminder && sendSmsReminder && (
+              {!effectiveDepositLink && canSendSmsReminder && sendSmsReminder && (
                 <div className="space-y-2.5 py-3">
                   <p className="text-[11px] font-black text-gray-600">
                     یادآوری چند ساعت قبل ارسال شود؟

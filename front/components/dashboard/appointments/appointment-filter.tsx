@@ -4,10 +4,16 @@
 import { cn } from '@/lib/utils';
 
 export type AppointmentFilterKey =
-  'today' | 'tomorrow' | 'week' | 'month' | 'all';
+  | 'pending'
+  | 'today'
+  | 'tomorrow'
+  | 'week'
+  | 'month'
+  | 'all';
 
 const filters: { key: AppointmentFilterKey; label: string }[] = [
   { key: 'today', label: 'امروز' },
+  { key: 'pending', label: 'در انتظار تایید' },
   { key: 'tomorrow', label: 'فردا' },
   { key: 'week', label: 'این هفته' },
   { key: 'month', label: 'این ماه' },

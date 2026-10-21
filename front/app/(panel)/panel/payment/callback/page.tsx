@@ -196,6 +196,15 @@ function PaymentCallbackContent() {
           </div>
         )}
 
+        {/* رزرو آنلاین بعد از پرداخت منتظر تایید آرایشگر است */}
+        {isSuccess && purpose === 'BOOKING' && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-medium leading-6 text-amber-800">
+            مبلغ با موفقیت پرداخت شد و نوبت شما برای آرایشگر ارسال شد. نوبت پس از
+            تایید آرایشگر قطعی می‌شود و از همان زمان، ساعت رزرو برای شما نگه
+            داشته می‌شود. وضعیت را می‌توانید از «نوبت‌های من» ببینید.
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="space-y-2 pt-2">
           {isSuccess ? (

@@ -2,7 +2,8 @@
 'use client';
 
 import { CalendarPlus } from 'lucide-react';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 
 import AppointmentFilter, {
   AppointmentFilterKey,
@@ -16,8 +17,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
 
-export default function AppointmentsPage() {
-  const [filter, setFilter] = useState<AppointmentFilterKey>('today');
+const FILTER_KEYS: AppointmentFilterKey[] = [
+  'pending',
+  'today',
+  'tomorrow',
+  'week',
+  'month',
+  'all',
+];
+
+function AppointmentsContent() {
+  /**
+   * میان‌بر کارت «در انتظار تایید»: /dashboard/appointments?filter=pending
+   * مقدار اولیه از query خوانده می‌شود تا بعد از کلیک، مستقیم روی همان تب باز شود.
+   */
+  const searchParams = useSearchParams();
+  const requested = searchParams.get('filter') as AppointmentFilterKey | null;
+
+  const [filter, setFilter] = useState<AppointmentFilterKey>(
+    requested && FILTER_KEYS.includes(requested) ? requested : 'today',
+  );
   const [search, setSearch] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -79,5 +98,13 @@ export default function AppointmentsPage() {
 
       <ManualBookingDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
     </DashboardShell>
+  );
+}
+
+export default function AppointmentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AppointmentsContent />
+    </Suspense>
   );
 }

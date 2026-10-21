@@ -43,6 +43,16 @@ export default function AppointmentSummary() {
     limit: 100,
   });
 
+  /**
+   * شمارش «در انتظار تایید» در همهٔ تاریخ‌ها، نه فقط امروز؛
+   * چون رزروهای آنلاین بعد از پرداخت تا تایید آرایشگر در این وضعیت می‌مانند
+   * و ممکن است مربوط به چند روز بعد باشند.
+   */
+  const { data: pendingData } = useBarberBookings({
+    status: 'pending',
+    limit: 100,
+  });
+
   if (isLoading) {
     return <SummarySkeleton />;
   }
@@ -56,7 +66,7 @@ export default function AppointmentSummary() {
 
   const count = activeBookings.length;
   const income = activeBookings.reduce((sum, b) => sum + Number(b.price), 0);
-  const pendingCount = bookings.filter(b => b.status === 'pending').length;
+  const pendingCount = pendingData?.data?.length ?? 0;
 
   // نزدیک‌ترین نوبتِ هنوز نرسیده‌ی امروز
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
@@ -93,8 +103,9 @@ export default function AppointmentSummary() {
           icon={Hourglass}
           label="در انتظار تایید"
           value={toPersianDigits(pendingCount)}
-          sub={pendingCount > 0 ? 'نیاز به بررسی شما' : 'همه بررسی شده'}
+          sub={pendingCount > 0 ? 'برای بررسی بزن' : 'همه بررسی شده'}
           highlight={pendingCount > 0}
+          href={pendingCount > 0 ? '/dashboard/appointments?filter=pending' : undefined}
         />
 
         <StatTile
@@ -153,15 +164,17 @@ function StatTile({
   value,
   sub,
   highlight,
+  href,
 }: {
   icon: React.ComponentType<{ size?: number; className?: string }>;
   label: string;
   value: string;
   sub?: string;
   highlight?: boolean;
+  href?: string;
 }) {
-  return (
-    <AppCard className="p-4">
+  const card = (
+    <AppCard className={href ? 'p-4 transition hover:border-primary/40' : 'p-4'}>
       <div className="flex items-center justify-between gap-2">
         <p className="truncate text-xs font-bold text-gray-500">{label}</p>
 
@@ -186,5 +199,13 @@ function StatTile({
         </p>
       )}
     </AppCard>
+  );
+
+  return href ? (
+    <Link href={href} className="block">
+      {card}
+    </Link>
+  ) : (
+    card
   );
 }

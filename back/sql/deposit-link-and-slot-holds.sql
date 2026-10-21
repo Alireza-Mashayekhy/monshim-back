@@ -5,7 +5,24 @@
 ALTER TABLE bookings
   ADD COLUMN deposit_requested_at DATETIME NULL;
 
--- ۲) نگه‌داشتن موقت ساعت هنگام رفتن مشتری به درگاه پرداخت
+-- ۲) ستون «اشغال ساعت» روی رزرو
+--    رزرو آنلاینِ پرداخت‌شده در وضعیت pending منتظر تایید آرایشگر است، اما
+--    چون پول گرفته شده باید ساعت را نگه دارد. درخواست بدون پرداخت این ستون
+--    را false می‌گیرد تا ساعت را برای همیشه قفل نکند.
+ALTER TABLE bookings
+  ADD COLUMN holds_slot TINYINT(1) NOT NULL DEFAULT 0;
+
+-- نوبت‌های موجود: قطعی، انجام‌شده و درخواست آنلاینِ پرداخت‌شده ساعت را
+-- نگه می‌دارند. درخواست بدون پرداخت عمداً false می‌ماند.
+UPDATE bookings
+SET holds_slot = 1
+WHERE status IN ('confirmed', 'completed')
+   OR (status = 'pending' AND online_paid_at IS NOT NULL);
+
+ALTER TABLE bookings
+  ADD INDEX IDX_bookings_barber_date_holds (barber_id, date, holds_slot);
+
+-- ۳) نگه‌داشتن موقت ساعت هنگام رفتن مشتری به درگاه پرداخت
 CREATE TABLE IF NOT EXISTS slot_holds (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   barber_id CHAR(36) NOT NULL,

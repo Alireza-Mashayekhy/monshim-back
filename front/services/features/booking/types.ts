@@ -76,6 +76,10 @@ export interface MyBooking {
   time: string; // HH:mm
   price?: number;
   status: BookingStatus;
+  sendDepositLink?: boolean;
+  depositPaidAt?: string | null;
+  depositRequestedAt?: string | null;
+  onlinePaidAt?: string | null;
   canceledBy?: 'customer' | 'barber' | 'admin' | 'system' | null;
   canceledAt?: string | null;
   note?: string;

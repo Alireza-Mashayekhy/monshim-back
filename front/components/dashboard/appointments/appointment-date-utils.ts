@@ -13,6 +13,9 @@ export function getFilterDateRange(
   filter: AppointmentFilterKey,
   now = new Date(),
 ): DateRange {
+  // «در انتظار تایید» بازهٔ تاریخی ندارد؛ همهٔ درخواست‌های باز را نشان می‌دهد.
+  if (filter === 'pending') return {};
+
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
 
