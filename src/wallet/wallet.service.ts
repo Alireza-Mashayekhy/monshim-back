@@ -248,8 +248,23 @@ export class WalletService {
       where: { userId: params.barberUserId },
       lock: { mode: 'pessimistic_write' },
     });
+
+    /**
+     * اگر کیف پول آرایشگر وجود نداشته باشد، یعنی هیچ درآمدی برای این پرداخت
+     * به او واریز نشده است؛ پس چیزی برای کسر وجود ندارد و فقط بازپرداخت
+     * مشتری در صف قرار می‌گیرد. قبلاً این حالت با خطا کل لغو را می‌شکست.
+     */
     if (!barberWallet) {
-      throw new NotFoundException('کیف پول آرایشگر یافت نشد');
+      this.logger.warn(
+        `کیف پول آرایشگر ${params.barberUserId} پیدا نشد؛ فقط بازپرداخت مشتری ثبت می‌شود.`,
+      );
+      await this.createPendingCustomerRefund(manager, customerWallet, {
+        bookingId: params.bookingId,
+        paymentId: params.paymentId,
+        amount: params.customerRefundAmount ?? amount,
+      });
+
+      return;
     }
 
     /**

@@ -52,11 +52,7 @@ import {
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
-import {
-  Booking,
-  BookingStatus,
-  SLOT_HOLDING_STATUSES,
-} from './entities/booking.entity';
+import { Booking, BookingStatus } from './entities/booking.entity';
 import { SlotHold } from './entities/slot-hold.entity';
 import { BusyInterval, hasOverlap } from './slot-intervals';
 
@@ -242,7 +238,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date: dto.date,
-        status: In(SLOT_HOLDING_STATUSES),
+        holdsSlot: true,
       },
       relations: {
         service: true,
@@ -288,6 +284,10 @@ export class BookingsService {
       note: dto.note ?? '',
 
       status: BookingStatus.PENDING,
+
+      // درخواست بدون پرداخت: ساعت را قفل نمی‌کند. اگر آرایشگر تایید کند،
+      // در همان لحظه تداخل بررسی و ساعت اشغال می‌شود.
+      holdsSlot: false,
     });
 
     const saved = await this.bookingRepo.save(booking);
@@ -519,10 +519,22 @@ export class BookingsService {
   // UPDATE BOOKING STATUS
   // =========================================================
 
+  /**
+   * لغو یا رد یک رزرو (و در صورت پرداخت، بازپرداخت مشتری).
+   *
+   * `targetStatus`:
+   *  - CANCELED: لغو توسط آرایشگر/ادمین یا سیستم
+   *  - REJECTED: رد درخواستِ در انتظار (فقط از وضعیت pending)
+   *
+   * `actor` فقط برای فراخوان‌های سیستمی (کرون) استفاده می‌شود تا بدون
+   * کاربر واردشده هم مسیر پول یکی بماند.
+   */
   private async cancelByBarberOrAdmin(
     id: string,
     userId: number,
     roles: string[],
+    targetStatus: BookingStatus = BookingStatus.CANCELED,
+    actor?: 'system',
   ): Promise<Booking> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -541,7 +553,7 @@ export class BookingsService {
 
       const isBarber = initialBooking.barber?.userId === userId;
       const isAdmin = roles?.includes('admin');
-      if (!isBarber && !isAdmin) {
+      if (!actor && !isBarber && !isAdmin) {
         throw new ForbiddenException(
           'فقط آرایشگر یا ادمین می‌توانند وضعیت را تغییر دهند',
         );
@@ -604,6 +616,29 @@ export class BookingsService {
             : 'فقط رزروهای در انتظار یا تاییدشده قابل لغو هستند',
         );
       }
+
+      // رد کردن فقط برای درخواستِ در انتظار معنا دارد.
+      if (
+        targetStatus === BookingStatus.REJECTED &&
+        booking.status !== BookingStatus.PENDING
+      ) {
+        throw new BadRequestException(
+          'فقط رزرو در انتظار تایید، قابل رد کردن است',
+        );
+      }
+
+      /**
+       * اگر آرایشگر یکی از خدمات این سفارش را قبلاً تایید کرده باشد، «رد»
+       * نباید آن را به عقب برگرداند؛ در این حالت مسیر درست «لغو» است.
+       */
+      if (
+        targetStatus === BookingStatus.REJECTED &&
+        lockedBookings.some(item => item.status === BookingStatus.CONFIRMED)
+      ) {
+        throw new BadRequestException(
+          'یکی از خدمات این سفارش قبلاً تایید شده است؛ برای لغو از دکمهٔ «لغو» استفاده کنید.',
+        );
+      }
       if (
         lockedBookings.some(item => item.status === BookingStatus.COMPLETED)
       ) {
@@ -654,21 +689,27 @@ export class BookingsService {
       }
 
       const canceledAt = new Date();
-      const canceledBy = isBarber ? 'barber' : 'admin';
+      const canceledBy = actor ? 'system' : isBarber ? 'barber' : 'admin';
       const changedBookings = lockedBookings.filter(
-        item => item.status !== BookingStatus.CANCELED,
+        item => item.status !== targetStatus,
       );
       for (const item of changedBookings) {
-        item.status = BookingStatus.CANCELED;
+        item.status = targetStatus;
         item.canceledBy = canceledBy;
         item.canceledAt = canceledAt;
+        // ساعت رزرو فوراً آزاد می‌شود
+        item.holdsSlot = false;
         canceledBookingIds.push(item.id);
       }
       await bookingRepo.save(changedBookings);
       await queryRunner.commitTransaction();
 
       for (const bookingId of canceledBookingIds) {
-        this.sendBookingCanceledSms(bookingId);
+        if (targetStatus === BookingStatus.REJECTED) {
+          this.sendBookingRejectedSms(bookingId);
+        } else {
+          this.sendBookingCanceledSms(bookingId);
+        }
       }
 
       return (
@@ -863,7 +904,7 @@ export class BookingsService {
       where: {
         barberId: booking.barberId,
         date: booking.date,
-        status: In(SLOT_HOLDING_STATUSES),
+        holdsSlot: true,
       },
       relations: { service: true },
     });
@@ -909,8 +950,16 @@ export class BookingsService {
     roles: string[],
     dto: UpdateBookingStatusDto,
   ): Promise<Booking> {
-    if (dto.status === BookingStatus.CANCELED) {
-      return this.cancelByBarberOrAdmin(id, userId, roles);
+    /**
+     * لغو و «رد» هر دو مسیر پول دارند (اگر نوبت پرداخت‌شده باشد، مبلغ باید
+     * به مشتری برگردد). برای همین هر دو از یک مسیر تراکنشی رد می‌شوند تا
+     * هیچ‌وقت رزروی رد شود و پول مشتری نزد آرایشگر بماند.
+     */
+    if (
+      dto.status === BookingStatus.CANCELED ||
+      dto.status === BookingStatus.REJECTED
+    ) {
+      return this.cancelByBarberOrAdmin(id, userId, roles, dto.status);
     }
 
     const booking = await this.findOne(id, userId, roles);
@@ -937,15 +986,11 @@ export class BookingsService {
     // ==========================================
 
     if (currentStatus === BookingStatus.PENDING) {
-      const allowedStatuses = [
-        BookingStatus.CONFIRMED,
-        BookingStatus.REJECTED,
-        BookingStatus.CANCELED,
-      ];
+      const allowedStatuses = [BookingStatus.CONFIRMED];
 
       if (!allowedStatuses.includes(newStatus)) {
         throw new BadRequestException(
-          'از وضعیت در انتظار فقط امکان تایید، رد یا لغو رزرو وجود دارد',
+          'از وضعیت در انتظار فقط تایید، رد یا لغو رزرو امکان‌پذیر است',
         );
       }
     }
@@ -1006,6 +1051,11 @@ export class BookingsService {
     const previousStatus = booking.status;
     booking.status = newStatus;
 
+    // تایید نوبت، ساعت را برای همیشه (تا انجام شدن) قطعی می‌کند.
+    if (newStatus === BookingStatus.CONFIRMED) {
+      booking.holdsSlot = true;
+    }
+
     if (
       newStatus === BookingStatus.CONFIRMED &&
       previousStatus === BookingStatus.PENDING
@@ -1025,14 +1075,6 @@ export class BookingsService {
         barberId: booking.barberId,
         customerId: booking.customerId,
       });
-    }
-
-    // اگر رزرو رد شد، پیامک رد به مشتری ارسال بشه
-    if (
-      newStatus === BookingStatus.REJECTED &&
-      previousStatus === BookingStatus.PENDING
-    ) {
-      this.sendBookingRejectedSms(booking.id);
     }
 
     if (newStatus === BookingStatus.COMPLETED) {
@@ -1143,7 +1185,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date: dto.date,
-        status: In(SLOT_HOLDING_STATUSES),
+        holdsSlot: true,
       },
       relations: { service: true },
     });
@@ -1193,6 +1235,8 @@ export class BookingsService {
       price: service.price,
       note: dto.customerNote ?? '',
       status: BookingStatus.CONFIRMED,
+      // آرایشگر خودش این نوبت را ساخته است؛ ساعت از همین لحظه اشغال است.
+      holdsSlot: true,
       barberNote: dto.barberNote?.trim() || null,
       customerNote: dto.customerNote?.trim() || null,
       sendDepositLink: sendDeposit,
@@ -1468,6 +1512,8 @@ export class BookingsService {
         item.status = BookingStatus.CANCELED;
         item.canceledBy = 'customer';
         item.canceledAt = canceledAt;
+        // ساعت رزرو آزاد می‌شود تا نفر بعدی بتواند همان ساعت را بگیرد.
+        item.holdsSlot = false;
       }
 
       await bookingRepo.save(cancellable);
@@ -1530,8 +1576,13 @@ export class BookingsService {
     let completedCount = 0;
 
     for (const booking of candidates) {
-      const isPaid = Boolean(booking.onlinePaidAt || booking.depositPaidAt);
-      if (!isPaid) continue;
+      /**
+       * نوبتِ لینک بیعانه‌ای که بیعانه‌اش پرداخت نشده «نوبت واقعی» نیست و
+       * نباید خودکار «انجام‌شده» شود (کرونِ مهلت بیعانه آن را لغو می‌کند).
+       * بقیهٔ نوبت‌ها — از جمله نوبت دستیِ پلن پیامکی که هیچ پرداختی ندارد —
+       * بعد از پایان زمانشان خودکار تکمیل می‌شوند.
+       */
+      if (booking.sendDepositLink && !booking.depositPaidAt) continue;
 
       const startsAt = bookingWallTimeToUtc(booking.date, booking.time);
       if (!startsAt) continue;
@@ -1634,6 +1685,7 @@ export class BookingsService {
             status: BookingStatus.CANCELED,
             canceledBy: 'system',
             canceledAt,
+            holdsSlot: false,
             // یادآوری برای نوبت لغوشده معنا ندارد
             sendSmsReminder: false,
           })
@@ -1653,6 +1705,85 @@ export class BookingsService {
       } catch (error) {
         this.logger.warn(
           `لغو خودکار نوبت بیعانه ${booking.id} ناموفق بود: ${String(error)}`,
+        );
+      }
+    }
+
+    return canceledCount;
+  }
+
+  /**
+   * لغو خودکار درخواستی که آرایشگر تا شروع نوبت به آن پاسخ نداده است.
+   *
+   * چرا لازم است: رزرو آنلاین بعد از پرداخت در وضعیت `pending` منتظر تایید
+   * آرایشگر است. اگر آرایشگر فراموش کند، نوبت نه تایید می‌شود، نه انجام، و
+   * پول مشتری نزد آرایشگر می‌ماند. در این حالت نوبت لغو و مبلغ به مشتری
+   * برگردانده می‌شود تا ساعت هم برای دیگران آزاد شود.
+   *
+   * درخواستِ بدون پرداخت هم (مسیر قدیمی) فقط بسته می‌شود؛ پولی برای برگشت نیست.
+   *
+   * با `AUTO_EXPIRE_UNAPPROVED=false` می‌توان خاموشش کرد.
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async expireUnapprovedBookings(): Promise<number> {
+    if ((process.env.AUTO_EXPIRE_UNAPPROVED ?? 'true') === 'false') return 0;
+
+    const today = getBookingClock().date;
+    const candidates = await this.bookingRepo.find({
+      where: {
+        status: BookingStatus.PENDING,
+        date: LessThanOrEqual(today),
+      },
+      order: { date: 'ASC', time: 'ASC' },
+      take: 200,
+    });
+
+    if (!candidates.length) return 0;
+
+    const now = Date.now();
+    let canceledCount = 0;
+
+    for (const booking of candidates) {
+      const startsAt = bookingWallTimeToUtc(booking.date, booking.time);
+      // هنوز به زمان نوبت نرسیده‌ایم؛ آرایشگر وقت دارد پاسخ دهد.
+      if (!startsAt || startsAt.getTime() > now) continue;
+
+      /**
+       * درخواستِ بدون پرداخت (مسیر قدیمی «ثبت درخواست»): پولی در کار نیست،
+       * فقط وضعیت بسته و ساعت آزاد می‌شود تا یک درخواست رهاشده برای همیشه
+       * در لیست آرایشگر نماند.
+       */
+      if (!booking.onlinePaidAt) {
+        await this.bookingRepo.update(
+          { id: booking.id, status: BookingStatus.PENDING },
+          {
+            status: BookingStatus.CANCELED,
+            canceledBy: 'system',
+            canceledAt: new Date(),
+            holdsSlot: false,
+          },
+        );
+        canceledCount += 1;
+
+        continue;
+      }
+
+      try {
+        await this.cancelByBarberOrAdmin(
+          booking.id,
+          0,
+          [],
+          BookingStatus.CANCELED,
+          'system',
+        );
+        canceledCount += 1;
+
+        this.logger.log(
+          `نوبت ${booking.id} چون تا زمان شروع تایید نشد، لغو و بازپرداخت شد.`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `لغو خودکار نوبت تاییدنشده ${booking.id} ناموفق بود: ${String(error)}`,
         );
       }
     }
@@ -1816,7 +1947,7 @@ export class BookingsService {
       where: {
         barberId: barber.id,
         date,
-        status: In(SLOT_HOLDING_STATUSES),
+        holdsSlot: true,
       },
       relations: {
         service: true,
