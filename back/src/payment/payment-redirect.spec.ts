@@ -1,5 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 
+// @nestjs/schedule فقط ESM است و jest 30 نمی‌تواند require کند؛
+// دکوراتور کرون موضوع این تست نیست.
+jest.mock('@nestjs/schedule', () => ({
+  Cron: () => () => undefined,
+  CronExpression: { EVERY_10_MINUTES: '0 */10 * * * *' },
+}));
+
 import { PaymentService } from './payment.service';
 
 /**
@@ -25,6 +32,7 @@ const buildService = (env: Record<string, string | undefined>) => {
     repository, // userSubscriptionRepo
     repository, // serviceRepo
     repository, // bookingRepo
+    repository, // slotHoldRepo
     repository, // settingsRepo
     repository, // workHoursRepo
     {} as never, // bookingSmsService

@@ -90,6 +90,7 @@ type WalletSummaryRow = {
 
 type PaymentMetadata = Record<string, unknown> & {
   depositLink?: boolean | string;
+  depositAmount?: number | string | null;
   commissionAmount?: number | string | null;
   totalPrice?: number | string | null;
   price?: number | string | null;
@@ -640,7 +641,27 @@ export class AdminTransactionsService {
     const isDepositLink =
       metadata?.depositLink === true ||
       String(metadata?.depositLink).toLowerCase() === 'true';
+    /**
+     * لینک بیعانه هم مثل رزرو آنلاین شامل ۱۰٪ کمیسیون است: پرداخت مشتری =
+     * بیعانه + کمیسیون، اما فقط بیعانه درآمد آرایشگر است. برای پرداخت‌های
+     * قدیمی که این تفکیک را ندارند، رفتار قبلی حفظ می‌شود.
+     */
     if (isDepositLink) {
+      const depositAmount = this.readAmount(metadata?.depositAmount);
+      const explicitCommission = this.readAmount(metadata?.commissionAmount);
+
+      if (depositAmount !== null || explicitCommission !== null) {
+        const commissionAmount = explicitCommission ?? 0;
+
+        return {
+          commissionAmount: this.roundAmount(commissionAmount),
+          serviceAmount: null,
+          barberAmount: this.roundAmount(
+            depositAmount ?? Math.max(0, amount - commissionAmount),
+          ),
+        };
+      }
+
       return {
         commissionAmount: 0,
         serviceAmount: null,

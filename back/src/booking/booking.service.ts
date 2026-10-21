@@ -33,7 +33,9 @@ import {
   DataSource,
   EntityManager,
   In,
+  IsNull,
   LessThanOrEqual,
+  MoreThan,
   Repository,
 } from 'typeorm';
 
@@ -55,6 +57,8 @@ import {
   BookingStatus,
   SLOT_HOLDING_STATUSES,
 } from './entities/booking.entity';
+import { SlotHold } from './entities/slot-hold.entity';
+import { BusyInterval, hasOverlap } from './slot-intervals';
 
 const CONFIRMATION_SMS_COST = 2;
 const REMINDER_SMS_COST = 2;
@@ -82,6 +86,9 @@ export class BookingsService {
     @InjectRepository(User)
     private userRepo: Repository<User>,
 
+    @InjectRepository(SlotHold)
+    private slotHoldRepo: Repository<SlotHold>,
+
     private readonly dataSource: DataSource,
     private readonly walletService: WalletService,
     private referralService: ReferralService,
@@ -96,6 +103,30 @@ export class BookingsService {
         'امکان ثبت نوبت برای تاریخ یا ساعت گذشته وجود ندارد',
       );
     }
+  }
+
+  /**
+   * بازه‌هایی که «رزرو آنلاینِ در جریان» موقتاً نگه داشته است.
+   *
+   * این مقدار باید در همهٔ بررسی‌های تداخل (تقویم، ثبت دستی، تایید) لحاظ
+   * شود؛ وگرنه مشتری دوم می‌تواند همان ساعتی را انتخاب کند که مشتری اول
+   * همین حالا در درگاه پرداخت است.
+   */
+  private async getActiveHoldIntervals(
+    barberId: string,
+    date: string,
+    manager?: EntityManager,
+  ): Promise<BusyInterval[]> {
+    const repo = manager ? manager.getRepository(SlotHold) : this.slotHoldRepo;
+
+    const holds = await repo.find({
+      where: { barberId, date, expiresAt: MoreThan(new Date()) },
+    });
+
+    return holds.map(hold => ({
+      start: hold.startMinutes,
+      end: hold.endMinutes,
+    }));
   }
 
   // =========================================================
@@ -849,15 +880,21 @@ export class BookingsService {
         ?.durationMinutes ?? 30;
     const end = start + duration;
 
-    const hasConflict = sameDay.some(existing => {
-      if (existing.id === booking.id) return false;
+    const activeHolds = await this.getActiveHoldIntervals(
+      booking.barberId,
+      booking.date,
+    );
 
-      const existingStart = toMinutes(existing.time);
-      const existingEnd =
-        existingStart + (existing.service?.durationMinutes ?? 30);
+    const hasConflict =
+      sameDay.some(existing => {
+        if (existing.id === booking.id) return false;
 
-      return start < existingEnd && end > existingStart;
-    });
+        const existingStart = toMinutes(existing.time);
+        const existingEnd =
+          existingStart + (existing.service?.durationMinutes ?? 30);
+
+        return start < existingEnd && end > existingStart;
+      }) || hasOverlap({ start, end }, activeHolds);
 
     if (hasConflict) {
       throw new BadRequestException(
@@ -1111,14 +1148,17 @@ export class BookingsService {
       relations: { service: true },
     });
 
-    const hasConflict = sameDayBookings.some(existing => {
-      const existingStart = toMinutes(existing.time);
-      const existingEnd =
-        existingStart +
-        (existing.service?.durationMinutes ?? service.durationMinutes);
+    const activeHolds = await this.getActiveHoldIntervals(barber.id, dto.date);
 
-      return bookingStart < existingEnd && bookingEnd > existingStart;
-    });
+    const hasConflict =
+      sameDayBookings.some(existing => {
+        const existingStart = toMinutes(existing.time);
+        const existingEnd =
+          existingStart +
+          (existing.service?.durationMinutes ?? service.durationMinutes);
+
+        return bookingStart < existingEnd && bookingEnd > existingStart;
+      }) || hasOverlap({ start: bookingStart, end: bookingEnd }, activeHolds);
 
     if (hasConflict) {
       throw new BadRequestException(
@@ -1156,6 +1196,8 @@ export class BookingsService {
       barberNote: dto.barberNote?.trim() || null,
       customerNote: dto.customerNote?.trim() || null,
       sendDepositLink: sendDeposit,
+      // مهلت پرداخت بیعانه از همین لحظه شروع می‌شود
+      depositRequestedAt: sendDeposit ? new Date() : null,
       sendSmsReminder: sendReminder,
       reminderHours: sendReminder ? (dto.reminderHours ?? null) : null,
     });
@@ -1309,11 +1351,11 @@ export class BookingsService {
 
     const token = booking.depositToken || this.createDepositToken();
 
-    if (!booking.depositToken) {
-      booking.depositToken = token;
-      booking.sendDepositLink = true;
-      await this.bookingRepo.save(booking);
-    }
+    booking.depositToken = token;
+    booking.sendDepositLink = true;
+    // ارسال دوباره، مهلت پرداخت را از نو شروع می‌کند
+    booking.depositRequestedAt = new Date();
+    await this.bookingRepo.save(booking);
 
     await this.bookingSmsService.sendDepositLinkToCustomer(phone, {
       customerName: booking.customer?.fullName ?? 'مشتری',
@@ -1523,6 +1565,89 @@ export class BookingsService {
     return completedCount;
   }
 
+  /**
+   * لغو خودکار نوبتی که بیعانه‌اش در مهلت تعیین‌شده پرداخت نشده است.
+   *
+   * چرا لازم است: نوبتِ «لینک بیعانه» همان لحظهٔ ساخت، ساعت را اشغال می‌کند
+   * (وضعیت confirmed). اگر مشتری لینک را باز نکند یا پول ندهد، آن ساعت
+   * برای همیشه از تقویم حذف می‌ماند و آرایشگر نمی‌تواند آن را به کس دیگری
+   * بفروشد.
+   *
+   * مهلت پیش‌فرض ۲۴ ساعت است و با `DEPOSIT_PAYMENT_TIMEOUT_HOURS` تنظیم
+   * می‌شود. هر بار که لینک دوباره ارسال شود، مهلت از نو شروع می‌شود.
+   *
+   * لغو با یک UPDATE شرطی انجام می‌شود (`deposit_paid_at IS NULL`) تا اگر
+   * مشتری همان لحظه بیعانه را پرداخت کرده باشد، نوبت لغو نشود.
+   */
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async expireUnpaidDepositBookings(): Promise<number> {
+    if ((process.env.EXPIRE_UNPAID_DEPOSITS ?? 'true') === 'false') return 0;
+
+    const configured = Number(process.env.DEPOSIT_PAYMENT_TIMEOUT_HOURS ?? 24);
+    const timeoutHours =
+      Number.isFinite(configured) && configured >= 1 ? configured : 24;
+    const cutoff = new Date(Date.now() - timeoutHours * 3600_000);
+
+    /**
+     * برای نوبت‌های قدیمی که ستون `depositRequestedAt` را ندارند، زمان
+     * ساخت نوبت ملاک است؛ وگرنه آن‌ها هیچ‌وقت منقضی نمی‌شدند.
+     */
+    const candidates = await this.bookingRepo.find({
+      where: {
+        sendDepositLink: true,
+        depositPaidAt: IsNull(),
+        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
+        createdAt: LessThanOrEqual(cutoff),
+      },
+      order: { createdAt: 'ASC' },
+      take: 200,
+    });
+
+    // ارسال مجدد لینک، مهلت را از نو شروع می‌کند.
+    const expired = candidates.filter(
+      booking => (booking.depositRequestedAt ?? booking.createdAt) <= cutoff,
+    );
+
+    if (!expired.length) return 0;
+
+    let canceledCount = 0;
+    const canceledAt = new Date();
+
+    for (const booking of expired) {
+      try {
+        const result = await this.bookingRepo
+          .createQueryBuilder()
+          .update(Booking)
+          .set({
+            status: BookingStatus.CANCELED,
+            canceledBy: 'system',
+            canceledAt,
+            // یادآوری برای نوبت لغوشده معنا ندارد
+            sendSmsReminder: false,
+          })
+          .where('id = :id', { id: booking.id })
+          .andWhere('deposit_paid_at IS NULL')
+          .andWhere('status IN (:...statuses)', {
+            statuses: [BookingStatus.PENDING, BookingStatus.CONFIRMED],
+          })
+          .execute();
+
+        if (result.affected) {
+          canceledCount += 1;
+          this.logger.log(
+            `نوبت ${booking.id} به دلیل عدم پرداخت بیعانه در مهلت ${timeoutHours} ساعته لغو شد.`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `لغو خودکار نوبت بیعانه ${booking.id} ناموفق بود: ${String(error)}`,
+        );
+      }
+    }
+
+    return canceledCount;
+  }
+
   private sendBookingRejectedSms(bookingId: string): void {
     void this.bookingRepo
       .findOne({
@@ -1671,6 +1796,9 @@ export class BookingsService {
       return [];
     }
 
+    // نگه‌داشتن‌های موقتِ رزروهای در جریان (پرداخت ناتمام)
+    const activeHolds = await this.getActiveHoldIntervals(barber.id, date);
+
     // رزروهای همان روز
     const bookings = await this.bookingRepo.find({
       where: {
@@ -1708,15 +1836,18 @@ export class BookingsService {
       while (currentStart + serviceDuration <= end) {
         const slotEnd = currentStart + serviceDuration;
 
-        const isBooked = bookings.some(booking => {
-          const bookingStart = toMinutes(booking.time);
+        const candidate = { start: currentStart, end: slotEnd };
 
-          const bookingDuration = booking.service?.durationMinutes ?? 30;
+        const isBooked =
+          bookings.some(booking => {
+            const bookingStart = toMinutes(booking.time);
 
-          const bookingEnd = bookingStart + bookingDuration;
+            const bookingDuration = booking.service?.durationMinutes ?? 30;
 
-          return currentStart < bookingEnd && slotEnd > bookingStart;
-        });
+            const bookingEnd = bookingStart + bookingDuration;
+
+            return currentStart < bookingEnd && slotEnd > bookingStart;
+          }) || hasOverlap(candidate, activeHolds);
 
         if (!isBooked) {
           const hours = Math.floor(currentStart / 60)
