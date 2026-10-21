@@ -32,6 +32,8 @@ export default function AppointmentList({
 
   const { data, isLoading, isFetching, error } = useBarberBookings({
     ...dateParams,
+    // تب «در انتظار تایید» همهٔ درخواست‌های باز را نشان می‌دهد، نه فقط امروز را.
+    status: filter === 'pending' ? 'pending' : undefined,
     limit: 100,
     search: search.trim() || undefined,
   });
@@ -96,13 +98,17 @@ export default function AppointmentList({
         <p className="mt-3 text-sm font-black text-gray-800">
           {search.trim()
             ? 'نوبتی با این جستجو پیدا نشد'
-            : 'در این بازه نوبتی ثبت نشده است'}
+            : filter === 'pending'
+              ? 'درخواست در انتظار تاییدی وجود ندارد'
+              : 'در این بازه نوبتی ثبت نشده است'}
         </p>
 
         <p className="mt-1 text-xs text-gray-400">
           {search.trim()
             ? 'نام یا شماره دیگری را امتحان کن.'
-            : 'با دکمه «ثبت نوبت دستی» اولین نوبت را ایجاد کن.'}
+            : filter === 'pending'
+              ? 'رزروهای آنلاین بعد از پرداخت اینجا نمایش داده می‌شوند تا تایید یا رد شوند.'
+              : 'با دکمه «ثبت نوبت دستی» اولین نوبت را ایجاد کن.'}
         </p>
       </div>
     );

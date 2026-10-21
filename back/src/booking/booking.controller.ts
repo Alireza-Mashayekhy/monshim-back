@@ -141,6 +141,20 @@ export class BookingsController {
     return this.bookingsService.updateStatus(id, user.id, user.roles, dto);
   }
 
+  // ارسال دوبارهٔ لینک بیعانه برای نوبت دستی
+  @Post(':id/deposit-link')
+  @Roles(Role.Barber, Role.Admin)
+  resendDepositLink(
+    @Param('id') id: string,
+    @Req() req: Request & { user: any },
+  ) {
+    return this.bookingsService.resendDepositLink(
+      id,
+      req.user.id,
+      req.user.roles,
+    );
+  }
+
   // لغو رزرو توسط مشتری
   @Patch(':id/cancel')
   cancel(@Param('id') id: string, @Req() req: Request & { user: any }) {

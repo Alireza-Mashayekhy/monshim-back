@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { Booking } from 'src/booking/entities/booking.entity';
+import { SlotHold } from 'src/booking/entities/slot-hold.entity';
 import { NotificationModule } from 'src/notification/notification.module';
 import { PublicPageModule } from 'src/public-page/public-page.module';
 import { Service } from 'src/services/entities/service.entity';
@@ -32,6 +33,7 @@ import { PaymentService } from './payment.service';
       Booking,
       SiteSettings,
       Transaction,
+      SlotHold,
     ]),
     NotificationModule,
     WalletModule,

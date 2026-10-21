@@ -2,7 +2,8 @@
 'use client';
 
 import { CalendarPlus } from 'lucide-react';
-import { useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 
 import AppointmentFilter, {
   AppointmentFilterKey,
@@ -15,11 +16,57 @@ import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
+import { useBarberBookings } from '@/services/features/booking/hooks';
 
-export default function AppointmentsPage() {
-  const [filter, setFilter] = useState<AppointmentFilterKey>('today');
+const FILTER_KEYS: AppointmentFilterKey[] = [
+  'pending',
+  'today',
+  'tomorrow',
+  'week',
+  'month',
+  'all',
+];
+
+function AppointmentsContent() {
+  /**
+   * میان‌بر کارت «در انتظار تایید»: /dashboard/appointments?filter=pending
+   * مقدار اولیه از query خوانده می‌شود تا بعد از کلیک، مستقیم روی همان تب باز شود.
+   */
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const requested = searchParams.get('filter') as AppointmentFilterKey | null;
+
+  /**
+   * تب فعال از URL خوانده می‌شود، نه از state محلی.
+   *
+   * چرا: کارت خلاصهٔ «در انتظار تایید» یک Link به همین صفحه با
+   * `?filter=pending` است. وقتی کاربر از قبل داخل همین صفحه باشد، state
+   * اولیه دوباره ساخته نمی‌شد و کلیک کارت هیچ اثری نداشت. حالا URL مرجع
+   * واحد است و هر تغییر تب هم در URL منعکس می‌شود.
+   */
+  const filter: AppointmentFilterKey =
+    requested && FILTER_KEYS.includes(requested) ? requested : 'today';
+
+  const setFilter = (next: AppointmentFilterKey) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('filter', next);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   const [search, setSearch] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  /**
+   * تعداد درخواست‌های باز برای نشان‌دادن روی تب.
+   * همان query خلاصهٔ بالای صفحه است؛ React Query آن را دوباره از شبکه
+   * نمی‌گیرد و فقط نتیجهٔ کش‌شده را به اشتراک می‌گذارد.
+   */
+  const { data: pendingData } = useBarberBookings({
+    status: 'pending',
+    limit: 100,
+  });
+  const pendingCount = pendingData?.data?.length ?? 0;
 
   const debouncedSearch = useDebounce(search, 400);
 
@@ -45,7 +92,11 @@ export default function AppointmentsPage() {
 
       <FadeIn delay={0.15}>
         <div className="space-y-2.5">
-          <AppointmentFilter value={filter} onChange={setFilter} />
+          <AppointmentFilter
+            value={filter}
+            onChange={setFilter}
+            pendingCount={pendingCount}
+          />
 
           <div className="relative">
             <svg
@@ -79,5 +130,13 @@ export default function AppointmentsPage() {
 
       <ManualBookingDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
     </DashboardShell>
+  );
+}
+
+export default function AppointmentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AppointmentsContent />
+    </Suspense>
   );
 }

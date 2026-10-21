@@ -1,5 +1,5 @@
 // src/barber/dto/update-barber.dto.ts
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class UpdateBarberDto {
   @IsOptional()
@@ -42,11 +42,11 @@ export class UpdateBarberDto {
   @IsString()
   profileImage?: string;
 
-  @IsOptional()
-  @IsBoolean()
-  isApproved?: boolean;
-
-  @IsOptional()
-  @IsString()
-  rejectionReason?: string | null;
+  /**
+   * توجه: فیلدهای `isApproved` و `rejectionReason` عمداً از این DTO حذف
+   * شده‌اند. این همان DTOای است که آرایشگر برای ویرایش پروفایل خودش
+   * (`PATCH /barber/profile/me`) می‌فرستد و قبلاً می‌توانست با
+   * `{ "isApproved": true }` بدون بررسی ادمین، خودش را تایید کند.
+   * تایید و رد فقط از مسیر ادمین (`PATCH /admin/barber/:id/review`) انجام می‌شود.
+   */
 }

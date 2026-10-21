@@ -86,6 +86,14 @@ export interface SettleAdminRefundInput {
   transferReference: string;
 }
 
+export interface ReviewWithdrawalInput {
+  id: string;
+  /** شناسهٔ پیگیری واریز (برای تایید) */
+  transferReference?: string;
+  /** دلیل رد (برای رد کردن) */
+  reason?: string;
+}
+
 export interface AdminTransactionsResponse extends ApiSingleResponse<{
   transactions: AdminTransaction[];
   summary: AdminTransactionSummary;

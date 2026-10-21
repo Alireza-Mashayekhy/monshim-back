@@ -10,6 +10,7 @@ import {
   getAvailableSlots,
   getBarberBookings,
   getMyBookings,
+  resendDepositLink,
   updateBookingStatus,
 } from './api';
 import { Booking, BookingQueryParams, MyBookingsQuery } from './types';
@@ -54,12 +55,38 @@ export const useUpdateBookingStatus = () => {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: Booking['status'] }) =>
       updateBookingStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['barber-bookings'] });
-      toast.success('وضعیت نوبت با موفقیت تغییر کرد.');
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+
+      const messages: Record<Booking['status'], string> = {
+        pending: 'نوبت به حالت «در انتظار تایید» برگشت.',
+        confirmed: 'نوبت تایید شد و پیامک تایید برای مشتری ارسال شد.',
+        completed: 'نوبت «انجام شده» ثبت شد.',
+        rejected: 'درخواست رد شد؛ مبلغ در صف بازپرداخت مشتری ثبت شد.',
+        canceled: 'نوبت لغو شد.',
+      };
+
+      toast.success(messages[variables.status]);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'خطا در تغییر وضعیت نوبت');
+    },
+  });
+};
+
+export const useResendDepositLink = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => resendDepositLink(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['barber-bookings'] });
+      toast.success('لینک بیعانه دوباره برای مشتری پیامک شد.');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'ارسال دوبارهٔ لینک بیعانه ناموفق بود',
+      );
     },
   });
 };

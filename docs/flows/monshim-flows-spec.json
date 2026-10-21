@@ -1,0 +1,1166 @@
+{
+  "meta": {
+    "project": "منشیم",
+    "version": "4.0",
+    "updatedAt": "2026-10-21",
+    "source": "استخراج‌شده از کد بک‌اند NestJS و فرانت Next.js",
+    "stats": {
+      "flows": 16,
+      "steps": 79,
+      "changes": 10
+    }
+  },
+  "roles": {
+    "guest": {
+      "label": "مهمان",
+      "panel": "سایت عمومی"
+    },
+    "customer": {
+      "label": "مشتری",
+      "panel": "/panel"
+    },
+    "barber": {
+      "label": "آرایشگر",
+      "panel": "/dashboard"
+    },
+    "admin": {
+      "label": "ادمین",
+      "panel": "/admin"
+    },
+    "system": {
+      "label": "سیستم",
+      "panel": "کرون/سرور"
+    },
+    "gateway": {
+      "label": "درگاه زیبال",
+      "panel": "خارج از سایت"
+    },
+    "public": {
+      "label": "بازدیدکننده",
+      "panel": "صفحهٔ عمومی"
+    }
+  },
+  "stateMachine": {
+    "booking": {
+      "pending": [
+        "confirmed",
+        "rejected",
+        "canceled"
+      ],
+      "confirmed": [
+        "completed",
+        "canceled"
+      ],
+      "completed": [],
+      "canceled": [],
+      "rejected": []
+    },
+    "slotHolding": {
+      "statuses": [
+        "confirmed",
+        "completed"
+      ],
+      "temporaryHold": "slot_holds (پیش‌فرض ۳۰ دقیقه)"
+    },
+    "payment": {
+      "PENDING": [
+        "PAID",
+        "FAILED",
+        "CANCELED"
+      ],
+      "PAID": [],
+      "FAILED": [],
+      "CANCELED": []
+    }
+  },
+  "flows": [
+    {
+      "id": "auth.otp",
+      "title": "ورود با رمز یک‌بارمصرف",
+      "actors": [
+        "guest",
+        "customer",
+        "barber",
+        "admin"
+      ],
+      "chain": "بدون نشست → درخواست کد → پیامک → تأیید کد → JWT → پنل نقش",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "شمارهٔ موبایل",
+          "actor": "guest",
+          "action": "کاربر شماره را وارد می‌کند",
+          "api": "POST /auth/request-otp",
+          "booking": "—",
+          "note": "کد ۶ رقمی ساخته و پیامک می‌شود"
+        },
+        {
+          "n": 2,
+          "stage": "تأیید کد",
+          "actor": "guest",
+          "action": "کد وارد می‌شود",
+          "api": "POST /auth/verify-otp",
+          "booking": "—",
+          "note": "در توسعه کد ثابت ۱۱۱۱ فقط با OTP_UNIVERSAL_CODE"
+        },
+        {
+          "n": 3,
+          "stage": "ساخت نشست",
+          "actor": "system",
+          "action": "توکن و نقش برمی‌گردد",
+          "api": "—",
+          "booking": "—",
+          "note": "ادمین/آرایشگر/مشتری به پنل خودش می‌رود"
+        }
+      ],
+      "notes": [
+        "کد ثابت ۱۱۱۱ در production خاموش است.",
+        "اگر کاربر تازه باشد، پروفایل مشتری ساخته می‌شود."
+      ]
+    },
+    {
+      "id": "barber.onboarding",
+      "title": "ثبت‌نام و تأیید آرایشگر",
+      "actors": [
+        "guest",
+        "barber",
+        "admin"
+      ],
+      "chain": "ثبت‌نام → پروفایل ناتأیید → بررسی ادمین → تأیید/رد → پروفایل فعال",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "ثبت‌نام",
+          "actor": "guest",
+          "action": "اطلاعات سالن، خدمات و مدارک",
+          "api": "POST /auth/register-barber",
+          "booking": "—",
+          "note": "isApproved=false"
+        },
+        {
+          "n": 2,
+          "stage": "انتظار",
+          "actor": "barber",
+          "action": "داشبورد محدود تا تأیید",
+          "api": "GET /barber/profile/me",
+          "booking": "—",
+          "note": "امکان ثبت نوبت/خدمت فعال نیست"
+        },
+        {
+          "n": 3,
+          "stage": "بررسی ادمین",
+          "actor": "admin",
+          "action": "مشاهدهٔ مدارک",
+          "api": "PATCH /admin/barber/:id/review",
+          "booking": "—",
+          "note": "تأیید یا رد"
+        },
+        {
+          "n": 4,
+          "stage": "فعال شدن",
+          "actor": "system",
+          "action": "پروفایل در لیست عمومی می‌آید",
+          "api": "GET /barber",
+          "booking": "—",
+          "note": "isApproved=true و isActive=true"
+        }
+      ],
+      "notes": [
+        "آرایشگر نمی‌تواند خودش را تأیید کند؛ فیلد isApproved از فرم ویرایش حذف شد.",
+        "شناسهٔ پروفایل در پنل ادمین درست resolve می‌شود."
+      ]
+    },
+    {
+      "id": "booking.online",
+      "title": "رزرو آنلاین مشتری",
+      "actors": [
+        "customer",
+        "barber",
+        "system",
+        "gateway"
+      ],
+      "chain": "انتخاب ساعت → نگه‌داشتن موقت → پرداخت → «در انتظار تایید» → تایید/رد آرایشگر → انجام خودکار",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "انتخاب آرایشگر",
+          "actor": "customer",
+          "action": "جستجو و فیلتر در لیست",
+          "api": "GET /barber",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 2,
+          "stage": "انتخاب خدمت",
+          "actor": "customer",
+          "action": "یک یا چند خدمت، فقط در مرورگر",
+          "api": "GET /barber/:id",
+          "booking": "—",
+          "note": "هیچ رکوردی ساخته نمی‌شود"
+        },
+        {
+          "n": 3,
+          "stage": "انتخاب ساعت",
+          "actor": "customer",
+          "action": "اسلات‌های آزاد (منهای نگه‌داشتن‌های فعال)",
+          "api": "GET /bookings/available-slots",
+          "booking": "—",
+          "note": "ساعت‌های گذشته حذف می‌شوند"
+        },
+        {
+          "n": 4,
+          "stage": "کلیک پرداخت",
+          "actor": "customer",
+          "action": "بررسی مالکیت خدمت، ساعت کاری و تداخل",
+          "api": "POST /payment/booking",
+          "booking": "—",
+          "note": "قفل آرایشگر + نگه‌داشتن ۳۰ دقیقه‌ای ساعت"
+        },
+        {
+          "n": 5,
+          "stage": "درگاه",
+          "actor": "gateway",
+          "action": "پرداخت خدمات + ۱۰٪ کمیسیون",
+          "api": "—",
+          "booking": "payment: PENDING",
+          "note": "—"
+        },
+        {
+          "n": 6,
+          "stage": "کال‌بک",
+          "actor": "system",
+          "action": "تایید تراکنش نزد زیبال",
+          "api": "GET /payment/callback",
+          "booking": "payment: PAID",
+          "note": "خطای شبکه → PENDING می‌ماند و کرون تطبیق بررسی می‌کند"
+        },
+        {
+          "n": 7,
+          "stage": "ساخت رزرو",
+          "actor": "system",
+          "action": "آزادسازی نگه‌داشتن و ساخت رزرو",
+          "api": "—",
+          "booking": "booking: PENDING",
+          "note": "ساعت همچنان اشغال است (holdsSlot)"
+        },
+        {
+          "n": 8,
+          "stage": "اطلاع آرایشگر",
+          "actor": "system",
+          "action": "«رزرو جدید» به آرایشگر",
+          "api": "—",
+          "booking": "booking: PENDING",
+          "note": "به مشتری هنوز پیامک تایید نمی‌رود"
+        },
+        {
+          "n": 9,
+          "stage": "تایید آرایشگر",
+          "actor": "barber",
+          "action": "تایید درخواست",
+          "api": "PATCH /bookings/:id/status {confirmed}",
+          "booking": "booking: CONFIRMED",
+          "note": "پیامک «تایید رزرو» به مشتری + افزودن به باشگاه"
+        },
+        {
+          "n": 10,
+          "stage": "رد آرایشگر",
+          "actor": "barber",
+          "action": "رد درخواست",
+          "api": "PATCH /bookings/:id/status {rejected}",
+          "booking": "booking: REJECTED",
+          "note": "کل سفارش لغو و مبلغ (با کمیسیون) به مشتری برمی‌گردد"
+        },
+        {
+          "n": 11,
+          "stage": "بی‌پاسخ ماندن",
+          "actor": "system",
+          "action": "اگر تا شروع نوبت پاسخی ندهد",
+          "api": "کرون ۱۰ دقیقه‌ای",
+          "booking": "booking: CANCELED",
+          "note": "لغو خودکار + بازپرداخت کامل مشتری"
+        },
+        {
+          "n": 12,
+          "stage": "انجام شد",
+          "actor": "system",
+          "action": "بعد از پایان زمان نوبت",
+          "api": "کرون ۱۰ دقیقه‌ای",
+          "booking": "booking: COMPLETED",
+          "note": "آرایشگر هم می‌تواند دستی بعد از شروع نوبت بزند"
+        }
+      ],
+      "notes": [
+        "تا زمانی که آرایشگر پاسخ نداده، ساعت رزرو برای مشتری نگه داشته می‌شود و کس دیگری نمی‌تواند آن را بگیرد.",
+        "تکمیل زودهنگام (قبل از شروع نوبت) مسدود است.",
+        "نوبت «انجام‌شده» هم ساعت را اشغال می‌کند."
+      ]
+    },
+    {
+      "id": "booking.manual",
+      "title": "ثبت نوبت دستی (دو حالت)",
+      "actors": [
+        "barber",
+        "customer",
+        "system"
+      ],
+      "chain": "انتخاب مشتری → خدمت و زمان → یا پلن پیامکی یا لینک بیعانه → انجام خودکار",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "انتخاب مشتری",
+          "actor": "barber",
+          "action": "مشتری باشگاه یا مشتری جدید",
+          "api": "POST /club/customers",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 2,
+          "stage": "انتخاب خدمت و زمان",
+          "actor": "barber",
+          "action": "ساعت کاری، تداخل و نگه‌داشتن‌ها بررسی می‌شود",
+          "api": "GET /bookings/available-slots",
+          "booking": "—",
+          "note": "همهٔ بررسی‌ها قبل از کسر اعتبار"
+        },
+        {
+          "n": 3,
+          "stage": "انتخاب روش",
+          "actor": "barber",
+          "action": "«پلن پیامکی» یا «لینک بیعانه»",
+          "api": "—",
+          "booking": "—",
+          "note": "فرم اعتبار باقی‌مانده یا مبلغ بیعانه + کمیسیون را نشان می‌دهد"
+        },
+        {
+          "n": 4,
+          "stage": "ثبت — پلن پیامکی",
+          "actor": "barber",
+          "action": "تأیید ۲ اعتبار از اشتراک کسر می‌شود",
+          "api": "POST /bookings/manual",
+          "booking": "booking: CONFIRMED",
+          "note": "ساعت از همان لحظه اشغال است"
+        },
+        {
+          "n": 5,
+          "stage": "پیامک تأیید",
+          "actor": "system",
+          "action": "«رزرو شما ثبت شد» به مشتری",
+          "api": "—",
+          "booking": "booking: CONFIRMED",
+          "note": "یادآوری هم می‌تواند اضافه شود"
+        },
+        {
+          "n": 6,
+          "stage": "ثبت — لینک بیعانه",
+          "actor": "barber",
+          "action": "لینک رایگان؛ مهلت پرداخت شروع می‌شود",
+          "api": "POST /bookings/manual",
+          "booking": "booking: CONFIRMED",
+          "note": "ساعت اشغال است"
+        },
+        {
+          "n": 7,
+          "stage": "پیامک لینک",
+          "actor": "system",
+          "action": "لینک پرداخت بیعانه به مشتری",
+          "api": "—",
+          "booking": "booking: CONFIRMED",
+          "note": "خود پیامک اعتبار مصرف نمی‌کند"
+        },
+        {
+          "n": 8,
+          "stage": "پرداخت بیعانه",
+          "actor": "customer",
+          "action": "از لینک پیامک یا دکمهٔ «پرداخت بیعانه» در پنل",
+          "api": "GET /payment/deposit/:token",
+          "booking": "payment: PAID",
+          "note": "بیعانه + ۱۰٪ کمیسیون؛ فقط بیعانه به کیف پول آرایشگر می‌رود"
+        },
+        {
+          "n": 9,
+          "stage": "انجام خودکار",
+          "actor": "system",
+          "action": "بعد از پایان زمان نوبت",
+          "api": "کرون ۱۰ دقیقه‌ای",
+          "booking": "booking: COMPLETED",
+          "note": "برای هر دو حالت یکسان"
+        }
+      ],
+      "notes": [
+        "در حالت لینک بیعانه، اگر تا ۶ ساعت پرداخت نشود نوبت خودکار لغو می‌شود و ساعت آزاد می‌گردد.",
+        "یادآوری فقط بعد از پرداخت بیعانه یا در حالت پلن پیامکی فرستاده می‌شود.",
+        "نوبت دستیِ بدون پرداخت در «درآمد امروز» شمرده نمی‌شود (برچسب کارت اصلاح شد)."
+      ]
+    },
+    {
+      "id": "booking.deposit",
+      "title": "لینک بیعانه (جزئیات)",
+      "actors": [
+        "barber",
+        "customer",
+        "gateway",
+        "system"
+      ],
+      "chain": "رزرو confirmed → پیامک لینک → پرداخت (بیعانه + کمیسیون) → depositPaidAt → یادآوری → انجام خودکار",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "ساخت لینک",
+          "actor": "barber",
+          "action": "توکن ۲۴ کاراکتری روی رزرو",
+          "api": "POST /bookings/:id/deposit-link",
+          "booking": "booking: CONFIRMED",
+          "note": "مهلت ۶ ساعته از همین لحظه"
+        },
+        {
+          "n": 2,
+          "stage": "باز کردن لینک",
+          "actor": "customer",
+          "action": "بررسی پرداخت‌نشده/لغو‌نشده/گذشته‌نبودن",
+          "api": "GET /payment/deposit/:token",
+          "booking": "—",
+          "note": "مبلغ = بیعانه + ۱۰٪ کمیسیون"
+        },
+        {
+          "n": 3,
+          "stage": "پرداخت",
+          "actor": "gateway",
+          "action": "مبلغ بیعانه + کمیسیون",
+          "api": "—",
+          "booking": "payment: PENDING",
+          "note": "—"
+        },
+        {
+          "n": 4,
+          "stage": "کال‌بک",
+          "actor": "system",
+          "action": "ثبت depositPaidAt و واریز فقط بیعانه",
+          "api": "GET /payment/callback",
+          "booking": "payment: PAID",
+          "note": "کمیسیون نزد سامانه می‌ماند"
+        },
+        {
+          "n": 5,
+          "stage": "یادآوری",
+          "actor": "system",
+          "action": "فقط بعد از پرداخت بیعانه",
+          "api": "کرون ۵ دقیقه‌ای",
+          "booking": "booking: CONFIRMED",
+          "note": "پرداخت‌نشده → هیچ پیامکی نمی‌رود"
+        },
+        {
+          "n": 6,
+          "stage": "مهلت تمام",
+          "actor": "system",
+          "action": "بدون پرداخت → لغو خودکار",
+          "api": "کرون ۱۰ دقیقه‌ای",
+          "booking": "booking: CANCELED",
+          "note": "canceledBy=system و آزادسازی ساعت"
+        },
+        {
+          "n": 7,
+          "stage": "انجام شد",
+          "actor": "system",
+          "action": "بعد از زمان نوبت",
+          "api": "کرون ۱۰ دقیقه‌ای",
+          "booking": "booking: COMPLETED",
+          "note": "—"
+        }
+      ],
+      "notes": [
+        "ارسال مجدد لینک، مهلت ۶ ساعته را از نو شروع می‌کند.",
+        "اگر نوبت بعد از پرداخت لغو شود، بیعانه + کمیسیون به مشتری برمی‌گردد."
+      ]
+    },
+    {
+      "id": "booking.cancel.customer",
+      "title": "لغو نوبت توسط مشتری",
+      "actors": [
+        "customer",
+        "system"
+      ],
+      "chain": "confirmed/pending → canceled (بدون بازپرداخت)",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "درخواست",
+          "actor": "customer",
+          "action": "فقط تا شروع نوبت",
+          "api": "PATCH /bookings/:id/cancel",
+          "booking": "—",
+          "note": "دکمه برای نوبت گذشته پنهان است"
+        },
+        {
+          "n": 2,
+          "stage": "بستن کل سفارش",
+          "actor": "system",
+          "action": "همهٔ ردیف‌های همان پرداخت",
+          "api": "—",
+          "booking": "booking: CANCELED",
+          "note": "canceledBy=customer"
+        },
+        {
+          "n": 3,
+          "stage": "پیامک",
+          "actor": "system",
+          "action": "یک پیامک برای کل سفارش",
+          "api": "—",
+          "booking": "—",
+          "note": "—"
+        }
+      ],
+      "notes": [
+        "قاعدهٔ محصول: لغو توسط مشتری بازپرداخت ندارد.",
+        "ساعت رزرو آزاد می‌شود."
+      ]
+    },
+    {
+      "id": "booking.cancel.barber",
+      "title": "لغو توسط آرایشگر/ادمین + بازپرداخت",
+      "actors": [
+        "barber",
+        "admin",
+        "system",
+        "customer"
+      ],
+      "chain": "confirmed → محاسبهٔ مبلغ → کسر از کیف پول آرایشگر → صف بازپرداخت مشتری → canceled",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "درخواست",
+          "actor": "barber",
+          "action": "لغو با دلیل",
+          "api": "PATCH /bookings/:id/status {canceled}",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 2,
+          "stage": "قفل ردیف‌ها",
+          "actor": "system",
+          "action": "رزروها و پرداخت‌ها قفل می‌شوند",
+          "api": "—",
+          "booking": "—",
+          "note": "لغو گروهی برای سفارش چندخدمتی"
+        },
+        {
+          "n": 3,
+          "stage": "محاسبه",
+          "actor": "system",
+          "action": "فقط ارزش خدماتِ لغوشده",
+          "api": "—",
+          "booking": "—",
+          "note": "کمیسیون از آرایشگر گرفته نمی‌شود"
+        },
+        {
+          "n": 4,
+          "stage": "کسر",
+          "actor": "system",
+          "action": "کیف پول آرایشگر؛ در صورت کمبود منفی می‌شود",
+          "api": "—",
+          "booking": "transaction: WITHDRAWAL",
+          "note": "لغو هرگز قفل نمی‌شود"
+        },
+        {
+          "n": 5,
+          "stage": "بازپرداخت",
+          "actor": "system",
+          "action": "کیف پول مشتری",
+          "api": "—",
+          "booking": "transaction: REFUND (PENDING)",
+          "note": "ادمین در تب بازپرداخت‌ها تسویه می‌کند"
+        },
+        {
+          "n": 6,
+          "stage": "ثبت",
+          "actor": "system",
+          "action": "وضعیت نهایی",
+          "api": "—",
+          "booking": "booking: CANCELED",
+          "note": "canceledBy=barber یا admin"
+        }
+      ],
+      "notes": [
+        "مبلغ بازپرداخت = بیعانه/خدمات + سهم متناسب کمیسیون.",
+        "اگر ردیفی را مشتری قبلاً لغو کرده باشد، از بازپرداخت خارج است."
+      ]
+    },
+    {
+      "id": "booking.pending",
+      "title": "در انتظار تایید آرایشگر",
+      "actors": [
+        "customer",
+        "barber",
+        "system"
+      ],
+      "chain": "پرداخت‌شده → pending → تایید (confirmed) / رد (rejected + بازپرداخت) / بی‌پاسخ (لغو + بازپرداخت)",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "ورود به وضعیت",
+          "actor": "system",
+          "action": "بعد از پرداخت موفق رزرو آنلاین",
+          "api": "—",
+          "booking": "booking: PENDING",
+          "note": "ساعت اشغال است تا کسی آن را نگیرد"
+        },
+        {
+          "n": 2,
+          "stage": "نمایش به مشتری",
+          "actor": "customer",
+          "action": "«پرداخت انجام شد؛ منتظر تایید آرایشگر»",
+          "api": "GET /bookings/my",
+          "booking": "booking: PENDING",
+          "note": "قابل لغو توسط مشتری (بدون بازپرداخت)"
+        },
+        {
+          "n": 3,
+          "stage": "نمایش به آرایشگر",
+          "actor": "barber",
+          "action": "تب «در انتظار تایید» + کارت خلاصه",
+          "api": "GET /bookings/barber/my?status=pending",
+          "booking": "booking: PENDING",
+          "note": "دکمه‌های تایید و رد روی کارت"
+        },
+        {
+          "n": 4,
+          "stage": "تایید",
+          "actor": "barber",
+          "action": "بررسی تداخل دوباره + قطعی کردن ساعت",
+          "api": "PATCH /bookings/:id/status",
+          "booking": "booking: CONFIRMED",
+          "note": "پیامک تایید + باشگاه"
+        },
+        {
+          "n": 5,
+          "stage": "رد",
+          "actor": "barber",
+          "action": "با تایید صریح در دیالوگ",
+          "api": "PATCH /bookings/:id/status",
+          "booking": "booking: REJECTED",
+          "note": "کسر از کیف پول آرایشگر + صف بازپرداخت مشتری"
+        },
+        {
+          "n": 6,
+          "stage": "بی‌پاسخ",
+          "actor": "system",
+          "action": "تا زمان شروع نوبت",
+          "api": "کرون ۱۰ دقیقه‌ای",
+          "booking": "booking: CANCELED",
+          "note": "بازپرداخت کامل + آزادسازی ساعت"
+        }
+      ],
+      "notes": [
+        "این وضعیت دیگر «مسیر مرده» نیست؛ همهٔ رزروهای آنلاین پس از پرداخت از اینجا رد می‌شوند.",
+        "مسیر قدیمی «درخواست بدون پرداخت» (POST /bookings) هنوز از رابط کاربری صدا زده نمی‌شود و ساعت را قفل نمی‌کند."
+      ]
+    },
+    {
+      "id": "wallet",
+      "title": "کیف پول و برداشت",
+      "actors": [
+        "barber",
+        "admin",
+        "system"
+      ],
+      "chain": "درآمد نوبت → موجودی → درخواست برداشت (قفل) → بررسی ادمین → واریز/برگشت",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "درآمد",
+          "actor": "system",
+          "action": "واریز ارزش خدمات پس از پرداخت",
+          "api": "—",
+          "booking": "transaction: DEPOSIT",
+          "note": "کمیسیون واریز نمی‌شود"
+        },
+        {
+          "n": 2,
+          "stage": "واریز آنلاین",
+          "actor": "barber",
+          "action": "شارژ کیف پول با درگاه",
+          "api": "POST /payment/wallet",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 3,
+          "stage": "درخواست برداشت",
+          "actor": "barber",
+          "action": "حداقل ۲۰۰٬۰۰۰ تومان",
+          "api": "POST /wallet/withdraw",
+          "booking": "—",
+          "note": "داخل تراکنش با قفل ردیف کیف پول"
+        },
+        {
+          "n": 4,
+          "stage": "بررسی ادمین",
+          "actor": "admin",
+          "action": "تأیید یا رد",
+          "api": "PATCH /admin/transactions/:id/...",
+          "booking": "—",
+          "note": "رد شدن مبلغ را برمی‌گرداند"
+        }
+      ],
+      "notes": [
+        "موجودی منفی (بدهی) پس از لغو نوبت، در برداشت بعدی تهاتر می‌شود.",
+        "خروجی موجودی عدد است تا مقایسه‌ها در کلاینت درست باشد."
+      ]
+    },
+    {
+      "id": "subscription",
+      "title": "اشتراک و اعتبار پیامک",
+      "actors": [
+        "barber",
+        "system",
+        "gateway"
+      ],
+      "chain": "خرید پلن → پرداخت → active → کسر اتمیک پیامک → expired",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "خرید",
+          "actor": "barber",
+          "action": "انتخاب پلن",
+          "api": "POST /payment/subscription",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 2,
+          "stage": "پرداخت",
+          "actor": "gateway",
+          "action": "مبلغ پلن",
+          "api": "—",
+          "booking": "payment: PENDING",
+          "note": "—"
+        },
+        {
+          "n": 3,
+          "stage": "فعال‌سازی",
+          "actor": "system",
+          "action": "اشتراک قبلی منقضی و پلن جدید فعال",
+          "api": "—",
+          "booking": "subscription: active",
+          "note": "—"
+        },
+        {
+          "n": 4,
+          "stage": "کسر پیامک",
+          "actor": "system",
+          "action": "UPDATE شرطی؛ فقط با اعتبار کافی",
+          "api": "—",
+          "booking": "subscription: active",
+          "note": "بدون کسر دوباره در درخواست هم‌زمان"
+        },
+        {
+          "n": 5,
+          "stage": "انقضا",
+          "actor": "system",
+          "action": "کرون ساعتی",
+          "api": "—",
+          "booking": "subscription: expired",
+          "note": "دسترسی پیامکی قطع می‌شود"
+        }
+      ],
+      "notes": [
+        "اعتبار پیامک تأیید/یادآوری در لحظهٔ ثبت نوبت دستی کسر می‌شود."
+      ]
+    },
+    {
+      "id": "club",
+      "title": "باشگاه مشتریان",
+      "actors": [
+        "barber",
+        "system"
+      ],
+      "chain": "نوبت موفق → افزودن مشتری → استفاده در ثبت دستی",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "افزودن",
+          "actor": "system",
+          "action": "بعد از تأیید/تکمیل نوبت",
+          "api": "—",
+          "booking": "—",
+          "note": "بدون تکرار"
+        },
+        {
+          "n": 2,
+          "stage": "استفاده",
+          "actor": "barber",
+          "action": "انتخاب مشتری در ثبت دستی",
+          "api": "GET /club/customers",
+          "booking": "—",
+          "note": "—"
+        }
+      ],
+      "notes": [
+        "افزودن خودکار است و نیازی به اقدام آرایشگر ندارد."
+      ]
+    },
+    {
+      "id": "referral",
+      "title": "دعوت دوستان (رفرال)",
+      "actors": [
+        "customer",
+        "system"
+      ],
+      "chain": "کد دعوت → ثبت‌نام → نوبت تکمیل‌شده → شمارش پاداش",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "ثبت‌نام",
+          "actor": "customer",
+          "action": "با کد دعوت",
+          "api": "POST /auth/verify-otp",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 2,
+          "stage": "شمارش",
+          "actor": "system",
+          "action": "فقط نوبت completed",
+          "api": "—",
+          "booking": "—",
+          "note": "تکمیل زودهنگام ممکن نیست"
+        }
+      ],
+      "notes": [
+        "تکمیل خودکار/دستی نوبت، شمارنده را جلو می‌برد."
+      ]
+    },
+    {
+      "id": "review",
+      "title": "ثبت و تأیید نظر",
+      "actors": [
+        "customer",
+        "admin",
+        "system"
+      ],
+      "chain": "completed → نظر pending → approved/rejected → نمایش عمومی",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "ثبت",
+          "actor": "customer",
+          "action": "امتیاز ۱ تا ۵ و متن",
+          "api": "POST /barber/:id/reviews",
+          "booking": "booking: COMPLETED",
+          "note": "فقط برای نوبت انجام‌شده"
+        },
+        {
+          "n": 2,
+          "stage": "بررسی",
+          "actor": "admin",
+          "action": "تأیید یا رد",
+          "api": "PATCH /admin/barber-reviews/:id",
+          "booking": "—",
+          "note": "review: approved/rejected"
+        },
+        {
+          "n": 3,
+          "stage": "نمایش",
+          "actor": "public",
+          "action": "در صفحهٔ آرایشگر",
+          "api": "GET /barber/:id/reviews",
+          "booking": "—",
+          "note": "—"
+        }
+      ],
+      "notes": [
+        "ثبت نظر برای نوبت pending/confirmed در سرور رد می‌شود."
+      ]
+    },
+    {
+      "id": "public-page",
+      "title": "صفحهٔ عمومی آرایشگاه",
+      "actors": [
+        "barber",
+        "public",
+        "system",
+        "gateway"
+      ],
+      "chain": "خرید بسته → پرداخت → فعال‌سازی → صفحهٔ سئوشده",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "خرید",
+          "actor": "barber",
+          "action": "بستهٔ صفحهٔ عمومی",
+          "api": "POST /payment/public-page",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 2,
+          "stage": "پرداخت",
+          "actor": "gateway",
+          "action": "مبلغ ثابت",
+          "api": "—",
+          "booking": "payment: PENDING",
+          "note": "—"
+        },
+        {
+          "n": 3,
+          "stage": "فعال‌سازی",
+          "actor": "system",
+          "action": "پس از تأیید",
+          "api": "—",
+          "booking": "—",
+          "note": "PUBLIC_PAGE"
+        },
+        {
+          "n": 4,
+          "stage": "نمایش",
+          "actor": "public",
+          "action": "صفحهٔ سئو",
+          "api": "GET /public/barber/:slug",
+          "booking": "—",
+          "note": "—"
+        }
+      ],
+      "notes": [
+        "دکمهٔ فعال‌سازی پس از پرداخت، همان کال‌بک را استفاده می‌کند."
+      ]
+    },
+    {
+      "id": "support",
+      "title": "تیکت پشتیبانی",
+      "actors": [
+        "customer",
+        "barber",
+        "admin"
+      ],
+      "chain": "OPEN → پاسخ ادمین (ANSWERED) → بستن (CLOSED) → بازگشایی",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "ثبت",
+          "actor": "customer",
+          "action": "موضوع و متن",
+          "api": "POST /tickets",
+          "booking": "—",
+          "note": "ticket: OPEN"
+        },
+        {
+          "n": 2,
+          "stage": "پاسخ",
+          "actor": "admin",
+          "action": "پاسخ ادمین",
+          "api": "POST /tickets/:id/messages",
+          "booking": "—",
+          "note": "ticket: ANSWERED"
+        },
+        {
+          "n": 3,
+          "stage": "بستن",
+          "actor": "admin",
+          "action": "پایان گفتگو",
+          "api": "PATCH /tickets/:id/close",
+          "booking": "—",
+          "note": "ticket: CLOSED"
+        },
+        {
+          "n": 4,
+          "stage": "ادامه",
+          "actor": "customer",
+          "action": "پیام جدید",
+          "api": "POST /tickets/:id/messages",
+          "booking": "—",
+          "note": "ticket: OPEN"
+        }
+      ],
+      "notes": [
+        "تیکت بسته‌شده پیام جدید نمی‌پذیرد."
+      ]
+    },
+    {
+      "id": "admin",
+      "title": "پنل ادمین",
+      "actors": [
+        "admin"
+      ],
+      "chain": "تأیید آرایشگر → نظرات → تراکنش‌ها/بازپرداخت → تنظیمات",
+      "steps": [
+        {
+          "n": 1,
+          "stage": "آرایشگران",
+          "actor": "admin",
+          "action": "بررسی مدارک",
+          "api": "PATCH /admin/barber/:id/review",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 2,
+          "stage": "نظرات",
+          "actor": "admin",
+          "action": "تأیید/رد",
+          "api": "PATCH /admin/barber-reviews/:id",
+          "booking": "—",
+          "note": "—"
+        },
+        {
+          "n": 3,
+          "stage": "تراکنش‌ها",
+          "actor": "admin",
+          "action": "گزارش درگاه، کمیسیون و بازپرداخت‌ها",
+          "api": "GET /admin/transactions",
+          "booking": "—",
+          "note": "کمیسیون لینک بیعانه هم جدا نمایش داده می‌شود"
+        },
+        {
+          "n": 4,
+          "stage": "بازپرداخت",
+          "actor": "admin",
+          "action": "تسویهٔ بازپرداخت مشتری",
+          "api": "PATCH /admin/transactions/:id/settle-refund",
+          "booking": "—",
+          "note": "REFUND pending → settled"
+        },
+        {
+          "n": 5,
+          "stage": "تنظیمات",
+          "actor": "admin",
+          "action": "درصد بیعانه و پارامترها",
+          "api": "PUT /admin/settings",
+          "booking": "—",
+          "note": "—"
+        }
+      ],
+      "notes": [
+        "حذف کاربر/آرایشگر از پنل هنوز مسیر ندارد (ریسک باقی‌مانده)."
+      ]
+    }
+  ],
+  "changes": [
+    {
+      "id": "fix.online-approval",
+      "title": "رزرو آنلاین بعد از پرداخت منتظر تایید آرایشگر می‌ماند",
+      "before": "رزرو آنلاین درست بعد از کال‌بک «قطعی» می‌شد؛ آرایشگر هیچ فرصتی برای تایید یا رد نداشت و مشتری هم بدون هماهنگی سر نوبت حاضر می‌شد.",
+      "after": "بعد از پرداخت، رزرو در وضعیت «در انتظار تایید» ساخته می‌شود، ساعت رزرو همان لحظه برای مشتری نگه داشته می‌شود و به آرایشگر پیامک «رزرو جدید» می‌رود. با تایید، نوبت قطعی و پیامک تایید برای مشتری ارسال می‌شود.",
+      "flows": [
+        "booking.online",
+        "booking.pending"
+      ]
+    },
+    {
+      "id": "fix.reject-refund",
+      "title": "رد درخواست، مبلغ را به مشتری برمی‌گرداند",
+      "before": "دکمهٔ «رد» فقط وضعیت را عوض می‌کرد؛ اگر رزرو پرداخت‌شده بود، پول مشتری نزد آرایشگر می‌ماند.",
+      "after": "رد از همان مسیر تراکنشی لغو انجام می‌شود: مبلغ (شامل کمیسیون) از کیف پول آرایشگر کسر و در صف بازپرداخت مشتری ثبت می‌شود. قبل از رد، دیالوگ صریح نمایش داده می‌شود.",
+      "flows": [
+        "booking.pending",
+        "booking.cancel.barber",
+        "wallet"
+      ]
+    },
+    {
+      "id": "fix.holds-slot",
+      "title": "ستون «اشغال ساعت» به‌جای حدس از وضعیت",
+      "before": "با منتظر تایید شدن رزروها، قاعدهٔ «کدام وضعیت ساعت را اشغال می‌کند» مبهم می‌شد؛ درخواست بدون پرداخت هم می‌توانست ساعت را برای همیشه قفل کند.",
+      "after": "ستون holdsSlot اضافه شد: رزرو پرداخت‌شده و نوبت دستی آن را true می‌گیرند، درخواست بدون پرداخت false. با لغو یا رد شدن، ساعت فوراً آزاد می‌شود. تقویم، تداخل و سه مسیر بررسی دیگر از همین ستون استفاده می‌کنند.",
+      "flows": [
+        "booking.online",
+        "booking.manual",
+        "booking.pending"
+      ]
+    },
+    {
+      "id": "fix.unapproved-expiry",
+      "title": "درخواست بی‌پاسخ خودکار لغو و بازپرداخت می‌شود",
+      "before": "اگر آرایشگر تا زمان نوبت پاسخی نمی‌داد، رزرو برای همیشه در انتظار تایید می‌ماند و پول مشتری بلوکه بود.",
+      "after": "کرون هر ۱۰ دقیقه درخواست‌های پرداخت‌شده‌ای که زمانشان رسیده و هنوز تایید نشده‌اند را لغو می‌کند و مبلغ را برمی‌گرداند تا ساعت هم آزاد شود.",
+      "flows": [
+        "booking.pending"
+      ]
+    },
+    {
+      "id": "fix.auto-complete-all",
+      "title": "نوبت دستی هم خودکار «انجام‌شده» می‌شود",
+      "before": "کرون تکمیل خودکار فقط نوبت‌های پرداخت‌شده را می‌بست؛ نوبت دستیِ پلن پیامکی هیچ‌وقت انجام‌شده نمی‌شد و نظر و آمار قفل می‌ماند.",
+      "after": "همهٔ نوبت‌های قطعی که زمانشان گذشته خودکار تکمیل می‌شوند؛ فقط نوبتِ لینک بیعانه‌ای که بیعانه‌اش پرداخت نشده مستثناست (آن یکی لغو می‌شود).",
+      "flows": [
+        "booking.manual",
+        "review",
+        "referral"
+      ]
+    },
+    {
+      "id": "fix.reminder-approved",
+      "title": "یادآوری فقط برای نوبت قطعی",
+      "before": "رزروِ در انتظار تایید نباید پیامک یادآوری بگیرد؛ ممکن است رد شود.",
+      "after": "شرط یادآوری «confirmed» است، پس نوبت در انتظار تایید هیچ پیامکی نمی‌گیرد. یادآوری نوبت بیعانه‌ای هم فقط بعد از پرداخت بیعانه می‌رود.",
+      "flows": [
+        "booking.online",
+        "booking.deposit"
+      ]
+    },
+    {
+      "id": "fix.pending-tab",
+      "title": "تب «در انتظار تایید» و کارت خلاصه",
+      "before": "درخواست‌ها فقط داخل فیلتر تاریخ پیدا می‌شدند؛ رزروی که برای هفتهٔ بعد ثبت شده بود، از چشم آرایشگر دور می‌ماند.",
+      "after": "تب «در انتظار تایید» همهٔ درخواست‌های باز را بدون محدودیت تاریخ نشان می‌دهد و کارت خلاصهٔ داشبورد شمارهٔ کل آن‌ها را با لینک مستقیم به همان تب نمایش می‌دهد.",
+      "flows": [
+        "booking.pending"
+      ]
+    },
+    {
+      "id": "fix.manual-modes",
+      "title": "دو حالت صریح در فرم ثبت نوبت دستی",
+      "before": "فرم فقط یک کلید «ارسال لینک بیعانه» داشت و تفاوت دو مسیر (پلن پیامکی و لینک بیعانه) روشن نبود.",
+      "after": "انتخابگر دوگانه «پلن پیامکی / لینک بیعانه» با توضیح هزینه، مهلت ۶ ساعته، کمیسیون و رفتار پیامک یادآوری در هر حالت.",
+      "flows": [
+        "booking.manual",
+        "booking.deposit"
+      ]
+    },
+    {
+      "id": "fix.customer-status-ui",
+      "title": "پیام روشن «منتظر تایید» برای مشتری",
+      "before": "مشتری بعد از پرداخت، وضعیت «در انتظار تایید» می‌دید بدون این‌که بداند پولش کم شده و نوبت هنوز قطعی نیست.",
+      "after": "کارت نوبت مشتری پیام «پرداخت انجام شد؛ نوبت پس از تایید آرایشگر قطعی می‌شود» را نشان می‌دهد و صفحهٔ بازگشت از درگاه هم همین را توضیح می‌دهد.",
+      "flows": [
+        "booking.online"
+      ]
+    },
+    {
+      "id": "ui.flow-clarity",
+      "title": "UI هم‌راستا با سه جریان رزرو",
+      "before": "داشبورد فقط وضعیت را نشان می‌داد: آرایشگر نمی‌دید پول گرفته شده و باید تایید کند، مشتری نمی‌دانست بیعانه‌اش پرداخت نشده و راهی برای پرداخت از پنل نداشت.",
+      "after": "کارت آرایشگر مسیر «پرداخت شد → منتظر تایید شما → تکمیل خودکار» را نشان می‌دهد، برای بیعانهٔ پرداخت‌نشده هشدار مهلت دارد و دکمهٔ تکراری «لغو» از حالت انتظار حذف شد. کارت مشتری هشدار بیعانه با دکمهٔ پرداخت مستقیم و توضیح بازگشت پول در صورت بی‌پاسخ ماندن آرایشگر دارد. تب «در انتظار تایید» اول آمد و شمارنده گرفت. فرم ثبت دستی اعتبار باقی‌مانده و مبلغ لینک بیعانه را قبل از ثبت نشان می‌دهد.",
+      "flows": [
+        "booking.online",
+        "booking.pending",
+        "booking.manual",
+        "booking.deposit"
+      ]
+    }
+  ],
+  "verification": [
+    {
+      "label": "build بک‌اند (nest build)",
+      "value": "موفق"
+    },
+    {
+      "label": "تست‌های بک‌اند",
+      "value": "۶۲ تست / ۹ سوئیت"
+    },
+    {
+      "label": "build فرانت (next build)",
+      "value": "موفق"
+    },
+    {
+      "label": "تایپ‌چک فرانت",
+      "value": "بدون خطا"
+    },
+    {
+      "label": "ESLint فایل‌های تغییریافته",
+      "value": "بدون خطا"
+    }
+  ]
+}

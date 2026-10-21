@@ -24,6 +24,14 @@ export const BOOKING_STATUS_DOT_CLASS: Record<BookingStatus, string> = {
   rejected: 'bg-gray-400',
 };
 
+/**
+ * مهلت پرداخت لینک بیعانه (ساعت).
+ *
+ * هم‌راستا با `DEPOSIT_PAYMENT_TIMEOUT_HOURS` بک‌اند؛ اگر آن مقدار عوض شود
+ * این عدد هم باید عوض شود تا متن‌های UI دروغ نگویند.
+ */
+export const DEPOSIT_PAYMENT_TIMEOUT_HOURS = 6;
+
 /** وضعیت‌هایی که نوبت هنوز جاری است و امکان لغو دارد */
 export const CANCELABLE_STATUSES: BookingStatus[] = ['pending', 'confirmed'];
 

@@ -21,6 +21,16 @@ export enum BookingStatus {
   REJECTED = 'rejected',
 }
 
+/**
+ * وضعیت‌هایی که نوبت هنوز «واقعی» است.
+ * (برای بررسی تداخل از ستون `holdsSlot` استفاده می‌شود، نه این فهرست.)
+ */
+export const ACTIVE_BOOKING_STATUSES: BookingStatus[] = [
+  BookingStatus.PENDING,
+  BookingStatus.CONFIRMED,
+  BookingStatus.COMPLETED,
+];
+
 @Entity('bookings')
 export class Booking {
   @PrimaryGeneratedColumn('uuid')
@@ -58,6 +68,25 @@ export class Booking {
     default: BookingStatus.PENDING,
   })
   status: BookingStatus;
+
+  /**
+   * آیا این نوبت «ساعت رزرو» را اشغال می‌کند؟
+   *
+   * تنها منبع حقیقت برای بررسی تداخل، تقویم اسلات‌های آزاد و جلوگیری از
+   * رزرو تکراری. چرا ستون جدا و نه «وضعیت»؟
+   *  - رزرو آنلاینِ پرداخت‌شده در وضعیت `pending` منتظر تایید آرایشگر است،
+   *    اما چون پول گرفته شده باید ساعت را نگه دارد؛
+   *  - درخواست بدون پرداخت (مسیر قدیمی) `pending` است ولی نباید ساعت را
+   *    برای همیشه قفل کند؛
+   *  - نوبت `completed` هم ساعتش تا پایان روز قابل فروش مجدد نیست.
+   *
+   * با لغو/رد شدن نوبت، این مقدار false می‌شود و ساعت فوراً آزاد می‌شود.
+   */
+  @Column({
+    name: 'holds_slot',
+    default: false,
+  })
+  holdsSlot: boolean;
 
   @Column({
     type: 'text',
@@ -111,7 +140,7 @@ export class Booking {
   reminderSentAt: Date | null;
 
   @Column({ name: 'canceled_by', type: 'varchar', length: 16, nullable: true })
-  canceledBy: 'customer' | 'barber' | 'admin' | null;
+  canceledBy: 'customer' | 'barber' | 'admin' | 'system' | null;
 
   @Column({ name: 'canceled_at', type: 'datetime', nullable: true })
   canceledAt: Date | null;
@@ -133,6 +162,16 @@ export class Booking {
     nullable: true,
   })
   depositPaidAt: Date | null;
+
+  // آخرین زمانی که لینک بیعانه برای مشتری فرستاده شد.
+  // مبنای «مهلت پرداخت بیعانه» است؛ اگر تا این مهلت پرداخت نشود، نوبت
+  // به‌صورت خودکار لغو می‌شود تا ساعت رزرو برای همیشه اشغال نماند.
+  @Column({
+    name: 'deposit_requested_at',
+    type: 'datetime',
+    nullable: true,
+  })
+  depositRequestedAt: Date | null;
 
   // زمان پرداخت موفق کل مبلغ نوبت از درگاه (رزرو آنلاینِ کاربر).
   // این ستون همراه با `depositPaidAt` مبنای شمارش «نوبت‌های پرداخت‌شده»

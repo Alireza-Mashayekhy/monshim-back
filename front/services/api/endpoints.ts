@@ -103,6 +103,10 @@ export const endpoints = {
     list: '/admin/transactions',
     export: '/admin/transactions/export',
     settleRefund: (id: string) => `/admin/transactions/${id}/settle-refund`,
+    approveWithdrawal: (id: string) =>
+      `/admin/transactions/${id}/approve-withdrawal`,
+    rejectWithdrawal: (id: string) =>
+      `/admin/transactions/${id}/reject-withdrawal`,
   },
 
   ticket: {

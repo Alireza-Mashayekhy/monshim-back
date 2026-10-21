@@ -527,6 +527,37 @@ export class BarberService {
     };
   }
 
+  /**
+   * ویرایش پروفایل آرایشگر از سمت ادمین.
+   * کنترلر ادمین شناسهٔ پروفایل (uuid) را می‌فرستد، در حالی که متد update
+   * بر اساس User.id کار می‌کند؛ قبلاً `+id` روی uuid تبدیل به NaN می‌شد و
+   * درخواست همیشه شکست می‌خورد.
+   */
+  async updateByProfileId(profileId: string, dto: UpdateBarberDto) {
+    const profile = await this.profileRepository.findOne({
+      where: { id: profileId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    return this.update(profile.userId, dto);
+  }
+
+  /** جزئیات آرایشگر برای پنل ادمین بر اساس شناسهٔ پروفایل (uuid) */
+  async findOneByProfileId(profileId: string) {
+    const profile = await this.profileRepository.findOne({
+      where: { id: profileId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    return this.findOne(profile.userId);
+  }
+
   // متد update اصلاح‌شده برای پشتیبانی از فیلدهای جدید
   async update(userId: number, dto: UpdateBarberDto): Promise<BarberProfile> {
     const user = await this.userRepo.findOne({
@@ -563,10 +594,7 @@ export class BarberService {
     if (dto.workEndTime !== undefined) updateData.workEndTime = dto.workEndTime;
     if (dto.profileImage !== undefined)
       updateData.profileImage = dto.profileImage;
-    if (dto.isApproved !== undefined) updateData.isApproved = dto.isApproved;
-    if (dto.rejectionReason !== undefined) {
-      updateData.rejectionReason = dto.rejectionReason;
-    }
+    // وضعیت تایید فقط از مسیر ادمین (reviewBarber) تغییر می‌کند.
 
     Object.assign(profile, updateData);
     return this.profileRepository.save(profile);

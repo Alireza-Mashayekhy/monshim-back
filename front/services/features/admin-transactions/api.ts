@@ -7,6 +7,7 @@ import type {
   AdminTransactionExportData,
   AdminTransactionFilters,
   AdminTransactionsResponse,
+  ReviewWithdrawalInput,
   SettleAdminRefundInput,
 } from './types';
 
@@ -27,6 +28,28 @@ export async function settleAdminRefund({
   const { data } = await api.patch(
     endpoints.adminTransactions.settleRefund(id),
     { transferReference: transferReference.trim() || undefined },
+  );
+  return data;
+}
+
+export async function approveAdminWithdrawal({
+  id,
+  transferReference,
+}: ReviewWithdrawalInput) {
+  const { data } = await api.patch(
+    endpoints.adminTransactions.approveWithdrawal(id),
+    { transferReference: transferReference?.trim() || undefined },
+  );
+  return data;
+}
+
+export async function rejectAdminWithdrawal({
+  id,
+  reason,
+}: ReviewWithdrawalInput) {
+  const { data } = await api.patch(
+    endpoints.adminTransactions.rejectWithdrawal(id),
+    { reason: reason?.trim() || undefined },
   );
   return data;
 }

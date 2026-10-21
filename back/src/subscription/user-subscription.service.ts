@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
 import { Repository } from 'typeorm';
@@ -15,6 +17,8 @@ import {
 
 @Injectable()
 export class UserSubscriptionService {
+  private readonly logger = new Logger(UserSubscriptionService.name);
+
   constructor(
     @InjectRepository(UserSubscription)
     private readonly userSubscriptionRepo: Repository<UserSubscription>,
@@ -25,6 +29,31 @@ export class UserSubscriptionService {
     @InjectRepository(SmsUsage)
     private readonly smsUsageRepo: Repository<SmsUsage>,
   ) {}
+
+  /**
+   * انقضای خودکار اشتراک‌ها.
+   *
+   * پیش از این وضعیت `expired` فقط وقتی نوشته می‌شد که کاربر صفحهٔ اشتراک را
+   * باز می‌کرد؛ یعنی گزارش‌ها و بررسی اعتبار پیامک می‌توانستند اشتراک
+   * منقضی‌شده را «فعال» ببینند.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async expireOverdueSubscriptions(): Promise<number> {
+    const result = await this.userSubscriptionRepo
+      .createQueryBuilder()
+      .update(UserSubscription)
+      .set({ status: UserSubscriptionStatus.EXPIRED })
+      .where('status = :status', { status: UserSubscriptionStatus.ACTIVE })
+      .andWhere('end_date < :now', { now: new Date() })
+      .execute();
+
+    const affected = result.affected ?? 0;
+    if (affected > 0) {
+      this.logger.log(`${affected} اشتراک منقضی‌شده به‌صورت خودکار بسته شد`);
+    }
+
+    return affected;
+  }
 
   async getCurrent(userId: number) {
     const userSubscription = await this.userSubscriptionRepo.findOne({
@@ -125,9 +154,30 @@ export class UserSubscriptionService {
       );
     }
 
-    subscription.smsUsed += count;
+    /**
+     * کسر اتمیک: شمارنده فقط اگر واقعاً اعتبار کافی باشد زیاد می‌شود.
+     *
+     * پیش از این مقدار خوانده و بعد ذخیره می‌شد؛ دو درخواست هم‌زمان
+     * می‌توانستند هر دو از یک اعتبار عبور کنند و یکی از کسرها از بین برود
+     * (اعتبار پیامک بیشتر از واقع مصرف می‌شد).
+     */
+    const updateResult = await this.userSubscriptionRepo
+      .createQueryBuilder()
+      .update(UserSubscription)
+      .set({ smsUsed: () => 'sms_used + :count' })
+      .where('id = :id', { id: subscription.id })
+      .andWhere('status = :status', {
+        status: UserSubscriptionStatus.ACTIVE,
+      })
+      .andWhere('sms_used + :count <= sms_total')
+      .setParameters({ count })
+      .execute();
 
-    const saved = await this.userSubscriptionRepo.save(subscription);
+    if (!updateResult.affected) {
+      throw new BadRequestException(
+        'اعتبار پیامک کافی نیست یا اشتراک شما تغییر کرده است. صفحه را بازخوانی کنید',
+      );
+    }
 
     // ثبت در دفتر مصرف پیامک
     await this.smsUsageRepo.save(
@@ -139,7 +189,11 @@ export class UserSubscriptionService {
       }),
     );
 
-    return saved;
+    return (
+      (await this.userSubscriptionRepo.findOne({
+        where: { id: subscription.id },
+      })) ?? subscription
+    );
   }
 
   async getSmsUsageHistory(userId: number) {

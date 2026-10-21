@@ -6,9 +6,12 @@ import {
   BellRing,
   Check,
   CheckCheck,
+  ChevronLeft,
+  Clock3,
   Link2,
   NotebookPen,
   Phone,
+  RefreshCw,
   StickyNote,
   XCircle,
 } from 'lucide-react';
@@ -29,20 +32,40 @@ import { Button } from '@/components/ui/button';
 import {
   BOOKING_STATUS_BADGE_CLASS,
   BOOKING_STATUS_LABEL,
+  DEPOSIT_PAYMENT_TIMEOUT_HOURS,
 } from '@/constants/booking';
+import { getDepositDeadlineLabel } from '@/lib/deposit-deadline';
 import { toISODate } from '@/lib/jalali';
 import { cn, formatPrice, toPersianDigits } from '@/lib/utils';
-import { useUpdateBookingStatus } from '@/services/features/booking/hooks';
+import {
+  useResendDepositLink,
+  useUpdateBookingStatus,
+} from '@/services/features/booking/hooks';
 import { Booking } from '@/services/features/booking/types';
 
 interface AppointmentCardProps {
   booking: Booking;
 }
 
+/**
+ * آیا زمان شروع نوبت رسیده است؟
+ *
+ * «انجام شد» دستی و تکمیل خودکار فقط بعد از شروع نوبت معنا دارند؛ بک‌اند
+ * زودتر از آن را رد می‌کند.
+ */
+const hasSlotStarted = (date: string, time: string): boolean => {
+  const start = new Date(`${date}T${time || '00:00'}`).getTime();
+
+  return Number.isFinite(start) && start <= new Date().getTime();
+};
+
 export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const { customer, service, time, status, price } = booking;
   const updateStatus = useUpdateBookingStatus();
+  const resendDepositLink = useResendDepositLink();
   const [cancelOpen, setCancelOpen] = useState(false);
+  // رد کردن یک درخواست پرداخت‌شده، بازپرداخت دارد؛ پس تایید می‌گیریم.
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   const handleCall = () => {
     if (customer?.phone) window.location.href = `tel:${customer.phone}`;
@@ -59,6 +82,15 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const isConfirmed = status === 'confirmed';
   const isDone =
     status === 'completed' || status === 'canceled' || status === 'rejected';
+
+  /**
+   * «انجام شد» دستی فقط بعد از شروع نوبت معنا دارد؛ بک‌اند هم زودتر از آن را
+   * رد می‌کند. برای نوبت‌های آینده دکمه را نشان نمی‌دهیم تا آرایشگر با خطا
+   * روبه‌رو نشود (تکمیل خودکار بعد از پایان نوبت انجام می‌شود).
+   */
+  const slotStarted = hasSlotStarted(booking.date, time);
+
+  const depositDeadline = getDepositDeadlineLabel(booking.depositRequestedAt);
 
   return (
     <div
@@ -174,8 +206,34 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
           </div>
         )}
 
+        {/* مسیر نوبت پرداخت‌شده: پرداخت → تایید → تکمیل خودکار */}
+        {isPending && booking.onlinePaidAt && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 rounded-xl border border-amber-200/70 bg-white/70 px-2.5 py-2 text-[10px] font-black">
+            <span className="inline-flex items-center gap-1 text-emerald-700">
+              <Check size={11} />
+              پرداخت انجام شد
+            </span>
+
+            <ChevronLeft size={11} className="text-gray-300" />
+
+            <span className="inline-flex items-center gap-1 text-amber-700">
+              <Clock3 size={11} />
+              منتظر تایید شما
+            </span>
+
+            <ChevronLeft size={11} className="text-gray-300" />
+
+            <span className="inline-flex items-center gap-1 text-gray-400">
+              <CheckCheck size={11} />
+              تکمیل خودکار
+            </span>
+          </div>
+        )}
+
         {/* نشان یادآوری / بیعانه */}
-        {(booking.sendSmsReminder || booking.sendDepositLink) && (
+        {(booking.sendSmsReminder ||
+          booking.sendDepositLink ||
+          booking.onlinePaidAt) && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {booking.sendSmsReminder && booking.reminderHours ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-primary-2 px-2 py-1 text-[10px] font-black text-primary">
@@ -184,13 +242,71 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
               </span>
             ) : null}
 
-            {booking.sendDepositLink ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-600">
-                <Link2 size={11} />
-                لینک بیعانه
+            {booking.onlinePaidAt ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+                <Check size={11} />
+                پرداخت آنلاین انجام شد
               </span>
             ) : null}
+
+            {booking.sendDepositLink ? (
+              booking.depositPaidAt ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">
+                  <Check size={11} />
+                  بیعانه پرداخت شد
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-600">
+                  <Link2 size={11} />
+                  لینک بیعانه (پرداخت‌نشده)
+                </span>
+              )
+            ) : null}
+
+            {booking.sendDepositLink &&
+            !booking.depositPaidAt &&
+            (isPending || isConfirmed) &&
+            customer?.phone ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2 py-1 text-[10px] font-black text-blue-700 transition hover:bg-blue-50 disabled:opacity-50"
+                onClick={() => resendDepositLink.mutate(booking.id)}
+                disabled={resendDepositLink.isPending}
+              >
+                <RefreshCw
+                  size={11}
+                  className={resendDepositLink.isPending ? 'animate-spin' : ''}
+                />
+                ارسال مجدد لینک
+              </button>
+            ) : null}
           </div>
+        )}
+
+        {/* هشدار بیعانهٔ پرداخت‌نشده: ساعت اشغال است ولی نوبت تضمینی نیست */}
+        {booking.sendDepositLink &&
+          !booking.depositPaidAt &&
+          (isPending || isConfirmed) && (
+            <div className="mt-2.5 flex items-start gap-1.5 rounded-xl border border-blue-200 bg-blue-50/70 px-2.5 py-2 text-[10px] font-semibold leading-5 text-blue-800">
+              <Clock3 size={12} className="mt-0.5 shrink-0" />
+              <span>
+                <span className="block font-black">
+                  {depositDeadline ?? 'مهلت پرداخت ۶ ساعته'}
+                </span>
+                اگر مشتری در مهلت{' '}
+                {toPersianDigits(DEPOSIT_PAYMENT_TIMEOUT_HOURS)} ساعته پرداخت
+                نکند، نوبت خودکار لغو و ساعت آزاد می‌شود. «ارسال مجدد لینک»
+                مهلت را از نو شروع می‌کند.
+              </span>
+            </div>
+          )}
+
+        {/* تکمیل خودکار نوبت قطعی */}
+        {isConfirmed && (!booking.sendDepositLink || booking.depositPaidAt) && (
+          <p className="mt-2 flex items-center gap-1 text-[10px] font-medium text-gray-400">
+            <CheckCheck size={11} />
+            بعد از پایان زمان نوبت، خودکار «انجام شده» می‌شود.
+          </p>
         )}
 
         {/* عملیات */}
@@ -224,37 +340,33 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                     size="sm"
                     variant="destructive"
                     className="h-8 rounded-lg text-[11px] font-black"
-                    onClick={() => handleStatus('rejected')}
+                    onClick={() => setRejectOpen(true)}
                     disabled={updateStatus.isPending}
                   >
                     <XCircle size={13} className="ml-1" />
                     رد
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 rounded-lg text-[11px] font-bold text-red-500 hover:bg-red-50 hover:text-red-600"
-                    onClick={() => setCancelOpen(true)}
-                    disabled={updateStatus.isPending}
-                  >
-                    <XCircle size={13} className="ml-1" />
-                    لغو
                   </Button>
                 </>
               )}
 
               {isConfirmed && (
                 <>
-                  <Button
-                    size="sm"
-                    className="h-8 rounded-lg text-[11px] font-black"
-                    onClick={() => handleStatus('completed')}
-                    disabled={updateStatus.isPending}
-                  >
-                    <CheckCheck size={13} className="ml-1" />
-                    انجام شد
-                  </Button>
+                  {slotStarted ? (
+                    <Button
+                      size="sm"
+                      className="h-8 rounded-lg text-[11px] font-black"
+                      onClick={() => handleStatus('completed')}
+                      disabled={updateStatus.isPending}
+                    >
+                      <CheckCheck size={13} className="ml-1" />
+                      انجام شد
+                    </Button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2 py-1.5 text-[10px] font-bold text-gray-400">
+                      <CheckCheck size={12} />
+                      پس از شروع نوبت
+                    </span>
+                  )}
 
                   <Button
                     size="sm"
@@ -272,6 +384,49 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
           </div>
         )}
       </div>
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent dir="rtl" className="max-w-md rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>رد درخواست رزرو</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 leading-6">
+              <p>
+                درخواست {customer?.fullName || 'این مشتری'} برای تاریخ{' '}
+                {booking.date} ساعت {time} رد شود؟
+              </p>
+
+              {booking.onlinePaidAt ? (
+                <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-800">
+                  <AlertTriangle className="mt-0.5 shrink-0" size={15} />
+                  <span>
+                    مشتری مبلغ این نوبت را آنلاین پرداخت کرده است. با رد کردن،
+                    کل سفارش لغو می‌شود و مبلغ پرداختی (شامل کمیسیون) از کیف
+                    پول شما کسر و در صف بازپرداخت به مشتری ثبت می‌شود.
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  این رزرو پرداختی ندارد و فقط رد می‌شود.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={updateStatus.isPending}>
+              انصراف
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              disabled={updateStatus.isPending}
+              onClick={() => handleStatus('rejected')}
+            >
+              بله، رد کن
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent dir="rtl" className="max-w-md rounded-2xl">
           <AlertDialogHeader>
@@ -292,8 +447,9 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                 </span>
               </div>
               <p className="text-xs font-semibold text-rose-700">
-                اگر موجودی کیف پول برای کسر کامل مبلغ کافی نباشد، لغو انجام
-                نمی‌شود.
+                اگر موجودی کیف پول برای کسر کامل مبلغ کافی نباشد، لغو متوقف
+                نمی‌شود و کیف پول شما به اندازهٔ همان مبلغ منفی (بدهی) می‌شود.
+                این بدهی در برداشت‌های بعدی تسویه می‌گردد.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>

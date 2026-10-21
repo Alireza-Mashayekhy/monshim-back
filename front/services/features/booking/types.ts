@@ -11,12 +11,15 @@ export interface Booking {
   time: string; // HH:mm
   price: number;
   status: BookingStatus;
-  canceledBy?: 'customer' | 'barber' | 'admin' | null;
+  canceledBy?: 'customer' | 'barber' | 'admin' | 'system' | null;
   canceledAt?: string | null;
   note?: string;
   barberNote?: string | null;
   customerNote?: string | null;
   sendDepositLink?: boolean;
+  depositPaidAt?: string | null;
+  depositRequestedAt?: string | null;
+  onlinePaidAt?: string | null;
   sendSmsReminder?: boolean;
   reminderHours?: number | null;
   createdAt: string;
@@ -73,7 +76,12 @@ export interface MyBooking {
   time: string; // HH:mm
   price?: number;
   status: BookingStatus;
-  canceledBy?: 'customer' | 'barber' | 'admin' | null;
+  sendDepositLink?: boolean;
+  depositToken?: string | null;
+  depositPaidAt?: string | null;
+  depositRequestedAt?: string | null;
+  onlinePaidAt?: string | null;
+  canceledBy?: 'customer' | 'barber' | 'admin' | 'system' | null;
   canceledAt?: string | null;
   note?: string;
   createdAt?: string;
