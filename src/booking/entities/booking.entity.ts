@@ -21,6 +21,27 @@ export enum BookingStatus {
   REJECTED = 'rejected',
 }
 
+/**
+ * وضعیت‌هایی که «ساعت رزرو را اشغال می‌کنند».
+ *
+ * تنها منبع حقیقت برای بررسی تداخل و ساخت تقویم اسلات‌های آزاد:
+ * - confirmed : نوبت قطعی
+ * - completed : خدمت انجام شده؛ ساعتش هنوز قابل فروش مجدد نیست
+ *
+ * `pending` عمداً اینجا نیست: رزرو در انتظار هیچ تاریخ انقضایی ندارد و اگر
+ * ساعت را قفل کند، یک درخواست رهاشده می‌تواند آن ساعت را برای همیشه از
+ * تقویم حذف کند. نوبت در انتظار هنگام «تایید» با همین فهرست دوباره
+ * بررسی می‌شود (assertNoSlotConflict)، پس امکان دو نوبت قطعی روی یک ساعت
+ * وجود ندارد.
+ *
+ * پیش از این فقط `confirmed` بررسی می‌شد؛ نتیجه‌اش این بود که نوبت
+ * انجام‌شده ساعت را در تقویم آزاد نشان می‌داد و رزرو تکراری ممکن می‌شد.
+ */
+export const SLOT_HOLDING_STATUSES: BookingStatus[] = [
+  BookingStatus.CONFIRMED,
+  BookingStatus.COMPLETED,
+];
+
 @Entity('bookings')
 export class Booking {
   @PrimaryGeneratedColumn('uuid')

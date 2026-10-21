@@ -11,7 +11,11 @@ import axios from 'axios';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { getBookingClock, isBookingSlotInPast } from 'src/booking/booking-time';
-import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
+import {
+  Booking,
+  BookingStatus,
+  SLOT_HOLDING_STATUSES,
+} from 'src/booking/entities/booking.entity';
 import {
   DEFAULT_APP_ORIGIN,
   DEFAULT_FRONT_ORIGIN,
@@ -29,7 +33,7 @@ import {
 } from 'src/subscription/entities/user-subscription.entity';
 import { User } from 'src/users/entities/user.entity';
 import { WalletService } from 'src/wallet/wallet.service';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 import { ChargeWalletDto } from './dto/charge-wallet.dto';
 import { InitiateBookingPaymentDto } from './dto/initiate-booking-payment.dto';
@@ -528,7 +532,7 @@ export class PaymentService {
       where: {
         barberId: barber.id,
         date: dto.date,
-        status: BookingStatus.CONFIRMED,
+        status: In(SLOT_HOLDING_STATUSES),
       },
       relations: { service: true },
     });

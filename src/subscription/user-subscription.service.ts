@@ -154,9 +154,30 @@ export class UserSubscriptionService {
       );
     }
 
-    subscription.smsUsed += count;
+    /**
+     * کسر اتمیک: شمارنده فقط اگر واقعاً اعتبار کافی باشد زیاد می‌شود.
+     *
+     * پیش از این مقدار خوانده و بعد ذخیره می‌شد؛ دو درخواست هم‌زمان
+     * می‌توانستند هر دو از یک اعتبار عبور کنند و یکی از کسرها از بین برود
+     * (اعتبار پیامک بیشتر از واقع مصرف می‌شد).
+     */
+    const updateResult = await this.userSubscriptionRepo
+      .createQueryBuilder()
+      .update(UserSubscription)
+      .set({ smsUsed: () => 'sms_used + :count' })
+      .where('id = :id', { id: subscription.id })
+      .andWhere('status = :status', {
+        status: UserSubscriptionStatus.ACTIVE,
+      })
+      .andWhere('sms_used + :count <= sms_total')
+      .setParameters({ count })
+      .execute();
 
-    const saved = await this.userSubscriptionRepo.save(subscription);
+    if (!updateResult.affected) {
+      throw new BadRequestException(
+        'اعتبار پیامک کافی نیست یا اشتراک شما تغییر کرده است. صفحه را بازخوانی کنید',
+      );
+    }
 
     // ثبت در دفتر مصرف پیامک
     await this.smsUsageRepo.save(
@@ -168,7 +189,11 @@ export class UserSubscriptionService {
       }),
     );
 
-    return saved;
+    return (
+      (await this.userSubscriptionRepo.findOne({
+        where: { id: subscription.id },
+      })) ?? subscription
+    );
   }
 
   async getSmsUsageHistory(userId: number) {
