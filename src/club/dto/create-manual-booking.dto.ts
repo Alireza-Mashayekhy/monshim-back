@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
@@ -18,10 +20,19 @@ export class CreateManualBookingDto {
   @IsNotEmpty()
   clubCustomerId: string;
 
-  @ApiProperty()
+  /** شناسه تک‌خدمت (برای سازگاری عقب‌رو) */
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  serviceId: string;
+  serviceId?: string;
+
+  /** لیست شناسه‌های خدمات انتخاب‌شده (یک یا چند خدمت) */
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('all', { each: true })
+  serviceIds?: string[];
 
   @ApiProperty({ example: '2026-09-02' })
   @IsDateString()

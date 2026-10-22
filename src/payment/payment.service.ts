@@ -43,8 +43,9 @@ import {
 
 import {
   COMMISSION_RATE,
-  computeDepositAmounts,
-  DepositAmounts,
+  ComputedOrderPricing,
+  computeOrderPricing,
+  extractBaseDepositToken,
 } from './deposit-amount';
 import { ChargeWalletDto } from './dto/charge-wallet.dto';
 import { InitiateBookingPaymentDto } from './dto/initiate-booking-payment.dto';
@@ -590,27 +591,12 @@ export class PaymentService {
       throw new BadRequestException('این زمان با رزروهای قطعی تداخل دارد');
     }
 
-    const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
-    // کمیسیون سایت: درصدی از بیشترین مبلغ خدمات انتخاب‌شده (پیش‌فرض ۱۰٪)
-    // درصد از تنظیمات سایت خوانده می‌شود تا با لینک بیعانه یکسان باشد.
-    const maxServicePrice = Math.max(...services.map(s => Number(s.price)));
-    let commissionPercent = 10;
-    try {
-      const settings = await this.settingsRepo.findOne({ where: { id: 1 } });
-      if (
-        settings?.commissionPercent != null &&
-        Number.isFinite(Number(settings.commissionPercent))
-      ) {
-        commissionPercent = Number(settings.commissionPercent);
-      }
-    } catch {
-      // تنظیمات موجود نیست — از مقدار پیش‌فرض ۱۰٪ استفاده می‌شود
-    }
-    const commissionAmount = Math.round(
-      (maxServicePrice * commissionPercent) / 100,
-    );
-    // مبلغ قابل پرداخت از کاربر = کل خدمات + کمیسیون سایت
-    const amountToPay = totalPrice + commissionAmount;
+    const commissionPercent = await this.getSiteCommissionPercent();
+    const pricing = computeOrderPricing(services, { commissionPercent });
+    const totalPrice = pricing.totalServicePrice;
+    const depositAmount = pricing.depositAmount;
+    const commissionAmount = pricing.commissionAmount;
+    const amountToPay = pricing.amountToPay;
 
     const orderId = `BOOK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const appUrl = this.getAppUrl(requestOrigin);
@@ -626,15 +612,17 @@ export class PaymentService {
 
     // We store metadata as an array of individual bookings that should be created after payment
     let cursor = firstStart;
-    const bookingItems = services.map(sv => {
+    const bookingItems = services.map((sv, index) => {
       const start = cursor;
       cursor += sv.durationMinutes;
+      const itemPricing = pricing.items[index];
       return {
         serviceId: sv.id,
         time: toTimeStr(start),
         durationMinutes: sv.durationMinutes,
-        price: Number(sv.price),
-        depositPrice: sv.depositPrice ?? null,
+        price: itemPricing.servicePrice,
+        depositPrice: itemPricing.depositPrice,
+        payableAmount: itemPricing.payableAmount,
       };
     });
 
@@ -742,6 +730,7 @@ export class PaymentService {
           note: dto.note ?? '',
           items: bookingItems,
           totalPrice,
+          depositAmount,
           commissionAmount,
           holdOrderId: orderId,
         }),
@@ -806,85 +795,345 @@ export class PaymentService {
     };
   }
 
+  /**
+   * بارگذاری همهٔ نوبت‌های متعلق به یک لینک بیعانه (تک‌خدمتی یا چندخدمتی).
+   */
+  private async findDepositGroupBookings(rawToken: string): Promise<{
+    baseToken: string;
+    bookings: Booking[];
+  }> {
+    const baseToken = extractBaseDepositToken(rawToken);
+    if (!baseToken) {
+      throw new NotFoundException('لینک پرداخت معتبر نیست');
+    }
+
+    const bookings = await this.bookingRepo
+      .createQueryBuilder('booking')
+      .leftJoinAndSelect('booking.customer', 'customer')
+      .leftJoinAndSelect('booking.service', 'service')
+      .leftJoinAndSelect('booking.barber', 'barber')
+      .leftJoinAndSelect('barber.user', 'barberUser')
+      .leftJoinAndSelect('barber.city', 'city')
+      .where(
+        '(booking.depositToken = :exact OR booking.depositToken LIKE :prefix)',
+        {
+          exact: baseToken,
+          prefix: `${baseToken}:%`,
+        },
+      )
+      .orderBy('booking.time', 'ASC')
+      .addOrderBy('booking.createdAt', 'ASC')
+      .getMany();
+
+    if (!bookings.length) {
+      throw new NotFoundException('لینک پرداخت معتبر نیست');
+    }
+
+    return { baseToken, bookings };
+  }
+
+  private async getSiteCommissionPercent(): Promise<number> {
+    try {
+      const settings = await this.settingsRepo.findOne({ where: { id: 1 } });
+      if (
+        settings?.commissionPercent != null &&
+        Number.isFinite(Number(settings.commissionPercent))
+      ) {
+        return Number(settings.commissionPercent);
+      }
+    } catch {
+      // تنظیمات موجود نیست — از مقدار پیش‌فرض ۱۰٪ استفاده می‌شود
+    }
+
+    return Math.round(COMMISSION_RATE * 100);
+  }
+
+  private maskCustomerPhone(phone?: string | null): string | null {
+    const clean = String(phone ?? '').trim();
+    if (!clean || clean.length < 7) return null;
+    return `${clean.slice(0, 4)}***${clean.slice(-4)}`;
+  }
+
+  private addMinutesToTime(time: string, minutesToAdd: number): string {
+    const [hours = 0, minutes = 0] = String(time)
+      .split(':')
+      .map(value => Number(value) || 0);
+    const total = hours * 60 + minutes + Math.max(0, minutesToAdd);
+    const normalizedHours = Math.floor(total / 60) % 24;
+    const normalizedMinutes = total % 60;
+    return `${String(normalizedHours).padStart(2, '0')}:${String(
+      normalizedMinutes,
+    ).padStart(2, '0')}`;
+  }
+
+  /**
+   * دریافت اطلاعات کامل صورت‌حساب لینک بیعانه (بدون ایجاد تراکنش درگاه).
+   */
+  async getDepositInvoiceByToken(token: string) {
+    const { baseToken, bookings } = await this.findDepositGroupBookings(token);
+
+    const paidBookings = bookings.filter(item => Boolean(item.depositPaidAt));
+    const isPaid = paidBookings.length > 0;
+
+    // در صورت پرداخت‌شده بودن، همهٔ ردیف‌های پرداخت‌شده مبنای رسید هستند؛
+    // در غیر این صورت ردیف‌های فعال (لغو/رد نشده) مبنای صورت‌حساب پرداخت‌اند.
+    const activeUnpaidBookings = bookings.filter(
+      item =>
+        item.status !== BookingStatus.CANCELED &&
+        item.status !== BookingStatus.REJECTED,
+    );
+
+    const targetBookings = isPaid
+      ? paidBookings
+      : activeUnpaidBookings.length > 0
+        ? activeUnpaidBookings
+        : bookings;
+
+    const primary = targetBookings[0];
+    const barber = primary.barber;
+    const commissionPercent = await this.getSiteCommissionPercent();
+
+    const pricing: ComputedOrderPricing = computeOrderPricing(
+      targetBookings.map(booking => ({
+        price: booking.price,
+        depositPrice: booking.service?.depositPrice ?? null,
+      })),
+      { commissionPercent },
+    );
+
+    const items = targetBookings.map((booking, index) => {
+      const computed = pricing.items[index];
+      return {
+        bookingId: booking.id,
+        serviceId: booking.serviceId,
+        name: booking.service?.name ?? 'خدمت آرایشگاهی',
+        time: String(booking.time ?? '').slice(0, 5),
+        durationMinutes: booking.service?.durationMinutes ?? 30,
+        price: computed.servicePrice,
+        depositPrice: computed.depositPrice,
+        hasDeposit: computed.hasDeposit,
+        payableAmount: computed.payableAmount,
+        remainingInSalon: computed.remainingInSalon,
+      };
+    });
+
+    const totalDurationMinutes = items.reduce(
+      (sum, item) => sum + item.durationMinutes,
+      0,
+    );
+    const startTime = items[0]?.time ?? String(primary.time ?? '').slice(0, 5);
+    const endTime = this.addMinutesToTime(startTime, totalDurationMinutes);
+
+    const timeoutConfigured = Number(
+      process.env.DEPOSIT_PAYMENT_TIMEOUT_HOURS ?? 6,
+    );
+    const timeoutHours =
+      Number.isFinite(timeoutConfigured) && timeoutConfigured >= 1
+        ? timeoutConfigured
+        : 6;
+
+    const requestedAtDate = primary.depositRequestedAt ?? primary.createdAt;
+    const expiresAtDate = requestedAtDate
+      ? new Date(requestedAtDate.getTime() + timeoutHours * 3600_000)
+      : null;
+
+    let status: 'payable' | 'paid' | 'canceled' | 'expired' = 'payable';
+    let statusReason: string | null = null;
+
+    if (isPaid) {
+      status = 'paid';
+    } else if (activeUnpaidBookings.length === 0) {
+      status = 'canceled';
+      statusReason =
+        primary.canceledBy === 'system'
+          ? `مهلت ${timeoutHours} ساعتهٔ پرداخت بیعانه به پایان رسیده و نوبت به‌صورت خودکار لغو شده است.`
+          : 'این نوبت لغو شده است و امکان پرداخت آن وجود ندارد.';
+    } else if (
+      isBookingSlotInPast(primary.date, primary.time, getBookingClock())
+    ) {
+      status = 'expired';
+      statusReason = 'زمان این نوبت گذشته است و امکان پرداخت بیعانه وجود ندارد.';
+    }
+
+    let receipt: {
+      paidAt: string;
+      amount: number;
+      trackId: number | null;
+      refNumber: string | null;
+    } | null = null;
+
+    if (isPaid) {
+      const paidPayment = await this.paymentRepo
+        .createQueryBuilder('payment')
+        .where('payment.purpose = :purpose', {
+          purpose: PaymentPurpose.BOOKING,
+        })
+        .andWhere('payment.status = :status', {
+          status: PaymentStatus.PAID,
+        })
+        .andWhere(
+          '(payment.purposeId IN (:...ids) OR payment.metadata LIKE :tokenPattern)',
+          {
+            ids: paidBookings.map(item => item.id),
+            tokenPattern: `%${baseToken}%`,
+          },
+        )
+        .orderBy('payment.paidAt', 'DESC')
+        .getOne();
+
+      const paidDate =
+        paidPayment?.paidAt ?? paidBookings[0]?.depositPaidAt ?? new Date();
+      receipt = {
+        paidAt: paidDate.toISOString(),
+        amount: paidPayment
+          ? Number(paidPayment.amount)
+          : pricing.amountToPay,
+        trackId: paidPayment?.trackId ? Number(paidPayment.trackId) : null,
+        refNumber: paidPayment?.refNumber ?? null,
+      };
+    }
+
+    return {
+      token: baseToken,
+      status,
+      statusReason,
+      canceledBy: primary.canceledBy ?? null,
+      salon: {
+        id: barber?.id ?? primary.barberId,
+        userId: barber?.userId ?? null,
+        name: barber?.salonName || 'سالن زیبایی',
+        address: barber?.address ?? null,
+        cityName: barber?.city?.name ?? null,
+        profileImage: barber?.profileImage ?? null,
+        phone: barber?.user?.phone ?? null,
+      },
+      customer: {
+        fullName: primary.customer?.fullName || 'مشتری گرامی',
+        maskedPhone: this.maskCustomerPhone(primary.customer?.phone),
+      },
+      appointment: {
+        date: primary.date,
+        startTime,
+        endTime,
+        totalDurationMinutes,
+        customerNote: primary.customerNote || primary.note || null,
+        depositRequestedAt: requestedAtDate
+          ? requestedAtDate.toISOString()
+          : null,
+        expiresAt: expiresAtDate ? expiresAtDate.toISOString() : null,
+        timeoutHours,
+      },
+      items,
+      pricing: {
+        totalServicePrice: pricing.totalServicePrice,
+        depositAmount: pricing.depositAmount,
+        maxPayableAmount: pricing.maxPayableAmount,
+        commissionPercent: pricing.commissionPercent,
+        commissionAmount: pricing.commissionAmount,
+        remainingInSalon: pricing.remainingInSalon,
+        amountToPay: pricing.amountToPay,
+      },
+      receipt,
+    };
+  }
+
   async initiateDepositPaymentByToken(
     token: string,
     requestOrigin?: string | null,
   ) {
-    const booking = await this.bookingRepo.findOne({
-      where: { depositToken: token },
-      relations: {
-        customer: true,
-        service: true,
-        barber: {
-          user: true,
-        },
-      },
-    });
+    const { baseToken, bookings } = await this.findDepositGroupBookings(token);
 
-    if (!booking) {
-      throw new NotFoundException('لینک پرداخت معتبر نیست');
-    }
-
-    if (booking.depositPaidAt) {
+    if (bookings.some(item => Boolean(item.depositPaidAt))) {
       throw new BadRequestException('بیعانه این نوبت قبلاً پرداخت شده است');
     }
 
-    if (
-      booking.status === BookingStatus.CANCELED ||
-      booking.status === BookingStatus.REJECTED
-    ) {
+    const activeBookings = bookings.filter(
+      item =>
+        item.status !== BookingStatus.CANCELED &&
+        item.status !== BookingStatus.REJECTED,
+    );
+
+    if (!activeBookings.length) {
       throw new BadRequestException('این نوبت لغو شده است');
     }
 
+    const primary = activeBookings[0];
+
     // بیعانه برای نوبتی که زمانش گذشته معنا ندارد؛ پیش از این فقط
     // لغو/ردشده‌ها مسدود بودند و لینک قدیمی روی نوبت گذشته هم پول می‌گرفت.
-    if (isBookingSlotInPast(booking.date, booking.time, getBookingClock())) {
+    if (isBookingSlotInPast(primary.date, primary.time, getBookingClock())) {
       throw new BadRequestException(
         'زمان این نوبت گذشته است و امکان پرداخت بیعانه وجود ندارد',
       );
     }
 
-    const amounts = await this.getBookingDepositAmount(booking);
+    const commissionPercent = await this.getSiteCommissionPercent();
+    const pricing = computeOrderPricing(
+      activeBookings.map(item => ({
+        price: item.price,
+        depositPrice: item.service?.depositPrice ?? null,
+      })),
+      { commissionPercent },
+    );
 
-    if (amounts.amountToPay <= 0) {
-      throw new BadRequestException('مبلغ بیعانه این نوبت مشخص نیست');
+    if (pricing.amountToPay <= 0) {
+      throw new BadRequestException('مبلغ قابل پرداخت این نوبت مشخص نیست');
     }
 
-    const barber = booking.barber;
+    const barber = primary.barber;
     const salonName = barber?.salonName || 'سالن';
-    const service = booking.service;
+    const serviceNames = activeBookings
+      .map(item => item.service?.name)
+      .filter(Boolean)
+      .join('، ');
 
     const orderId = `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const appUrl = this.getAppUrl(requestOrigin);
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
-      amountTomans: amounts.amountToPay,
+      amountTomans: pricing.amountToPay,
       callbackUrl,
       description: `پرداخت بیعانه نوبت - ${salonName} - منشیم`,
       orderId,
-      mobile: booking.customer?.phone,
+      mobile: primary.customer?.phone,
     });
 
+    const itemDescriptors = activeBookings.map((booking, index) => ({
+      bookingId: booking.id,
+      serviceId: booking.serviceId,
+      time: String(booking.time ?? '').slice(0, 5),
+      durationMinutes: booking.service?.durationMinutes ?? 30,
+      price: pricing.items[index].servicePrice,
+      depositPrice: pricing.items[index].depositPrice,
+      payableAmount: pricing.items[index].payableAmount,
+    }));
+
     const payment = this.paymentRepo.create({
-      userId: booking.customerId,
-      amount: amounts.amountToPay,
+      userId: primary.customerId,
+      amount: pricing.amountToPay,
       trackId,
       orderId,
       purpose: PaymentPurpose.BOOKING,
-      purposeId: booking.id,
+      purposeId: primary.id,
       metadata: JSON.stringify({
         depositLink: true,
-        bookingId: booking.id,
+        depositToken: baseToken,
+        bookingId: primary.id,
+        bookingIds: activeBookings.map(item => item.id),
         barberUserId: barber?.userId,
-        // مبلغ بیعانه و کمیسیون جدا نگه داشته می‌شوند تا هم واریز به کیف پول
+        barberProfileId: barber?.id ?? primary.barberId,
+        customerId: primary.customerId,
+        date: primary.date,
+        items: itemDescriptors,
+        // مبلغ سهم آرایشگر و کمیسیون جدا نگه داشته می‌شوند تا هم واریز به کیف پول
         // آرایشگر و هم بازپرداختِ احتمالی دقیق باشد.
-        depositAmount: amounts.depositAmount,
-        commissionAmount: amounts.commissionAmount,
-        totalPrice: Number(booking.price),
+        depositAmount: pricing.depositAmount,
+        commissionAmount: pricing.commissionAmount,
+        totalPrice: pricing.totalServicePrice,
       }),
       status: PaymentStatus.PENDING,
-      description: `پرداخت بیعانه نوبت ${service?.name ?? ''} (شامل کمیسیون سایت) - ${salonName}`,
+      description: `پرداخت بیعانه نوبت ${serviceNames} (شامل کمیسیون سایت) - ${salonName}`,
     });
 
     await this.paymentRepo.save(payment);
@@ -893,83 +1142,65 @@ export class PaymentService {
       trackId,
       paymentUrl,
       orderId,
-      amount: amounts.amountToPay,
-      depositAmount: amounts.depositAmount,
-      commissionAmount: amounts.commissionAmount,
+      amount: pricing.amountToPay,
+      depositAmount: pricing.depositAmount,
+      commissionAmount: pricing.commissionAmount,
     };
   }
 
   /**
-   * URL ریدایرکت لینک بیعانه: در صورت خطا، صفحه خطای فرانت
+   * URL ریدایرکت لینک پیامک بیعانه → هدایت کاربر به صفحه صورت‌حساب در فرانت
    */
   async getDepositRedirectUrl(
     token: string,
     requestOrigin?: string | null,
   ): Promise<string> {
-    try {
-      const { paymentUrl } = await this.initiateDepositPaymentByToken(
-        token,
-        requestOrigin,
-      );
+    const frontUrl = this.getFrontUrl(requestOrigin);
+    const baseToken = extractBaseDepositToken(token);
 
-      return paymentUrl;
-    } catch (error: any) {
-      const message = encodeURIComponent(
-        error?.response?.message ||
-          error?.message ||
-          'خطا در شروع پرداخت بیعانه',
-      );
-
-      return `${this.getFrontUrl(requestOrigin)}/panel/payment/callback?status=failed&message=${message}`;
+    if (!baseToken) {
+      const message = encodeURIComponent('لینک پرداخت معتبر نیست');
+      return `${frontUrl}/panel/payment/callback?status=failed&message=${message}`;
     }
+
+    return `${frontUrl}/deposit/${encodeURIComponent(baseToken)}`;
   }
 
-  /**
-   * مبلغ لینک بیعانه = بیعانه + کمیسیون سایت.
-   *
-   * بیعانه یا مبلغ ثابت خدمت است یا درصد تنظیمات سایت. کمیسیون همان قاعدهٔ
-   * رزرو آنلاین را دارد (درصد از تنظیمات سایت) تا مشتریِ لینک بیعانه کمتر از
-   * مشتریِ رزرو آنلاین پرداخت نکند.
-   */
-  private async getBookingDepositAmount(
-    booking: Booking,
-  ): Promise<DepositAmounts> {
-    let depositPercent = 30;
-    let commissionPercent = 10;
-    let commissionBase: 'total' | 'deposit' = 'total';
-
+  private getDepositTokenFromPayment(payment: Payment | null): string | null {
+    if (!payment?.metadata) return null;
     try {
-      const settings = await this.settingsRepo.findOne({ where: { id: 1 } });
-
-      if (
-        settings?.depositPercent != null &&
-        Number.isFinite(Number(settings.depositPercent))
-      ) {
-        depositPercent = Number(settings.depositPercent);
-      }
-      if (
-        settings?.commissionPercent != null &&
-        Number.isFinite(Number(settings.commissionPercent))
-      ) {
-        commissionPercent = Number(settings.commissionPercent);
-      }
-      if (
-        settings?.commissionBase === 'deposit' ||
-        settings?.commissionBase === 'total'
-      ) {
-        commissionBase = settings.commissionBase;
+      const meta = JSON.parse(payment.metadata);
+      if (meta?.depositLink === true && typeof meta.depositToken === 'string') {
+        return extractBaseDepositToken(meta.depositToken);
       }
     } catch {
-      // تنظیمات موجود نیست — از مقادیر پیش‌فرض استفاده می‌شود
+      return null;
+    }
+    return null;
+  }
+
+  private buildPaymentResultRedirect(
+    frontUrl: string,
+    payment: Payment,
+    result:
+      | { status: 'success' }
+      | { status: 'failed'; message: string },
+  ): string {
+    const depositToken = this.getDepositTokenFromPayment(payment);
+
+    if (depositToken) {
+      if (result.status === 'success') {
+        return `${frontUrl}/deposit/${encodeURIComponent(depositToken)}?payment=success&trackId=${payment.trackId || ''}&refNumber=${payment.refNumber || ''}`;
+      }
+
+      return `${frontUrl}/deposit/${encodeURIComponent(depositToken)}?payment=failed&trackId=${payment.trackId || ''}&message=${encodeURIComponent(result.message)}`;
     }
 
-    return computeDepositAmounts({
-      price: booking.price,
-      depositPrice: booking.service?.depositPrice,
-      depositPercent,
-      commissionPercent,
-      commissionBase,
-    });
+    if (result.status === 'success') {
+      return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+    }
+
+    return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(result.message)}`;
   }
 
   // =========================================================
@@ -1007,10 +1238,15 @@ export class PaymentService {
 
     // کال‌بک‌های تکراری نباید یک رزرو یا واریز را دوباره ایجاد کنند.
     if (payment.status === PaymentStatus.PAID) {
-      return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+      return this.buildPaymentResultRedirect(frontUrl, payment, {
+        status: 'success',
+      });
     }
     if (payment.status !== PaymentStatus.PENDING) {
-      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('وضعیت این پرداخت قبلاً نهایی شده است')}`;
+      return this.buildPaymentResultRedirect(frontUrl, payment, {
+        status: 'failed',
+        message: 'وضعیت این پرداخت قبلاً نهایی شده است',
+      });
     }
 
     // اگر کاربر در درگاه انصراف داده بود یا ناموفق بود
@@ -1025,9 +1261,14 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return this.buildPaymentResultRedirect(frontUrl, currentPayment, {
+          status: 'success',
+        });
       }
-      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent('پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید')}`;
+      return this.buildPaymentResultRedirect(frontUrl, payment, {
+        status: 'failed',
+        message: 'پرداخت توسط کاربر لغو شد یا با خطا مواجه گردید',
+      });
     }
 
     // تایید تراکنش در زیبال
@@ -1042,11 +1283,11 @@ export class PaymentService {
        * کرون تطبیق دوباره بررسی می‌کند.
        */
       if (verifyResult.transient) {
-        return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
-          payment.trackId || ''
-        }&orderId=${payment.orderId}&message=${encodeURIComponent(
-          'ارتباط با درگاه پرداخت برقرار نشد؛ وضعیت این پرداخت هنوز مشخص نیست و به‌صورت خودکار بررسی می‌شود',
-        )}`;
+        return this.buildPaymentResultRedirect(frontUrl, payment, {
+          status: 'failed',
+          message:
+            'ارتباط با درگاه پرداخت برقرار نشد؛ وضعیت این پرداخت هنوز مشخص نیست و به‌صورت خودکار بررسی می‌شود',
+        });
       }
 
       await this.paymentRepo.update(
@@ -1058,9 +1299,14 @@ export class PaymentService {
         where: { id: payment.id },
       });
       if (currentPayment?.status === PaymentStatus.PAID) {
-        return `${frontUrl}/panel/payment/callback?status=success&trackId=${currentPayment.trackId}&refNumber=${currentPayment.refNumber || ''}&amount=${currentPayment.amount}&purpose=${currentPayment.purpose}`;
+        return this.buildPaymentResultRedirect(frontUrl, currentPayment, {
+          status: 'success',
+        });
       }
-      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${payment.trackId || ''}&orderId=${payment.orderId}&message=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش')}`;
+      return this.buildPaymentResultRedirect(frontUrl, payment, {
+        status: 'failed',
+        message: verifyResult.message || 'خطا در تایید تراکنش',
+      });
     }
 
     /**
@@ -1071,31 +1317,32 @@ export class PaymentService {
     const settle = await this.settleVerifiedPayment(payment, verifyResult);
 
     if (settle.outcome === 'refunded') {
-      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
-        payment.trackId || ''
-      }&orderId=${payment.orderId}&message=${encodeURIComponent(
-        'این ساعت هم‌زمان توسط شخص دیگری رزرو شد. مبلغ پرداختی شما ثبت شد و در صف بازگشت به کیف پول قرار گرفت.',
-      )}`;
+      return this.buildPaymentResultRedirect(frontUrl, payment, {
+        status: 'failed',
+        message:
+          'این ساعت هم‌زمان توسط شخص دیگری رزرو شد. مبلغ پرداختی شما ثبت شد و در صف بازگشت به کیف پول قرار گرفت.',
+      });
     }
 
     if (settle.outcome === 'retry') {
-      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
-        payment.trackId || ''
-      }&orderId=${payment.orderId}&message=${encodeURIComponent(
-        settle.message ||
+      return this.buildPaymentResultRedirect(frontUrl, payment, {
+        status: 'failed',
+        message:
+          settle.message ||
           'پرداخت تأیید شد اما ثبت رزرو کامل نشد؛ لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید',
-      )}`;
+      });
     }
 
     if (settle.outcome === 'closed') {
-      return `${frontUrl}/panel/payment/callback?status=failed&trackId=${
-        payment.trackId || ''
-      }&orderId=${payment.orderId}&message=${encodeURIComponent(
-        'این پرداخت لغو شده یا قبلاً ناموفق شده است',
-      )}`;
+      return this.buildPaymentResultRedirect(frontUrl, payment, {
+        status: 'failed',
+        message: 'این پرداخت لغو شده یا قبلاً ناموفق شده است',
+      });
     }
 
-    return `${frontUrl}/panel/payment/callback?status=success&trackId=${payment.trackId}&refNumber=${payment.refNumber || ''}&amount=${payment.amount}&purpose=${payment.purpose}`;
+    return this.buildPaymentResultRedirect(frontUrl, payment, {
+      status: 'success',
+    });
   }
 
   /**
@@ -1362,15 +1609,27 @@ export class PaymentService {
 
       try {
         const meta = JSON.parse(payment.metadata);
-        const bookingId = String(meta.bookingId || payment.purposeId || '');
-        if (!bookingId) continue;
+        const primaryId = String(meta.bookingId || payment.purposeId || '');
+        const groupIds = [
+          ...new Set(
+            [
+              ...(Array.isArray(meta.bookingIds)
+                ? meta.bookingIds.map(String)
+                : []),
+              primaryId,
+            ].filter(Boolean),
+          ),
+        ];
+        if (!groupIds.length) continue;
 
-        const booking = await this.bookingRepo.findOne({
-          where: { id: bookingId },
-        });
+        const bookings = await this.bookingRepo.findBy(
+          groupIds.map(id => ({ id })),
+        );
 
-        // قبلاً ثبت شده است
-        if (!booking || booking.depositPaidAt) continue;
+        // قبلاً همهٔ ردیف‌های سفارش ثبت شده‌اند
+        if (!bookings.length || bookings.every(row => Boolean(row.depositPaidAt))) {
+          continue;
+        }
 
         await this.completeDepositAfterPayment(payment);
         handled += 1;
@@ -1441,6 +1700,16 @@ export class PaymentService {
 
     const meta = JSON.parse(payment.metadata);
     const bookingId = String(meta.bookingId || payment.purposeId || '');
+    const targetBookingIds = [
+      ...new Set(
+        [
+          ...(Array.isArray(meta.bookingIds)
+            ? meta.bookingIds.map(String)
+            : []),
+          bookingId,
+        ].filter(Boolean),
+      ),
+    ];
     let barberUserId = Number(meta.barberUserId);
     const amount = Number(payment.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -1462,14 +1731,21 @@ export class PaymentService {
     let refunded = false;
 
     await this.dataSource.transaction(async manager => {
-      const booking = bookingId
+      const lockedBookings = targetBookingIds.length
         ? await manager
             .getRepository(Booking)
             .createQueryBuilder('booking')
-            .where('booking.id = :bookingId', { bookingId })
+            .where('booking.id IN (:...bookingIds)', {
+              bookingIds: [...targetBookingIds].sort(),
+            })
+            .orderBy('booking.id', 'ASC')
             .setLock('pessimistic_write')
-            .getOne()
-        : null;
+            .getMany()
+        : [];
+      const booking =
+        lockedBookings.find(item => item.id === bookingId) ??
+        lockedBookings[0] ??
+        null;
 
       if (!Number.isInteger(barberUserId) || barberUserId <= 0) {
         const barber = booking
@@ -1484,9 +1760,13 @@ export class PaymentService {
         throw new BadRequestException('حساب آرایشگر برای بیعانه پیدا نشد.');
       }
 
-      if (booking && !booking.depositPaidAt) {
-        booking.depositPaidAt = payment.paidAt ?? new Date();
-        await manager.getRepository(Booking).save(booking);
+      const paidTimestamp = payment.paidAt ?? new Date();
+      const unpaidRows = lockedBookings.filter(item => !item.depositPaidAt);
+      if (unpaidRows.length) {
+        for (const row of unpaidRows) {
+          row.depositPaidAt = paidTimestamp;
+        }
+        await manager.getRepository(Booking).save(unpaidRows);
       }
 
       /**
@@ -1494,15 +1774,18 @@ export class PaymentService {
        * در این حالت پول باید به مشتری برگردد. استثنا: اگر خود مشتری نوبت را
        * لغو کرده باشد، بیعانه نزد آرایشگر می‌ماند (قاعدهٔ فعلی محصول).
        */
-      const bookingWasCanceled = Boolean(
-        booking &&
-        (booking.status === BookingStatus.CANCELED ||
-          booking.status === BookingStatus.REJECTED),
-      );
+      const allWasCanceled =
+        lockedBookings.length > 0 &&
+        lockedBookings.every(
+          item =>
+            item.status === BookingStatus.CANCELED ||
+            item.status === BookingStatus.REJECTED,
+        );
       const refundCustomer =
-        bookingWasCanceled && booking?.canceledBy !== 'customer';
+        allWasCanceled &&
+        lockedBookings.some(item => item.canceledBy !== 'customer');
 
-      if (refundCustomer) {
+      if (refundCustomer && booking) {
         // ابتدا همان مبلغ بیعانه به کیف پول آرایشگر واریز می‌شود تا برای
         // بازپرداخت، موجودی و رکورد حسابداری قابل ردیابی وجود داشته باشد.
         await this.walletService.depositOnceWithManager(manager, {
@@ -1514,8 +1797,8 @@ export class PaymentService {
         });
         await this.walletService.debitBarberAndQueueRefund(manager, {
           barberUserId,
-          customerUserId: booking!.customerId,
-          bookingId: booking!.id,
+          customerUserId: booking.customerId,
+          bookingId: booking.id,
           paymentId: payment.id,
           amount: barberCredit,
           // مشتری کل مبلغی که داده (بیعانه + کمیسیون) را پس می‌گیرد.
@@ -1651,9 +1934,13 @@ export class PaymentService {
       await paymentRepo.save(payment);
 
       const barberUserId = Number(meta.barberUserId);
-      const serviceAmount = Number(
-        meta.serviceId && !meta.items ? meta.price : meta.totalPrice,
-      );
+      const explicitBarberDeposit = Number(meta.depositAmount);
+      const serviceAmount =
+        Number.isFinite(explicitBarberDeposit) && explicitBarberDeposit > 0
+          ? explicitBarberDeposit
+          : Number(
+              meta.serviceId && !meta.items ? meta.price : meta.totalPrice,
+            );
       if (
         !Number.isInteger(barberUserId) ||
         barberUserId <= 0 ||

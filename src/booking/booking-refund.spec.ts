@@ -133,4 +133,28 @@ describe('computeCancellationAmounts', () => {
     expect(result.barberDebit).toBe(50_000);
     expect(result.customerRefund).toBe(50_000);
   });
+
+  it('لینک بیعانهٔ چندخدمتی: سهم آرایشگر و کل مبلغ پرداختی مشتری را دقیق برمی‌گرداند', () => {
+    const payment = makePayment(370_000, {
+      depositLink: true,
+      depositToken: 'a1b2c3d4e5f60718293a4b5c',
+      bookingId: 'b1',
+      bookingIds: ['b1', 'b2'],
+      depositAmount: 350_000,
+      commissionAmount: 20_000,
+      totalPrice: 700_000,
+      items: [
+        { bookingId: 'b1', price: 500_000, payableAmount: 150_000 },
+        { bookingId: 'b2', price: 200_000, payableAmount: 200_000 },
+      ],
+    });
+
+    const result = service.getCancellationAmounts(payment, [
+      { id: 'b1', price: 500_000, canceledBy: null },
+      { id: 'b2', price: 200_000, canceledBy: null },
+    ]);
+
+    expect(result.barberDebit).toBe(350_000);
+    expect(result.customerRefund).toBe(370_000);
+  });
 });
