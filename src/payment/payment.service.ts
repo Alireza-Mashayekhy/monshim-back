@@ -591,9 +591,24 @@ export class PaymentService {
     }
 
     const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0);
-    // کمیسیون سایت: ۱۰٪ بیشترین مبلغ خدمات انتخاب‌شده (نه ۱۰٪ جمع کل مبالغ)
+    // کمیسیون سایت: درصدی از بیشترین مبلغ خدمات انتخاب‌شده (پیش‌فرض ۱۰٪)
+    // درصد از تنظیمات سایت خوانده می‌شود تا با لینک بیعانه یکسان باشد.
     const maxServicePrice = Math.max(...services.map(s => Number(s.price)));
-    const commissionAmount = Math.round(maxServicePrice * COMMISSION_RATE);
+    let commissionPercent = 10;
+    try {
+      const settings = await this.settingsRepo.findOne({ where: { id: 1 } });
+      if (
+        settings?.commissionPercent != null &&
+        Number.isFinite(Number(settings.commissionPercent))
+      ) {
+        commissionPercent = Number(settings.commissionPercent);
+      }
+    } catch {
+      // تنظیمات موجود نیست — از مقدار پیش‌فرض ۱۰٪ استفاده می‌شود
+    }
+    const commissionAmount = Math.round(
+      (maxServicePrice * commissionPercent) / 100,
+    );
     // مبلغ قابل پرداخت از کاربر = کل خدمات + کمیسیون سایت
     const amountToPay = totalPrice + commissionAmount;
 
@@ -869,7 +884,7 @@ export class PaymentService {
         totalPrice: Number(booking.price),
       }),
       status: PaymentStatus.PENDING,
-      description: `پرداخت بیعانه نوبت ${service?.name ?? ''} (شامل ۱۰٪ کمیسیون سایت) - ${salonName}`,
+      description: `پرداخت بیعانه نوبت ${service?.name ?? ''} (شامل کمیسیون سایت) - ${salonName}`,
     });
 
     await this.paymentRepo.save(payment);
@@ -910,31 +925,50 @@ export class PaymentService {
   }
 
   /**
-   * مبلغ لینک بیعانه = بیعانه + ۱۰٪ کمیسیون سایت.
+   * مبلغ لینک بیعانه = بیعانه + کمیسیون سایت.
    *
    * بیعانه یا مبلغ ثابت خدمت است یا درصد تنظیمات سایت. کمیسیون همان قاعدهٔ
-   * رزرو آنلاین را دارد (۱۰٪ ارزش خدمت) تا مشتریِ لینک بیعانه کمتر از
+   * رزرو آنلاین را دارد (درصد از تنظیمات سایت) تا مشتریِ لینک بیعانه کمتر از
    * مشتریِ رزرو آنلاین پرداخت نکند.
    */
   private async getBookingDepositAmount(
     booking: Booking,
   ): Promise<DepositAmounts> {
     let depositPercent = 30;
+    let commissionPercent = 10;
+    let commissionBase: 'total' | 'deposit' = 'total';
 
     try {
       const settings = await this.settingsRepo.findOne({ where: { id: 1 } });
 
-      if (settings?.depositPercent) {
+      if (
+        settings?.depositPercent != null &&
+        Number.isFinite(Number(settings.depositPercent))
+      ) {
         depositPercent = Number(settings.depositPercent);
       }
+      if (
+        settings?.commissionPercent != null &&
+        Number.isFinite(Number(settings.commissionPercent))
+      ) {
+        commissionPercent = Number(settings.commissionPercent);
+      }
+      if (
+        settings?.commissionBase === 'deposit' ||
+        settings?.commissionBase === 'total'
+      ) {
+        commissionBase = settings.commissionBase;
+      }
     } catch {
-      // تنظیمات موجود نیست — از مقدار پیش‌فرض ۳۰٪ استفاده می‌شود
+      // تنظیمات موجود نیست — از مقادیر پیش‌فرض استفاده می‌شود
     }
 
     return computeDepositAmounts({
       price: booking.price,
       depositPrice: booking.service?.depositPrice,
       depositPercent,
+      commissionPercent,
+      commissionBase,
     });
   }
 
