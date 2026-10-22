@@ -6,9 +6,11 @@ import {
   BellRing,
   CalendarClock,
   Check,
+  Clock,
   Loader2,
   Lock,
   NotebookPen,
+  ReceiptText,
   Search,
   UserPlus,
   UserRound,
@@ -35,13 +37,6 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,6 +44,7 @@ import { DEPOSIT_PAYMENT_TIMEOUT_HOURS } from '@/constants/booking';
 import { useDebounce } from '@/hooks/use-debounce';
 import { jalaliToIso } from '@/lib/date-utils';
 import { gregorianToJalali } from '@/lib/jalali';
+import { computeOrderPricing } from '@/lib/order-pricing';
 import { normalizePhone } from '@/lib/phone';
 import { cn, formatPrice, toPersianDigits } from '@/lib/utils';
 import { useMyBarberProfile } from '@/services/features/barber/hooks';
@@ -75,7 +71,7 @@ const DEFAULT_VALUES: FormValues = {
   existingCustomerId: '',
   fullName: '',
   phone: '',
-  serviceId: '',
+  serviceIds: [],
   date: '',
   time: '',
   barberNote: '',
@@ -101,7 +97,7 @@ const schema = z
     existingCustomerId: z.string().optional(),
     fullName: z.string().optional(),
     phone: z.string().optional(),
-    serviceId: z.string().min(1, 'انتخاب خدمت الزامی است'),
+    serviceIds: z.array(z.string()).min(1, 'حداقل یک خدمت انتخاب کنید'),
     date: z.string().min(1, 'انتخاب تاریخ الزامی است'),
     time: z.string().min(1, 'انتخاب ساعت الزامی است'),
     barberNote: z.string().optional(),
@@ -173,9 +169,6 @@ export function ManualBookingDrawer({
   fixedCustomer = null,
 }: ManualBookingDrawerProps) {
   const [customerSearch, setCustomerSearch] = useState('');
-  // مشتریِ انتخاب‌شده به‌صورت آبجکت نگه داشته می‌شود؛ مشتق‌کردن آن از
-  // نتایجِ لحظه‌ای جستجو باعث می‌شد با پاک‌شدن جستجو (و خالی‌شدن لیست)
-  // انتخاب «بپرد» و کارت مشتری ناپدید شود.
   const [pickedCustomer, setPickedCustomer] = useState<ClubCustomer | null>(
     fixedCustomer,
   );
@@ -195,7 +188,11 @@ export function ManualBookingDrawer({
   } = methods;
 
   const customerMode = useWatch({ control, name: 'customerMode' });
-  const serviceId = useWatch({ control, name: 'serviceId' });
+  const watchedServiceIds = useWatch({ control, name: 'serviceIds' });
+  const serviceIds = useMemo(
+    () => watchedServiceIds ?? [],
+    [watchedServiceIds],
+  );
   const jalaliDate = useWatch({ control, name: 'date' });
   const time = useWatch({ control, name: 'time' });
   const sendDepositLink = useWatch({ control, name: 'sendDepositLink' });
@@ -223,41 +220,34 @@ export function ManualBookingDrawer({
 
   const { data: services, isLoading: servicesLoading } = useMyServices();
 
-  /**
-   * پیش‌نمایش مبلغ لینک بیعانه.
-   * همان قاعدهٔ بک‌اند: بیعانه + کمیسیون سایت.
-   * بیعانه یا مبلغ ثابت خدمت است یا درصد تنظیمات سایت؛ کمیسیون هم از تنظیمات
-   * خوانده می‌شود تا مثل رزرو آنلاین محاسبه شود (پیش‌فرض ۱۰٪ ارزش خدمت).
-   */
   const { data: paymentConfig } = usePaymentConfig();
-  const depositPercent = paymentConfig?.depositPercent ?? 30;
   const commissionPercent = paymentConfig?.commissionPercent ?? 10;
-  const commissionBase = paymentConfig?.commissionBase ?? 'total';
 
-  const selectedService = services?.data?.find(item => item.id === serviceId);
-  const depositPreview = (() => {
-    if (!selectedService) return null;
-    const servicePrice = Number(selectedService.price);
-    if (!Number.isFinite(servicePrice) || servicePrice <= 0) return null;
-    const fixedDeposit = Number(selectedService?.depositPrice ?? 0);
-    let deposit: number;
-    if (Number.isFinite(fixedDeposit) && fixedDeposit > 0) {
-      deposit = Math.round(Math.min(fixedDeposit, servicePrice));
-    } else {
-      const pct =
-        Number.isFinite(Number(depositPercent)) && Number(depositPercent) > 0
-          ? Number(depositPercent)
-          : 30;
-      deposit = Math.round((servicePrice * pct) / 100);
-      deposit = Math.min(deposit, servicePrice);
-    }
-    const commission =
-      commissionBase === 'deposit'
-        ? Math.round((deposit * commissionPercent) / 100)
-        : Math.round((servicePrice * commissionPercent) / 100);
-    if (deposit <= 0) return null;
-    return { deposit, commission };
-  })();
+  const selectedServices = useMemo(() => {
+    const list = services?.data ?? [];
+    return serviceIds
+      .map(id => list.find(item => item.id === id))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+  }, [services?.data, serviceIds]);
+
+  const totalDurationMinutes = useMemo(
+    () =>
+      selectedServices.reduce(
+        (sum, item) => sum + (item.durationMinutes ?? 0),
+        0,
+      ),
+    [selectedServices],
+  );
+
+  const invoicePreview = useMemo(() => {
+    if (!selectedServices.length) return null;
+    const computed = computeOrderPricing(selectedServices, {
+      commissionPercent,
+    });
+    if (computed.depositAmount <= 0) return null;
+    return computed;
+  }, [selectedServices, commissionPercent]);
+
   const { data: barberProfile } = useMyBarberProfile();
   const addCustomer = useAddClubCustomer();
   const createManualBooking = useCreateManualBooking();
@@ -270,12 +260,11 @@ export function ManualBookingDrawer({
     data: slotsResponse,
     isLoading: slotsLoading,
     isFetching: slotsFetching,
-  } = useAvailableSlots(barberId, isoDate, serviceId ? [serviceId] : []);
+  } = useAvailableSlots(barberId, isoDate, serviceIds);
   const slots = slotsResponse?.data?.slots ?? [];
 
   const hasSearchQuery = debouncedSearch.trim().length > 0;
 
-  // جستجوی مشتریان — فقط موقع تایپ درخواست می‌زنیم (بدون لیست پیش‌فرض شلوغ)
   const clubQuery = useMemo<ClubCustomerQuery>(
     () => ({
       page: 1,
@@ -303,7 +292,6 @@ export function ManualBookingDrawer({
 
   const selectedCustomer = fixedCustomer ?? pickedCustomer;
 
-  // تاریخ‌های سریع امروز / فردا
   const quickDates = useMemo(() => {
     const today = new Date();
     const tomorrow = new Date();
@@ -330,10 +318,19 @@ export function ManualBookingDrawer({
     });
   }, [open, fixedCustomer?.id, reset]);
 
-  // ریست ساعت وقتی خدمت یا تاریخ عوض شد
+  const serviceIdsKey = serviceIds.join(',');
+
+  // ریست ساعت وقتی خدمات یا تاریخ عوض شد
   useEffect(() => {
     setValue('time', '');
-  }, [serviceId, isoDate, setValue]);
+  }, [serviceIdsKey, isoDate, setValue]);
+
+  const toggleService = (id: string) => {
+    const next = serviceIds.includes(id)
+      ? serviceIds.filter(item => item !== id)
+      : [...serviceIds, id];
+    setValue('serviceIds', next, { shouldValidate: true });
+  };
 
   const handleSelectCustomer = (customer: ClubCustomer) => {
     setPickedCustomer(customer);
@@ -341,7 +338,6 @@ export function ManualBookingDrawer({
     setCustomerSearch('');
   };
 
-  // ریست فرم موقع بسته شدن (فروم همیشه تمیز باز می‌شود)
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       reset(DEFAULT_VALUES);
@@ -376,13 +372,13 @@ export function ManualBookingDrawer({
 
       if (!clubCustomerId) return;
 
-      // قوانین: بدون اشتراک فعال، لینک بیعانه الزامی و یادآوری غیرفعال است
       const deposit = smsEligible ? values.sendDepositLink : true;
       const reminder = canSendSmsReminder ? values.sendSmsReminder : false;
 
       await createManualBooking.mutateAsync({
         clubCustomerId,
-        serviceId: values.serviceId,
+        serviceId: values.serviceIds[0],
+        serviceIds: values.serviceIds,
         date: jalaliToIso(values.date) ?? values.date,
         time: values.time,
         barberNote: values.barberNote?.trim() || undefined,
@@ -393,8 +389,6 @@ export function ManualBookingDrawer({
           reminder && values.reminderHours ? values.reminderHours : undefined,
       });
 
-      // مسیر موفق ثبت، از handleOpenChange رد نمی‌شود؛ پس انتخاب را اینجا هم پاک می‌کنیم
-      // تا دفعه‌ی بعد که شیت باز می‌شود مشتریِ انتخاب‌شده‌ی قبلی باقی نماند.
       setPickedCustomer(null);
       setCustomerSearch('');
 
@@ -409,7 +403,6 @@ export function ManualBookingDrawer({
   const handleDepositLinkChange = (enabled: boolean) => {
     setValue('sendDepositLink', enabled);
 
-    // در حالت لینک بیعانه، یادآوری معنا ندارد (تا پرداخت بیعانه نمی‌رود).
     if (enabled && sendSmsReminder) {
       setValue('sendSmsReminder', false);
       setValue('reminderHours', null);
@@ -443,7 +436,7 @@ export function ManualBookingDrawer({
           <DrawerDescription className="text-right text-xs leading-5">
             {fixedCustomer
               ? `ثبت نوبت دستی برای ${fixedCustomer.fullName}`
-              : 'نوبت را برای مشتری قبلی انتخاب کنید یا مشتری جدید بسازید؛ مشتری جدید به باشگاه مشتریان اضافه می‌شود.'}
+              : 'یک یا چند خدمت را انتخاب کنید؛ در حالت لینک بیعانه یک صورت‌حساب واحد برای مشتری ارسال می‌شود.'}
           </DrawerDescription>
         </DrawerHeader>
 
@@ -522,7 +515,6 @@ export function ManualBookingDrawer({
                 {customerMode === 'existing' ? (
                   <div className="space-y-2">
                     {selectedCustomer ? (
-                      // مشتری انتخاب‌شده
                       <div className="flex items-center gap-2.5 rounded-2xl border border-primary-2 bg-primary-3 p-3">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
                           {selectedCustomer.fullName.charAt(0)}
@@ -554,7 +546,6 @@ export function ManualBookingDrawer({
                         </button>
                       </div>
                     ) : (
-                      // جستجو
                       <div className="relative">
                         <Search
                           size={16}
@@ -568,7 +559,6 @@ export function ManualBookingDrawer({
                           className="h-11 rounded-xl pr-10"
                         />
 
-                        {/* نتایج بازشو — فقط موقع جستجو */}
                         {hasSearchQuery && (
                           <div className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.12)]">
                             {customersLoading || customersFetching ? (
@@ -651,7 +641,6 @@ export function ManualBookingDrawer({
                     )}
                   </div>
                 ) : (
-                  // مشتری جدید
                   <div className="space-y-3.5 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
                     <p className="flex items-center gap-1.5 text-xs font-black text-gray-800">
                       <UserRound size={15} className="text-primary" />
@@ -677,41 +666,97 @@ export function ManualBookingDrawer({
               </>
             )}
 
-            {/* خدمت */}
-            <div className="space-y-2">
-              <span className="block text-xs font-black text-gray-700">
-                خدمت
-              </span>
+            {/* انتخاب یک یا چند خدمت */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-gray-700">
+                  خدمات مورد نظر (امکان انتخاب چند خدمت)
+                </span>
+                {selectedServices.length > 0 && (
+                  <span className="rounded-lg bg-primary-2 px-2 py-0.5 text-[10px] font-black text-primary">
+                    {toPersianDigits(selectedServices.length)} خدمت •{' '}
+                    {toPersianDigits(totalDurationMinutes)} دقیقه
+                  </span>
+                )}
+              </div>
 
               {servicesLoading ? (
-                <Skeleton className="h-11 w-full rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                </div>
+              ) : (services?.data?.length ?? 0) === 0 ? (
+                <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center text-[11px] text-gray-400">
+                  هنوز خدمتی ثبت نکرده‌اید.
+                </p>
               ) : (
-                <Select
-                  value={serviceId}
-                  onValueChange={v =>
-                    setValue('serviceId', v, { shouldValidate: true })
-                  }
-                >
-                  <SelectTrigger className="h-11 w-full rounded-xl">
-                    <SelectValue placeholder="انتخاب خدمت" />
-                  </SelectTrigger>
+                <div className="max-h-60 space-y-2 overflow-y-auto pr-0.5 scrollbar-thin">
+                  {services?.data?.map(s => {
+                    const checked = serviceIds.includes(s.id);
+                    const hasDeposit = Number(s.depositPrice ?? 0) > 0;
 
-                  <SelectContent>
-                    {services?.data?.map(s => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name} — {formatPrice(s.price)} تومان
-                        {s.durationMinutes
-                          ? ` (${toPersianDigits(s.durationMinutes)} دقیقه)`
-                          : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => toggleService(s.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-2.5 rounded-2xl border p-3 text-right transition',
+                          checked
+                            ? 'border-primary bg-primary-3 shadow-2xs'
+                            : 'border-gray-200 bg-white hover:border-primary/40',
+                        )}
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span
+                            className={cn(
+                              'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition',
+                              checked
+                                ? 'border-primary bg-primary text-white'
+                                : 'border-gray-300 bg-white text-transparent',
+                            )}
+                          >
+                            <Check size={13} strokeWidth={3} />
+                          </span>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-black text-gray-900">
+                              {s.name}
+                            </p>
+                            {s.durationMinutes ? (
+                              <p className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-gray-400">
+                                <Clock size={10} />
+                                {toPersianDigits(s.durationMinutes)} دقیقه
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 text-left">
+                          <p className="text-xs font-black text-gray-900">
+                            {toPersianDigits(formatPrice(s.price))} تومان
+                          </p>
+                          {hasDeposit ? (
+                            <p className="mt-0.5 text-[10px] font-bold text-primary">
+                              بیعانه:{' '}
+                              {toPersianDigits(formatPrice(s.depositPrice!))}{' '}
+                              تومان
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 text-[10px] font-medium text-gray-400">
+                              بدون بیعانه مجزا
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
 
-              {errors.serviceId && (
+              {errors.serviceIds && (
                 <p className="text-[11px] text-red-600">
-                  {errors.serviceId.message}
+                  {errors.serviceIds.message}
                 </p>
               )}
             </div>
@@ -761,12 +806,12 @@ export function ManualBookingDrawer({
             {/* ساعت */}
             <div className="space-y-2">
               <span className="block text-xs font-black text-gray-700">
-                ساعت
+                ساعت شروع
               </span>
 
-              {!serviceId || !isoDate ? (
+              {serviceIds.length === 0 || !isoDate ? (
                 <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center text-[11px] text-gray-400">
-                  برای نمایش ساعت‌های خالی، ابتدا خدمت و تاریخ را انتخاب کنید.
+                  برای نمایش ساعت‌های خالی، ابتدا خدمات و تاریخ را انتخاب کنید.
                 </p>
               ) : slotsLoading ? (
                 <div className="grid grid-cols-4 gap-2">
@@ -776,7 +821,7 @@ export function ManualBookingDrawer({
                 </div>
               ) : slots.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center text-[11px] text-gray-400">
-                  ساعت خالی برای این روز وجود ندارد.
+                  ساعت خالی متوالی برای مجموع زمان انتخابی در این روز وجود ندارد.
                 </p>
               ) : (
                 <div className="grid grid-cols-4 gap-2">
@@ -832,7 +877,7 @@ export function ManualBookingDrawer({
               <Textarea
                 {...methods.register('customerNote')}
                 rows={2}
-                placeholder="یادداشت برای مشتری — مثلاً موهایت کوتاه نشود..."
+                placeholder="یادداشت برای مشتری (در صورت‌حساب هم نمایش داده می‌شود)..."
                 className="rounded-xl text-xs"
               />
 
@@ -850,7 +895,7 @@ export function ManualBookingDrawer({
                 </p>
 
                 <p className="mt-0.5 text-[10px] font-medium text-gray-400">
-                  در هر دو حالت، نوبت بعد از گذشتن زمانش خودکار «انجام‌شده» می‌شود.
+                  در حالت لینک بیعانه، مشتری ابتدا صفحهٔ صورت‌حساب خدمات و کمیسیون را می‌بیند و سپس وارد درگاه می‌شود.
                 </p>
               </div>
 
@@ -893,42 +938,89 @@ export function ManualBookingDrawer({
                   </span>
 
                   <span className="mt-1 block text-[10px] font-medium leading-5 text-gray-500">
-                    پیامک رایگان؛ مشتری اول بیعانه را پرداخت می‌کند
+                    پیامک رایگان؛ نمایش صورت‌حساب و پرداخت آنلاین
                   </span>
                 </button>
               </div>
 
-              {/* جمع‌بندی همان انتخاب: اعتبار یا مبلغی که مشتری می‌پردازد */}
-              <div className="rounded-xl border border-white bg-white/80 px-2.5 py-2 text-[10px] font-bold leading-5 text-gray-600">
+              {/* پیش‌نمایش دقیق صورت‌حساب */}
+              <div className="rounded-xl border border-white bg-white/95 p-3 text-[11px] leading-5 text-gray-700 space-y-2">
                 {effectiveDepositLink ? (
-                  depositPreview ? (
-                    <span>
-                      مشتری{' '}
-                      <span className="text-primary">
-                        {toPersianDigits(
-                          formatPrice(
-                            depositPreview.deposit + depositPreview.commission,
-                          ),
-                        )}{' '}
-                        تومان
-                      </span>{' '}
-                      پرداخت می‌کند: {toPersianDigits(formatPrice(depositPreview.deposit))}{' '}
-                      بیعانه +{' '}
-                      {toPersianDigits(formatPrice(depositPreview.commission))}{' '}
-                      کمیسیون
-                    </span>
+                  invoicePreview ? (
+                    <div className="space-y-1.5">
+                      <p className="flex items-center gap-1 font-black text-gray-900">
+                        <ReceiptText size={13} className="text-primary" />
+                        پیش‌نمایش صورت‌حساب ارسالی به مشتری:
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>مجموع قیمت خدمات:</span>
+                        <span className="font-bold text-gray-800">
+                          {toPersianDigits(
+                            formatPrice(invoicePreview.totalServicePrice),
+                          )}{' '}
+                          تومان
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>جمع بیعانه (واریز به کیف پول شما):</span>
+                        <span className="font-bold text-emerald-700">
+                          {toPersianDigits(
+                            formatPrice(invoicePreview.depositAmount),
+                          )}{' '}
+                          تومان
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>
+                          کمیسیون سایت ({toPersianDigits(commissionPercent)}٪
+                          بیشترین بیعانه):
+                        </span>
+                        <span className="font-bold text-primary">
+                          {toPersianDigits(
+                            formatPrice(invoicePreview.commissionAmount),
+                          )}{' '}
+                          تومان
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-dashed border-gray-200 pt-1.5 text-[11px] font-black text-gray-900">
+                        <span>مبلغ قابل پرداخت در درگاه:</span>
+                        <span className="text-primary">
+                          {toPersianDigits(
+                            formatPrice(invoicePreview.amountToPay),
+                          )}{' '}
+                          تومان
+                        </span>
+                      </div>
+
+                      {invoicePreview.remainingInSalon > 0 && (
+                        <div className="flex items-center justify-between text-[10px] text-amber-800">
+                          <span>باقیمانده دریافتی حضوری در سالن:</span>
+                          <span className="font-black">
+                            {toPersianDigits(
+                              formatPrice(invoicePreview.remainingInSalon),
+                            )}{' '}
+                            تومان
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <span>
-                      مبلغ پرداختی مشتری = بیعانه + {toPersianDigits(commissionPercent)}٪ کمیسیون سایت
+                    <span className="text-[10px] font-bold text-gray-600">
+                      مبلغ پرداختی مشتری = جمع بیعانه‌ها (در نبود بیعانه، مبلغ کل
+                      خدمت) + {toPersianDigits(commissionPercent)}٪ بیشترین بیعانه
                     </span>
                   )
                 ) : (
-                  <span>
+                  <span className="text-[10px] font-bold">
                     اعتبار باقیماندهٔ پلن:{' '}
                     <span className="text-primary">
                       {toPersianDigits(smsRemaining)}
                     </span>{' '}
-                    — این نوبت ۲ اعتبار
+                    — این سفارش ۲ اعتبار
                   </span>
                 )}
               </div>
@@ -937,17 +1029,13 @@ export function ManualBookingDrawer({
                 {effectiveDepositLink ? (
                   <>
                     <li>
-                      • مبلغی که مشتری می‌پردازد = بیعانه + {toPersianDigits(commissionPercent)}٪ کمیسیون سایت؛
-                      کمیسیون به کیف پول شما اضافه نمی‌شود.
+                      • مشتری با کلیک روی لینک پیامک، صورت‌حساب کامل خدمات، سهم
+                      بیعانه و کمیسیون را می‌بیند و سپس وارد درگاه می‌شود.
                     </li>
                     <li>
                       • تا {toPersianDigits(DEPOSIT_PAYMENT_TIMEOUT_HOURS)}{' '}
-                      ساعت پس از ارسال لینک، اگر بیعانه پرداخت نشود نوبت
-                      خودکار لغو می‌شود (ارسال مجدد لینک مهلت را از نو شروع
-                      می‌کند).
-                    </li>
-                    <li>
-                      • پیامک یادآوری فقط بعد از پرداخت بیعانه فرستاده می‌شود.
+                      ساعت پس از ارسال لینک، اگر پرداخت انجام نشود نوبت خودکار لغو
+                      می‌شود.
                     </li>
                   </>
                 ) : (
@@ -965,35 +1053,34 @@ export function ManualBookingDrawer({
             </div>
 
             <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
-              {/* پیامک یادآوری (فقط در حالت پلن پیامکی معنا دارد) */}
               {!effectiveDepositLink && (
-              <div className="flex items-center justify-between gap-3 py-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-2/60 text-primary">
-                    <BellRing size={15} />
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-2/60 text-primary">
+                      <BellRing size={15} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-gray-900">
+                        پیامک یادآوری
+                      </p>
+
+                      <p className="mt-0.5 text-[10px] font-medium text-gray-400">
+                        چند ساعت قبل از نوبت می‌رود؛ اعتبارش موقع ثبت کم می‌شود
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <p className="text-xs font-black text-gray-900">
-                      پیامک یادآوری
-                    </p>
+                  <Switch
+                    checked={canSendSmsReminder && sendSmsReminder}
+                    disabled={!canSendSmsReminder || isSubmitting}
+                    onCheckedChange={v => {
+                      setValue('sendSmsReminder', v);
 
-                    <p className="mt-0.5 text-[10px] font-medium text-gray-400">
-                      چند ساعت قبل از نوبت می‌رود؛ اعتبارش موقع ثبت کم می‌شود
-                    </p>
-                  </div>
+                      if (!v) setValue('reminderHours', null);
+                    }}
+                  />
                 </div>
-
-                <Switch
-                  checked={canSendSmsReminder && sendSmsReminder}
-                  disabled={!canSendSmsReminder || isSubmitting}
-                  onCheckedChange={v => {
-                    setValue('sendSmsReminder', v);
-
-                    if (!v) setValue('reminderHours', null);
-                  }}
-                />
-              </div>
               )}
 
               {smsEligible && !canSendSmsReminder && !effectiveDepositLink && (
@@ -1003,7 +1090,6 @@ export function ManualBookingDrawer({
                 </p>
               )}
 
-              {/* انتخاب ساعت یادآوری */}
               {!effectiveDepositLink && canSendSmsReminder && sendSmsReminder && (
                 <div className="space-y-2.5 py-3">
                   <p className="text-[11px] font-black text-gray-600">
@@ -1040,7 +1126,6 @@ export function ManualBookingDrawer({
                 </div>
               )}
 
-              {/* هشدار بدون اشتراک */}
               {!smsEligible && (
                 <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
                   <Lock size={14} className="mt-0.5 shrink-0 text-amber-500" />
@@ -1052,8 +1137,8 @@ export function ManualBookingDrawer({
                     </p>
 
                     <p className="mt-1 text-[10px] font-medium leading-5 text-amber-600">
-                      در غیر این صورت، لینک بیعانه برای مشتری ارسال می‌شود و خود
-                      پیامک لینک از اعتبار شما کم نمی‌کند.
+                      در غیر این صورت، لینک صورت‌حساب بیعانه برای مشتری ارسال
+                      می‌شود و خود پیامک لینک از اعتبار شما کم نمی‌کند.
                     </p>
 
                     <Link
@@ -1087,7 +1172,7 @@ export function ManualBookingDrawer({
                   در حال ثبت نوبت...
                 </>
               ) : (
-                'ثبت نوبت'
+                'ثبت نوبت و ارسال'
               )}
             </Button>
           </div>

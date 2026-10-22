@@ -74,6 +74,22 @@ export class PaymentController {
     );
   }
 
+  // ۳.۱. دریافت اطلاعات صورت‌حساب لینک بیعانه (عمومی - بدون گارد)
+  @Get('deposit/:token/invoice')
+  async getDepositInvoice(@Param('token') token: string) {
+    return this.paymentService.getDepositInvoiceByToken(token);
+  }
+
+  // ۳.۲. تایید صورت‌حساب لینک بیعانه و دریافت لینک انتقال به درگاه (عمومی - بدون گارد)
+  @Post('deposit/:token/pay')
+  async payDepositByToken(@Param('token') token: string, @Req() req: any) {
+    return this.paymentService.initiateDepositPaymentByToken(
+      token,
+      getRequestOrigin(req),
+    );
+  }
+
+  // ۳.۳. لینک کوتاه پیامک بیعانه → هدایت به صفحه صورت‌حساب در فرانت
   @Get('deposit/:token')
   async depositLink(
     @Param('token') token: string,

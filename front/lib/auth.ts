@@ -85,6 +85,10 @@ export function isPublicAuthPath(pathname: string) {
     // مسیرِ مشابه داخل پنل (`/panel/barber/[id]`) خصوصی می‌ماند چون با
     // پیشوند `/panel/` شروع می‌شود.
     isPathWithin(pathname, '/barber') ||
+    // صفحهٔ صورت‌حساب لینک بیعانه (`/deposit/[token]`) و بازگشت از درگاه پرداخت
+    // باید برای مشتریان مهمان (بدون نیاز به لاگین) در دسترس باشند.
+    isPathWithin(pathname, '/deposit') ||
+    isPathWithin(pathname, '/panel/payment/callback') ||
     // Public marketing pages.
     isPathWithin(pathname, '/barber-management') ||
     isPathWithin(pathname, '/online-barber-booking') ||

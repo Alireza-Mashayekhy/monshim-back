@@ -14,6 +14,7 @@ import {
   toFa,
   toISODate,
 } from '@/lib/jalali';
+import { computeOrderPricing } from '@/lib/order-pricing';
 import { formatPrice } from '@/lib/utils';
 import { Barber, Service } from '@/services/features/barber/types';
 import { usePaymentConfig } from '@/services/features/settings/hooks';
@@ -62,28 +63,21 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
     [barber.services, selectedServiceIds],
   );
 
-  const totalPrice = selectedServices.reduce(
-    (sum, s) => Number(sum) + Number(s.price),
-    0,
-  );
   const totalDuration = selectedServices.reduce(
     (sum, s) => sum + s.durationMinutes,
     0,
   );
 
-  // کمیسیون سایت: درصدی از بیشترین مبلغ خدمات انتخاب‌شده (پیش‌فرض ۱۰٪)
-  // مثل لینک بیعانه، درصد از تنظیمات سایت خوانده می‌شود تا یکسان باشد
+  // محاسبه یکپارچه با بک‌اند: جمع بیعانه‌ها (در نبود بیعانه، مبلغ کل خدمت) + ۱۰٪ بیشترین بیعانه
   const { data: paymentConfig } = usePaymentConfig();
   const commissionPercent = paymentConfig?.commissionPercent ?? 10;
-  const maxServicePrice = selectedServices.reduce(
-    (max, s) => Math.max(max, Number(s.price)),
-    0,
+  const pricing = useMemo(
+    () => computeOrderPricing(selectedServices, { commissionPercent }),
+    [selectedServices, commissionPercent],
   );
-  const commissionAmount = Math.round(
-    (maxServicePrice * commissionPercent) / 100,
-  );
-  // مبلغ قابل پرداخت = مجموع خدمات + کمیسیون سایت
-  const totalPayable = totalPrice + commissionAmount;
+  const totalPrice = pricing.totalServicePrice;
+  const commissionAmount = pricing.commissionAmount;
+  const totalPayable = pricing.amountToPay;
 
   const goPrevMonth = () => {
     const jm = viewJm === 1 ? 12 : viewJm - 1;
@@ -249,14 +243,27 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
           </div>
 
           <div className="space-y-3 border-t border-gray-100 pt-4">
-            {selectedServices.map(s => (
-              <div key={s.id} className="flex items-center justify-between">
-                <span className="text-gray-700 font-semibold">{s.name}</span>
-                <span className="font-bold text-primary text-base">
-                  {toFa(formatPrice(s.price))} تومان
-                </span>
-              </div>
-            ))}
+            {selectedServices.map((s, idx) => {
+              const itemPricing = pricing.items[idx];
+              return (
+                <div key={s.id} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700 font-semibold">{s.name}</span>
+                    <span className="font-bold text-gray-900 text-base">
+                      {toFa(formatPrice(s.price))} تومان
+                    </span>
+                  </div>
+                  {itemPricing?.hasDeposit && (
+                    <div className="flex items-center justify-between text-xs text-primary">
+                      <span>بیعانه این خدمت</span>
+                      <span className="font-bold">
+                        {toFa(formatPrice(itemPricing.payableAmount))} تومان
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             <div className="flex items-center justify-between">
               <span className="text-gray-500">تاریخ و ساعت</span>
@@ -268,15 +275,24 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-gray-500">مجموع خدمات</span>
+              <span className="text-gray-500">مجموع قیمت خدمات</span>
               <span className="font-bold text-gray-900 text-base">
                 {toFa(formatPrice(totalPrice))} تومان
               </span>
             </div>
 
+            {pricing.remainingInSalon > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">جمع بیعانه قابل پرداخت</span>
+                <span className="font-bold text-gray-900 text-base">
+                  {toFa(formatPrice(pricing.depositAmount))} تومان
+                </span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <span className="text-gray-500">
-                کمیسیون سایت ({toFa(commissionPercent)}٪ بیشترین خدمت)
+                کمیسیون سایت ({toFa(commissionPercent)}٪ بیشترین بیعانه)
               </span>
               <span className="font-bold text-primary text-base">
                 {toFa(formatPrice(commissionAmount))} تومان
@@ -291,6 +307,15 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
                 {toFa(formatPrice(totalPayable))} تومان
               </span>
             </div>
+
+            {pricing.remainingInSalon > 0 && (
+              <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200/80 px-3 py-2 text-xs text-amber-900">
+                <span className="font-semibold">مانده قابل پرداخت در سالن:</span>
+                <span className="font-black">
+                  {toFa(formatPrice(pricing.remainingInSalon))} تومان
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <Button

@@ -130,6 +130,10 @@ export const endpoints = {
     subscription: '/payment/subscription',
     publicPage: '/payment/public-page',
     booking: '/payment/booking',
+    depositInvoice: (token: string) =>
+      `/payment/deposit/${encodeURIComponent(token)}/invoice`,
+    payDeposit: (token: string) =>
+      `/payment/deposit/${encodeURIComponent(token)}/pay`,
     status: (trackId: number | string) => `/payment/status/${trackId}`,
   },
 

@@ -3,6 +3,7 @@ import { endpoints } from '@/services/api/endpoints';
 import { ApiSingleResponse } from '@/services/api/types';
 
 import {
+  DepositInvoiceResponse,
   InitiateBookingPaymentDto,
   InitiatePaymentResponse,
   InitiateSubscriptionPaymentDto,
@@ -31,6 +32,22 @@ export async function payBooking(dto: InitiateBookingPaymentDto) {
   const { data } = await api.post<ApiSingleResponse<InitiatePaymentResponse>>(
     endpoints.payment.booking,
     dto,
+  );
+  return data;
+}
+
+// دریافت صورت‌حساب لینک بیعانه
+export async function getDepositInvoice(token: string) {
+  const { data } = await api.get<ApiSingleResponse<DepositInvoiceResponse>>(
+    endpoints.payment.depositInvoice(token),
+  );
+  return data.data;
+}
+
+// تایید صورت‌حساب بیعانه و شروع پرداخت درگاه
+export async function payDepositByToken(token: string) {
+  const { data } = await api.post<ApiSingleResponse<InitiatePaymentResponse>>(
+    endpoints.payment.payDeposit(token),
   );
   return data;
 }

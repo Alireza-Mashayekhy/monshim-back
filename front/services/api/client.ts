@@ -3,7 +3,7 @@ import axios, { InternalAxiosRequestConfig } from 'axios';
 import { SESSION_EXPIRED_EVENT } from '@/lib/auth';
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL || '/api',
   withCredentials: true,
 });
 

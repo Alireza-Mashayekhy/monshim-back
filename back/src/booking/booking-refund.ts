@@ -7,11 +7,6 @@
  * دو مبلغ جدا محاسبه می‌شود:
  *  - barberDebit    : همان مبلغی که واقعاً به کیف پول آرایشگر رفته بود
  *  - customerRefund : مبلغی که باید به مشتری برگردد (شامل سهم کمیسیون)
- *
- * باگ قبلی: برای پرداخت کامل، کل مبلغ پرداختی (خدمات + ۱۰٪ کمیسیون) از
- * آرایشگر کسر می‌شد، در حالی که کمیسیون هرگز به کیف پول او نرفته بود؛ یعنی
- * آرایشگر بابت لغو بیشتر از درآمدش جریمه می‌شد و مشتری هم کمیسیون
- * پرداختی‌اش را از دست می‌داد.
  */
 
 export interface RefundPaymentLike {
@@ -20,6 +15,7 @@ export interface RefundPaymentLike {
 }
 
 export interface RefundBookingLike {
+  id?: string;
   price: number | string;
   canceledBy?: string | null;
 }
@@ -52,55 +48,95 @@ export function computeCancellationAmounts(
     return { barberDebit: 0, customerRefund: 0 };
   }
 
+  // اگر همهٔ ردیف‌های سفارش قبلاً توسط خود مشتری لغو شده باشند، بازپرداختی انجام نمی‌شود.
+  if (
+    linkedBookings.length > 0 &&
+    linkedBookings.every(booking => booking.canceledBy === 'customer')
+  ) {
+    return { barberDebit: 0, customerRefund: 0 };
+  }
+
   const metadata = parseMetadata(payment);
   const isDepositLink =
     metadata?.depositLink === true ||
     String(metadata?.depositLink).toLowerCase() === 'true';
 
-  /**
-   * لینک بیعانه: پرداخت شامل «بیعانه + ۱۰٪ کمیسیون» است، اما فقط بیعانه به
-   * کیف پول آرایشگر رفته است. پس:
-   *   barberDebit    = مبلغ بیعانه
-   *   customerRefund = بیعانه + کمیسیون (کل مبلغ پرداختی مشتری)
-   * برای پرداخت‌های قدیمی که `depositAmount` ندارند، رفتار قبلی حفظ می‌شود.
-   */
   if (isDepositLink) {
     const depositAmount = Number(metadata?.depositAmount);
     const commissionAmount = Number(metadata?.commissionAmount);
 
-    const barberDebit =
+    const totalBarberCredit =
       Number.isFinite(depositAmount) && depositAmount > 0
         ? Math.min(paidAmount, depositAmount)
         : paidAmount;
 
-    const commissionShare =
+    const totalCommission =
       Number.isFinite(commissionAmount) && commissionAmount > 0
-        ? Math.min(commissionAmount, Math.max(0, paidAmount - barberDebit))
+        ? Math.min(commissionAmount, Math.max(0, paidAmount - totalBarberCredit))
+        : 0;
+
+    // اگر بخشی از خدمات توسط مشتری لغو شده باشد، سهم پرداختی همان ردیف‌ها کسر می‌شود.
+    const metaItems = Array.isArray(metadata?.items)
+      ? (metadata.items as Array<Record<string, unknown>>)
+      : [];
+    const customerCanceledShare = linkedBookings
+      .filter(booking => booking.canceledBy === 'customer')
+      .reduce((sum, booking) => {
+        const matched = metaItems.find(
+          item => booking.id && String(item.bookingId ?? '') === booking.id,
+        );
+        const itemPayable = Number(matched?.payableAmount);
+        return sum + (Number.isFinite(itemPayable) && itemPayable > 0 ? itemPayable : 0);
+      }, 0);
+
+    const barberDebit = Math.max(0, totalBarberCredit - customerCanceledShare);
+    const commissionShare =
+      totalBarberCredit > 0
+        ? (totalCommission * barberDebit) / totalBarberCredit
         : 0;
 
     return {
       barberDebit: Number(barberDebit.toFixed(2)),
-      customerRefund: Number((barberDebit + commissionShare).toFixed(2)),
+      customerRefund: Number(
+        Math.min(paidAmount, barberDebit + commissionShare).toFixed(2),
+      ),
     };
   }
 
+  const explicitDepositAmount = Number(metadata?.depositAmount);
   const metadataTotal = Number(metadata?.totalPrice);
-  const totalServiceValue =
-    Number.isFinite(metadataTotal) && metadataTotal >= 0
-      ? metadataTotal
-      : linkedBookings.reduce(
-          (total, booking) => total + Number(booking.price || 0),
-          0,
-        );
+  const totalBarberValue =
+    Number.isFinite(explicitDepositAmount) && explicitDepositAmount > 0
+      ? explicitDepositAmount
+      : Number.isFinite(metadataTotal) && metadataTotal >= 0
+        ? metadataTotal
+        : linkedBookings.reduce(
+            (total, booking) => total + Number(booking.price || 0),
+            0,
+          );
+
+  const metaItems = Array.isArray(metadata?.items)
+    ? (metadata.items as Array<Record<string, unknown>>)
+    : [];
 
   // خدماتی که خود مشتری لغو کرده، نزد آرایشگر می‌ماند و بازپرداخت ندارد.
   const customerCanceledValue = linkedBookings
     .filter(booking => booking.canceledBy === 'customer')
-    .reduce((total, booking) => total + Number(booking.price || 0), 0);
+    .reduce((total, booking, index) => {
+      const matched =
+        metaItems.find(
+          item => booking.id && String(item.bookingId ?? '') === booking.id,
+        ) ?? metaItems[index];
+      const itemPayable = Number(matched?.payableAmount);
+      if (Number.isFinite(itemPayable) && itemPayable > 0) {
+        return total + itemPayable;
+      }
+      return total + Number(booking.price || 0);
+    }, 0);
 
-  const refundableServiceValue = Math.max(
+  const refundableBarberValue = Math.max(
     0,
-    totalServiceValue - customerCanceledValue,
+    totalBarberValue - customerCanceledValue,
   );
 
   const metadataCommission = Number(metadata?.commissionAmount);
@@ -111,15 +147,15 @@ export function computeCancellationAmounts(
 
   // سهم متناسب کمیسیون از خدماتی که لغو می‌شود
   const commissionShare =
-    totalServiceValue > 0
-      ? (commission * refundableServiceValue) / totalServiceValue
+    totalBarberValue > 0
+      ? (commission * refundableBarberValue) / totalBarberValue
       : 0;
 
   const barberDebit = Number(
-    Math.min(paidAmount, refundableServiceValue).toFixed(2),
+    Math.min(paidAmount, refundableBarberValue).toFixed(2),
   );
   const customerRefund = Number(
-    Math.min(paidAmount, refundableServiceValue + commissionShare).toFixed(2),
+    Math.min(paidAmount, refundableBarberValue + commissionShare).toFixed(2),
   );
 
   return { barberDebit, customerRefund };

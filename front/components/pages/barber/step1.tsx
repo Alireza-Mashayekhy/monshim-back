@@ -295,11 +295,16 @@ const ServicesTab: React.FC<{
               </div>
 
               {/* Price */}
-              <div className="flex flex-col items-start">
+              <div className="flex flex-col items-end">
                 <span className="font-black text-primary text-lg">
                   {formatPrice(service.price)}
                 </span>
                 <span className="text-xs text-gray-400">تومان</span>
+                {Number(service.depositPrice) > 0 && (
+                  <span className="mt-1 rounded-md bg-primary-2 px-2 py-0.5 text-[10px] font-bold text-primary">
+                    بیعانه: {toFa(formatPrice(service.depositPrice!))} تومان
+                  </span>
+                )}
               </div>
             </button>
           );
