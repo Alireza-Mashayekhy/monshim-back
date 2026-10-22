@@ -3,7 +3,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-import { Field, FieldError, FieldLabel } from '../ui/field';
+import { Field, FieldDescription, FieldError, FieldLabel } from '../ui/field';
 
 export type RHFInputProps = React.ComponentProps<'input'> & {
   name: string;
@@ -11,6 +11,8 @@ export type RHFInputProps = React.ComponentProps<'input'> & {
   isRequired?: boolean;
   startIcon?: React.ReactNode;
   endIcon?: React.ReactNode;
+  description?: string;
+  helperText?: string;
 };
 
 export default function RHFInput({
@@ -21,6 +23,8 @@ export default function RHFInput({
   endIcon,
   className,
   placeholder,
+  description,
+  helperText,
   ...other
 }: RHFInputProps) {
   const { control } = useFormContext();
@@ -62,6 +66,9 @@ export default function RHFInput({
               </div>
             )}
           </div>
+          {!fieldState.invalid && (description || helperText) && (
+            <FieldDescription>{description ?? helperText}</FieldDescription>
+          )}
           {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
         </Field>
       )}
