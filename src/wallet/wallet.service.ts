@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getPagination } from 'src/common/query';
+import { ZohalService } from 'src/common/services/zohal.service';
+import { User } from 'src/users/entities/user.entity';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { CreateCardDto } from './dto/create-card.dto';
@@ -35,7 +37,10 @@ export class WalletService {
     private transactionRepo: Repository<Transaction>,
     @InjectRepository(BankCard)
     private bankCardRepo: Repository<BankCard>,
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
     private dataSource: DataSource,
+    private zohalService: ZohalService,
   ) {}
 
   // ==================== کیف پول ====================
@@ -594,6 +599,24 @@ export class WalletService {
     if (existing) {
       throw new BadRequestException('این شماره کارت قبلاً ثبت شده است');
     }
+
+    // نرمال‌سازی شبا به حروف بزرگ بدون فاصله
+    dto.shebaNumber = String(dto.shebaNumber ?? '')
+      .trim()
+      .toUpperCase()
+      .replace(/[\s\-]/g, '');
+
+    // استعلام شبا و احراز هویت صاحب حساب از طریق زحل
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+
+    await this.zohalService.verifyIbanOwnership({
+      iban: dto.shebaNumber,
+      userFullName: user.fullName,
+      userPhone: user.phone,
+    });
 
     // اگر کاربر کارتی ندارد، این کارت پیش‌فرض شود
     const count = await this.bankCardRepo.count({ where: { userId } });
