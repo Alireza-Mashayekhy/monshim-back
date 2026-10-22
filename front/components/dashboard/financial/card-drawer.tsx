@@ -33,11 +33,9 @@ const schema = z.object({
     .regex(/^\d+$/, 'فقط اعداد مجاز هستند'),
   shebaNumber: z
     .string()
-    .optional()
-    .refine(
-      val => !val || /^IR\d{24}$/.test(val),
-      'شماره شبا باید با IR شروع شود و ۲۶ کاراکتر باشد',
-    ),
+    .min(1, 'شماره شبا الزامی است')
+    .length(26, 'شماره شبا باید ۲۶ کاراکتر باشد (IR + ۲۴ رقم)')
+    .regex(/^IR\d{24}$/, 'فرمت شماره شبا معتبر نیست (مثال: IRxxxxxxxxxxxxxxxxxxxxxxxx)'),
   ownerName: z.string().min(1, 'نام صاحب حساب الزامی است'),
 });
 
@@ -79,7 +77,14 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
   const { reset, handleSubmit } = methods;
 
   const onSubmit = (data: FormData) => {
-    addCard.mutate(data, {
+    const payload = {
+      ...data,
+      shebaNumber: String(data.shebaNumber ?? '')
+        .trim()
+        .toUpperCase()
+        .replace(/[\s\-]/g, ''),
+    };
+    addCard.mutate(payload, {
       onSuccess: () => {
         reset();
         setView('list');
@@ -192,6 +197,7 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
               name="bankName"
               label="نام بانک"
               placeholder="مثلاً ملی"
+              isRequired
             />
             <RHFInput
               name="cardNumber"
@@ -200,16 +206,23 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
               inputMode="numeric"
               maxLength={16}
               dir="ltr"
+              isRequired
             />
             <RHFInput
               name="shebaNumber"
-              label="شماره شبا (اختیاری)"
-              placeholder="IR..."
+              label="شماره شبا"
+              placeholder="IRxxxxxxxxxxxxxxxxxxxxxxxx"
+              helperText="شماره شبا باید متعلق به خودتان باشد؛ مالکیت آن از طریق زحل استعلام می‌شود"
+              dir="ltr"
+              maxLength={26}
+              isRequired
+              style={{ textTransform: 'uppercase' }}
             />
             <RHFInput
               name="ownerName"
               label="نام صاحب حساب"
               placeholder="نام و نام خانوادگی"
+              isRequired
             />
             <Button
               type="submit"

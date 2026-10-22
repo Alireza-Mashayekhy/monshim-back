@@ -25,6 +25,9 @@
 | `APP_URL` | — | origin بک‌اند برای callback درگاه. |
 | `FRONTEND_URL` | — | origin فرانت برای ریدایرکت بعد از پرداخت. |
 | `CORS_ORIGIN` | — | لیست originهای مجاز، جداشده با ویرگول. |
+| `ZOHAL_API_KEY` / `ZOHAL_TOKEN` | — | کلید زحل برای استعلام شبا (`Authorization: Bearer …`). اگر تنظیم نشود در `development` حالت mock فعال است و در `production` خطای «سرویس تنظیم نشده» برمی‌گردد. |
+| `ZOHAL_BASE_URL` | `https://service.zohal.io/api/v0` | آدرس پایهٔ API زحل (قابل override برای تست). |
+| `ZOHAL_MOCK` | `false` در prod / `true` در dev | اگر `true` باشد، استعلام شبا بدون تماس با زحل تایید می‌شود (فقط برای توسعه). |
 
 ## نکته‌های عملیاتی
 

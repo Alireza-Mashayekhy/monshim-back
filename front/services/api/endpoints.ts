@@ -10,6 +10,7 @@ export const endpoints = {
     logout: '/auth/logout',
     refresh: '/auth/refresh',
     changePassword: '/auth/change-password',
+    requestChangePasswordCode: '/auth/change-password/request-code',
   },
 
   users: {
@@ -97,6 +98,8 @@ export const endpoints = {
   settings: {
     get: '/admin/settings',
     update: '/admin/settings',
+    public: '/settings/public',
+    paymentConfig: '/settings/payment-config',
   },
 
   adminTransactions: {

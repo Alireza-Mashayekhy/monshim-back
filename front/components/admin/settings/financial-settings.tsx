@@ -19,12 +19,19 @@ export default function FinancialSettings() {
 
   const [totalAmountPercent, setTotalAmountPercent] = useState('');
 
+  const [commissionBase, setCommissionBase] = useState<'total' | 'deposit'>(
+    'total',
+  );
+
   useEffect(() => {
     if (!data) return;
 
     setDepositPercent(String(data?.data?.depositPercent));
 
     setTotalAmountPercent(String(data?.data?.commissionPercent));
+    setCommissionBase(
+      (data?.data?.commissionBase as 'total' | 'deposit') ?? 'total',
+    );
   }, [data]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -33,7 +40,8 @@ export default function FinancialSettings() {
     updateMutation.mutate({
       depositPercent: Number(depositPercent),
       commissionPercent: Number(totalAmountPercent),
-    });
+      commissionBase,
+    } as any);
   };
 
   if (isLoading) {
@@ -101,6 +109,26 @@ export default function FinancialSettings() {
 
             <p className="text-xs text-muted-foreground">
               درصدی که از مبلغ کل رزرو محاسبه می‌شود.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>مبنای کمیسیون</Label>
+
+            <select
+              value={commissionBase}
+              onChange={e =>
+                setCommissionBase(e.target.value as "total" | "deposit")
+              }
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            >
+              <option value="total">درصد از مبلغ خدمت</option>
+              <option value="deposit">درصد از بیعانه</option>
+            </select>
+
+            <p className="text-xs text-muted-foreground">
+              اگر «از بیعانه» انتخاب شود، کمیسیون فقط روی بیعانه محاسبه می‌شود؛
+              در غیر این صورت روی کل مبلغ خدمت (مثل رزرو آنلاین).
             </p>
           </div>
         </div>
