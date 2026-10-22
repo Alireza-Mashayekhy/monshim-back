@@ -126,16 +126,23 @@ export class AuthService {
     return { message: 'ورود با موفقیت انجام شد', data: { newUser: false } };
   }
 
+  async requestChangePasswordOtp(userId: number) {
+    const user = await this.usersService.findOne(userId);
+    if (!user || !user.phone) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+    // ارسال کد OTP به شمارهٔ خود کاربر
+    return this.otpService.sendOtp(user.phone);
+  }
+
   async changePassword(userId: number, dto: ChangePasswordDto) {
-    const user = await this.usersService.findByIdWithPassword(userId);
-    if (!user || !user.password) {
-      throw new BadRequestException('برای این حساب رمز عبور تنظیم نشده است');
+    const user = await this.usersService.findOne(userId);
+    if (!user || !user.phone) {
+      throw new NotFoundException('کاربر یافت نشد');
     }
 
-    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
-    if (!isMatch) {
-      throw new BadRequestException('رمز عبور فعلی صحیح نیست');
-    }
+    // تأیید کد OTP (مثل لاگین) - کد مصرف می‌شود
+    await this.otpService.verifyOtp(user.phone, dto.code);
 
     const hashed = await bcrypt.hash(dto.newPassword, 10);
     await this.usersService.updatePassword(userId, hashed);

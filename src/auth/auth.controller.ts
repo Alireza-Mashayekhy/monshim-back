@@ -76,6 +76,14 @@ export class AuthController {
     return this.authService.loginWithPassword(dto, response);
   }
 
+  @Post('/change-password/request-code')
+  @UseGuards(AuthGuard)
+  requestChangePasswordCode(
+    @Req() request: Request & { user: { id: number } },
+  ) {
+    return this.authService.requestChangePasswordOtp(request.user.id);
+  }
+
   @Post('/change-password')
   @UseGuards(AuthGuard)
   changePassword(
