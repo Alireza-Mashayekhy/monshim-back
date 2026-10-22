@@ -10,6 +10,7 @@ export const endpoints = {
     logout: '/auth/logout',
     refresh: '/auth/refresh',
     changePassword: '/auth/change-password',
+    requestChangePasswordCode: '/auth/change-password/request-code',
   },
 
   users: {

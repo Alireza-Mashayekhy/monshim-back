@@ -14,6 +14,7 @@ import {
   logout,
   refreshSession,
   registerBarber,
+  requestChangePasswordCode,
   sendOtp,
   signUp,
   verifyOtp,
@@ -130,4 +131,8 @@ export function useLogout() {
 
 export function useChangePassword() {
   return useMutation({ mutationFn: changePassword });
+}
+
+export function useRequestChangePasswordCode() {
+  return useMutation({ mutationFn: requestChangePasswordCode });
 }

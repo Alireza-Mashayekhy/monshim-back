@@ -39,10 +39,12 @@ export async function loginWithPassword(dto: LoginWithPasswordDto) {
   return data;
 }
 
-export async function changePassword(dto: {
-  currentPassword: string;
-  newPassword: string;
-}) {
+export async function requestChangePasswordCode() {
+  const { data } = await api.post(endpoints.auth.requestChangePasswordCode);
+  return data;
+}
+
+export async function changePassword(dto: { newPassword: string; code: string }) {
   const { data } = await api.post(endpoints.auth.changePassword, dto);
 
   return data;

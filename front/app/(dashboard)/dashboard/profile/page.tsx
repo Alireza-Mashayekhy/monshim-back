@@ -7,9 +7,11 @@ import {
   CheckCircle2,
   Clock3,
   Copy,
+  KeyRound,
   LogOut,
   Pencil,
   Share2,
+  ShieldCheck,
   Store,
   User,
   UsersRound,
@@ -25,6 +27,7 @@ import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import { BasicInfoDrawer } from '@/components/dashboard/profile/basic-info-drawer';
 import PortfolioManager from '@/components/dashboard/profile/portfolio-manager';
 import { SalonInfoDrawer } from '@/components/dashboard/profile/salon-info-drawer';
+import { ChangePasswordModal } from '@/components/pages/profile/change-password-modal';
 import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
@@ -70,6 +73,7 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [basicInfoDrawerOpen, setBasicInfoDrawerOpen] = useState(false);
   const [salonInfoDrawerOpen, setSalonInfoDrawerOpen] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const logoutMutation = useLogout();
   const router = useRouter();
 
@@ -356,6 +360,25 @@ export default function ProfilePage() {
           </AppCard>
           <PortfolioManager images={profile?.data?.portfolioImages} />
           <AppCard>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <ShieldCheck size={18} className="text-primary-600" />
+                امنیت حساب
+              </h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              برای تغییر رمز عبور، رمز جدید را وارد کنید و با کد پیامکی تایید کنید.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={() => setShowPasswordModal(true)}
+            >
+              <KeyRound size={16} />
+              تغییر رمز عبور
+            </Button>
+          </AppCard>
+          <AppCard>
             <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
               <Share2 size={18} className="text-primary-600" />
               کد معرف شما
@@ -560,6 +583,10 @@ export default function ProfilePage() {
       <SalonInfoDrawer
         open={salonInfoDrawerOpen}
         onOpenChange={setSalonInfoDrawerOpen}
+      />
+      <ChangePasswordModal
+        open={showPasswordModal}
+        onOpenChange={setShowPasswordModal}
       />
     </DashboardShell>
   );
