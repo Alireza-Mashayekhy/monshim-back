@@ -24,8 +24,8 @@ const schema = z.object({
   amount: z
     .string()
     .min(1, 'مبلغ الزامی است')
-    .refine(val => parseFloat(val.replace(/,/g, '')) >= 200000, {
-      message: 'حداقل مبلغ برداشت ۲۰۰,۰۰۰ تومان است',
+    .refine(val => parseFloat(val.replace(/,/g, '')) >= 1, {
+      message: 'حداقل مبلغ برداشت ۱ تومان است',
     }),
   cardId: z.string().min(1, 'انتخاب کارت الزامی است'),
 });
@@ -54,9 +54,19 @@ export function WithdrawDrawer({
     },
   });
 
-  const { reset, watch, handleSubmit } = methods;
+  const { reset, watch, handleSubmit, setValue } = methods;
   const amountValue = watch('amount');
   const parsedAmount = parseFloat(amountValue?.replace(/,/g, '') || '0');
+
+  const handleFillFullAmount = () => {
+    if (balance > 0) {
+      // کل موجودی را بدون اعشار در اینپوت بگذار (RHFNumberInput خودش فرمت می‌کند)
+      setValue('amount', String(Math.floor(balance)), {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  };
 
   const onSubmit = (data: FormData) => {
     withdraw.mutate(
@@ -98,18 +108,31 @@ export function WithdrawDrawer({
             label="مبلغ (تومان)"
             placeholder="مثلاً ۵۰۰٬۰۰۰"
             outputType="string"
-            min={200000}
+            min={1}
             max={9999999999}
           />
 
-          <div className="text-sm text-gray-500 text-center">
-            موجودی قابل برداشت: {formatPrice(balance)} تومان
-            {parsedAmount > balance && (
-              <p className="text-red-500 text-xs mt-1">
-                مبلغ بیشتر از موجودی است
-              </p>
-            )}
+          <div className="flex items-center justify-between gap-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5">
+            <span className="text-xs text-gray-500">
+              موجودی: <span className="font-bold text-gray-800">{formatPrice(balance)} تومان</span>
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs shrink-0"
+              onClick={handleFillFullAmount}
+              disabled={balance <= 0}
+            >
+              کل مبلغ
+            </Button>
           </div>
+
+          {parsedAmount > balance && (
+            <p className="text-red-500 text-xs text-center">
+              مبلغ بیشتر از موجودی است
+            </p>
+          )}
 
           {cardsLoading ? (
             <Skeleton className="h-12 w-full" />
@@ -133,7 +156,7 @@ export function WithdrawDrawer({
             disabled={
               withdraw.isPending ||
               parsedAmount > balance ||
-              parsedAmount < 200000
+              parsedAmount < 1
             }
           >
             {withdraw.isPending ? 'در حال ثبت...' : 'ثبت درخواست برداشت'}
