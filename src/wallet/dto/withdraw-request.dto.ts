@@ -9,7 +9,7 @@ import {
 
 export class WithdrawRequestDto {
   @IsNumber()
-  @Min(200000, { message: 'حداقل مبلغ برداشت ۲۰۰,۰۰۰ تومان است' })
+  @Min(1, { message: 'حداقل مبلغ برداشت ۱ تومان است' })
   amount: number;
 
   @IsString()
