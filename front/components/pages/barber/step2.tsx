@@ -16,6 +16,7 @@ import {
 } from '@/lib/jalali';
 import { formatPrice } from '@/lib/utils';
 import { Barber, Service } from '@/services/features/barber/types';
+import { usePaymentConfig } from '@/services/features/settings/hooks';
 
 interface Step2BookConfirmProps {
   barber: Barber;
@@ -70,12 +71,17 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
     0,
   );
 
-  // کمیسیون سایت: ۱۰٪ بیشترین مبلغ خدمات انتخاب‌شده (نه ۱۰٪ جمع کل)
+  // کمیسیون سایت: درصدی از بیشترین مبلغ خدمات انتخاب‌شده (پیش‌فرض ۱۰٪)
+  // مثل لینک بیعانه، درصد از تنظیمات سایت خوانده می‌شود تا یکسان باشد
+  const { data: paymentConfig } = usePaymentConfig();
+  const commissionPercent = paymentConfig?.commissionPercent ?? 10;
   const maxServicePrice = selectedServices.reduce(
     (max, s) => Math.max(max, Number(s.price)),
     0,
   );
-  const commissionAmount = Math.round(maxServicePrice * 0.1);
+  const commissionAmount = Math.round(
+    (maxServicePrice * commissionPercent) / 100,
+  );
   // مبلغ قابل پرداخت = مجموع خدمات + کمیسیون سایت
   const totalPayable = totalPrice + commissionAmount;
 
@@ -270,7 +276,7 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
 
             <div className="flex items-center justify-between">
               <span className="text-gray-500">
-                کمیسیون سایت (۱۰٪ بیشترین خدمت)
+                کمیسیون سایت ({toFa(commissionPercent)}٪ بیشترین خدمت)
               </span>
               <span className="font-bold text-primary text-base">
                 {toFa(formatPrice(commissionAmount))} تومان

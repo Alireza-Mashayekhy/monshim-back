@@ -97,6 +97,8 @@ export const endpoints = {
   settings: {
     get: '/admin/settings',
     update: '/admin/settings',
+    public: '/settings/public',
+    paymentConfig: '/settings/payment-config',
   },
 
   adminTransactions: {

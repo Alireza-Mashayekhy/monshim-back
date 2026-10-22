@@ -2,7 +2,7 @@
  * محاسبهٔ مبلغ لینک بیعانه.
  *
  * قاعدهٔ کسب‌وکار (همان قاعدهٔ رزرو آنلاین):
- *   مبلغی که مشتری می‌پردازد = بیعانه + ۱۰٪ کمیسیون سایت
+ *   مبلغی که مشتری می‌پردازد = بیعانه + کمیسیون سایت
  *
  * پیش از این لینک بیعانه فقط «مبلغ بیعانه» را از مشتری می‌گرفت و کمیسیون
  * سایت هیچ‌جا گرفته نمی‌شد؛ یعنی مشتری که از طریق لینک بیعانه رزرو می‌کرد
@@ -15,11 +15,14 @@
 
 export const COMMISSION_RATE = 0.1;
 export const DEFAULT_DEPOSIT_PERCENT = 30;
+export const DEFAULT_COMMISSION_PERCENT = 10;
+
+export type CommissionBase = 'total' | 'deposit';
 
 export interface DepositAmounts {
   /** مبلغ بیعانه که به کیف پول آرایشگر می‌رود */
   depositAmount: number;
-  /** ۱۰٪ کمیسیون سایت روی ارزش خدمت */
+  /** کمیسیون سایت */
   commissionAmount: number;
   /** مبلغی که مشتری در درگاه پرداخت می‌کند */
   amountToPay: number;
@@ -32,7 +35,12 @@ export interface DepositAmountInput {
   depositPrice?: number | string | null;
   /** درصد بیعانهٔ سایت وقتی مبلغ ثابت وجود ندارد */
   depositPercent?: number | string | null;
+  /** درصد کمیسیون سایت (۰ تا ۱۰۰) - روش جدید */
+  commissionPercent?: number | string | null;
+  /** نرخ کمیسیون قدیمی (۰ تا ۱) برای سازگاری */
   commissionRate?: number;
+  /** مبنای کمیسیون: total (درصدِ ارزش خدمت) یا deposit (درصدِ بیعانه) */
+  commissionBase?: CommissionBase | string | null;
 }
 
 function toAmount(value: number | string | null | undefined): number {
@@ -60,16 +68,37 @@ export function computeDepositAmounts(
     Math.min(Math.max(deposit, 0), servicePrice),
   );
 
-  const rate =
+  // تعیین نرخ کمیسیون: اولویت با commissionPercent جدید، سپس commissionRate قدیمی
+  let rate: number;
+  const commissionPercentValue = toAmount(input.commissionPercent);
+  if (commissionPercentValue > 0 && commissionPercentValue <= 100) {
+    rate = commissionPercentValue / 100;
+  } else if (
     typeof input.commissionRate === 'number' &&
     Number.isFinite(input.commissionRate) &&
     input.commissionRate >= 0
-      ? input.commissionRate
-      : COMMISSION_RATE;
+  ) {
+    rate = input.commissionRate;
+  } else if (
+    input.commissionPercent != null &&
+    commissionPercentValue === 0
+  ) {
+    // commissionPercent = 0 یعنی کمیسیون صفر
+    rate = 0;
+  } else {
+    rate = COMMISSION_RATE;
+  }
 
-  // همان قاعدهٔ رزرو آنلاین برای یک خدمت: ۱۰٪ ارزش خدمت.
+  const base =
+    input.commissionBase === 'deposit' ? 'deposit' : 'total';
+
+  // همان قاعدهٔ رزرو آنلاین برای یک خدمت: درصدی از ارزش خدمت یا بیعانه
   const commissionAmount =
-    depositAmount > 0 ? Math.round(servicePrice * rate) : 0;
+    depositAmount > 0
+      ? base === 'deposit'
+        ? Math.round(depositAmount * rate)
+        : Math.round(servicePrice * rate)
+      : 0;
 
   return {
     depositAmount,

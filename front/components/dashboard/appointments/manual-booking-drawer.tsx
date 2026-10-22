@@ -63,6 +63,7 @@ import type {
   ClubCustomerQuery,
 } from '@/services/features/club/types';
 import { useMyServices } from '@/services/features/services/hooks';
+import { usePaymentConfig } from '@/services/features/settings/hooks';
 import { useCurrentUserSubscription } from '@/services/features/subscription/hooks';
 
 import { NOT_APPROVED_MESSAGE, NotApprovedAlert } from './not-approved-alert';
@@ -224,23 +225,39 @@ export function ManualBookingDrawer({
 
   /**
    * پیش‌نمایش مبلغ لینک بیعانه.
-   * فقط وقتی مبلغ بیعانهٔ ثابتِ خدمت تعیین شده باشد عدد دقیق نشان می‌دهیم؛
-   * در غیر این صورت درصد بیعانه در تنظیمات سایت است و عدد ثابتی در فرانت نیست.
-   * کمیسیون همیشه ۱۰٪ ارزش خدمت است (همان قاعدهٔ بک‌اند).
+   * همان قاعدهٔ بک‌اند: بیعانه + کمیسیون سایت.
+   * بیعانه یا مبلغ ثابت خدمت است یا درصد تنظیمات سایت؛ کمیسیون هم از تنظیمات
+   * خوانده می‌شود تا مثل رزرو آنلاین محاسبه شود (پیش‌فرض ۱۰٪ ارزش خدمت).
    */
+  const { data: paymentConfig } = usePaymentConfig();
+  const depositPercent = paymentConfig?.depositPercent ?? 30;
+  const commissionPercent = paymentConfig?.commissionPercent ?? 10;
+  const commissionBase = paymentConfig?.commissionBase ?? 'total';
+
   const selectedService = services?.data?.find(item => item.id === serviceId);
-  const fixedDeposit = Number(selectedService?.depositPrice ?? 0);
-  const depositPreview =
-    selectedService &&
-    Number.isFinite(fixedDeposit) &&
-    fixedDeposit > 0
-      ? {
-          deposit: Math.round(
-            Math.min(fixedDeposit, Number(selectedService.price)),
-          ),
-          commission: Math.round(Number(selectedService.price) * 0.1),
-        }
-      : null;
+  const depositPreview = (() => {
+    if (!selectedService) return null;
+    const servicePrice = Number(selectedService.price);
+    if (!Number.isFinite(servicePrice) || servicePrice <= 0) return null;
+    const fixedDeposit = Number(selectedService?.depositPrice ?? 0);
+    let deposit: number;
+    if (Number.isFinite(fixedDeposit) && fixedDeposit > 0) {
+      deposit = Math.round(Math.min(fixedDeposit, servicePrice));
+    } else {
+      const pct =
+        Number.isFinite(Number(depositPercent)) && Number(depositPercent) > 0
+          ? Number(depositPercent)
+          : 30;
+      deposit = Math.round((servicePrice * pct) / 100);
+      deposit = Math.min(deposit, servicePrice);
+    }
+    const commission =
+      commissionBase === 'deposit'
+        ? Math.round((deposit * commissionPercent) / 100)
+        : Math.round((servicePrice * commissionPercent) / 100);
+    if (deposit <= 0) return null;
+    return { deposit, commission };
+  })();
   const { data: barberProfile } = useMyBarberProfile();
   const addCustomer = useAddClubCustomer();
   const createManualBooking = useCreateManualBooking();
@@ -902,7 +919,7 @@ export function ManualBookingDrawer({
                     </span>
                   ) : (
                     <span>
-                      مبلغ پرداختی مشتری = بیعانه + ۱۰٪ کمیسیون سایت
+                      مبلغ پرداختی مشتری = بیعانه + {toPersianDigits(commissionPercent)}٪ کمیسیون سایت
                     </span>
                   )
                 ) : (
@@ -920,7 +937,7 @@ export function ManualBookingDrawer({
                 {effectiveDepositLink ? (
                   <>
                     <li>
-                      • مبلغی که مشتری می‌پردازد = بیعانه + ۱۰٪ کمیسیون سایت؛
+                      • مبلغی که مشتری می‌پردازد = بیعانه + {toPersianDigits(commissionPercent)}٪ کمیسیون سایت؛
                       کمیسیون به کیف پول شما اضافه نمی‌شود.
                     </li>
                     <li>
