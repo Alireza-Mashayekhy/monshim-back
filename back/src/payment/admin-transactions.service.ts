@@ -649,13 +649,14 @@ export class AdminTransactionsService {
     if (isDepositLink) {
       const depositAmount = this.readAmount(metadata?.depositAmount);
       const explicitCommission = this.readAmount(metadata?.commissionAmount);
+      const totalServicePrice = this.getServiceAmount(metadata);
 
       if (depositAmount !== null || explicitCommission !== null) {
         const commissionAmount = explicitCommission ?? 0;
 
         return {
           commissionAmount: this.roundAmount(commissionAmount),
-          serviceAmount: null,
+          serviceAmount: totalServicePrice,
           barberAmount: this.roundAmount(
             depositAmount ?? Math.max(0, amount - commissionAmount),
           ),
@@ -664,23 +665,25 @@ export class AdminTransactionsService {
 
       return {
         commissionAmount: 0,
-        serviceAmount: null,
+        serviceAmount: totalServicePrice,
         barberAmount: amount,
       };
     }
 
     const serviceAmount = this.getServiceAmount(metadata);
+    const explicitBarberDeposit = this.readAmount(metadata?.depositAmount);
     const explicitCommission = this.readAmount(metadata?.commissionAmount);
+    const barberBase = explicitBarberDeposit ?? serviceAmount;
     const commissionAmount =
       explicitCommission ??
-      (serviceAmount === null ? null : Math.max(0, amount - serviceAmount));
+      (barberBase === null ? null : Math.max(0, amount - barberBase));
 
     return {
       commissionAmount:
         commissionAmount === null ? null : this.roundAmount(commissionAmount),
       serviceAmount,
       barberAmount:
-        serviceAmount ??
+        barberBase ??
         (commissionAmount === null
           ? null
           : Math.max(0, amount - commissionAmount)),

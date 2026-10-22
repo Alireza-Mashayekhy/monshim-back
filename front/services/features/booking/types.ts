@@ -17,6 +17,7 @@ export interface Booking {
   barberNote?: string | null;
   customerNote?: string | null;
   sendDepositLink?: boolean;
+  depositToken?: string | null;
   depositPaidAt?: string | null;
   depositRequestedAt?: string | null;
   onlinePaidAt?: string | null;

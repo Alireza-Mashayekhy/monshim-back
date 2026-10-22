@@ -90,6 +90,25 @@ const nextConfig: NextConfig = {
   // حذف هدر اضافی از پاسخ‌ها
   poweredByHeader: false,
 
+  async rewrites() {
+    const proxyTarget = process.env.API_PROXY_TARGET?.trim().replace(
+      /\/+$/,
+      '',
+    );
+    if (!proxyTarget) return [];
+
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${proxyTarget}/api/:path*`,
+      },
+      {
+        source: '/uploads/:path*',
+        destination: `${proxyTarget}/uploads/:path*`,
+      },
+    ];
+  },
+
   /**
    * ⚠️ مسیرهای زیر فقط پوشه‌های asset هستند و هیچ route/pageای با آن‌ها هم‌نام
    * نیست؛ هرگز نباید `headers()` را روی مسیرهایی که page دارند (مثل `/home`)

@@ -2,8 +2,10 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import {
+  getDepositInvoice,
   getPaymentStatus,
   payBooking,
+  payDepositByToken,
   payPublicPage,
   paySubscription,
 } from './api';
@@ -62,6 +64,34 @@ export const usePayBooking = () => {
     onError: (error: any) => {
       toast.error(
         error.response?.data?.message || 'خطا در ایجاد درخواست پرداخت نوبت',
+      );
+    },
+  });
+};
+
+export const useDepositInvoice = (token: string | null) => {
+  return useQuery({
+    queryKey: ['deposit-invoice', token],
+    queryFn: () => getDepositInvoice(token!),
+    enabled: Boolean(token),
+    staleTime: 0,
+    retry: false,
+  });
+};
+
+export const usePayDeposit = (token: string) => {
+  return useMutation({
+    mutationFn: () => payDepositByToken(token),
+    onSuccess: response => {
+      const paymentUrl = response.data?.paymentUrl;
+      if (paymentUrl) {
+        toast.info('در حال انتقال به درگاه امن پرداخت...');
+        window.location.href = paymentUrl;
+      }
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'خطا در اتصال به درگاه پرداخت',
       );
     },
   });

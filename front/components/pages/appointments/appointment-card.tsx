@@ -38,6 +38,10 @@ import {
 } from '@/constants/booking';
 import { getDepositDeadlineLabel } from '@/lib/deposit-deadline';
 import { toFa } from '@/lib/jalali';
+import {
+  computeServicePricing,
+  extractBaseDepositToken,
+} from '@/lib/order-pricing';
 import { cn, formatPrice, getFullImageUrl } from '@/lib/utils';
 import { useMyBarberReviews } from '@/services/features/barber/hooks';
 import { useCancelBooking } from '@/services/features/booking/hooks';
@@ -107,9 +111,13 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
   const address = booking.barber?.address;
   const serviceName = booking.service?.name;
   const duration = booking.service?.durationMinutes;
+  const servicePricing = computeServicePricing({
+    price: booking.price ?? booking.service?.price ?? 0,
+    depositPrice: booking.service?.depositPrice ?? null,
+  });
   const commission =
-    booking.service?.price != null
-      ? Math.round(Number(booking.service.price) * 0.1)
+    servicePricing.payableAmount > 0
+      ? Math.round(servicePricing.payableAmount * 0.1)
       : 0;
   /**
    * کمیسیون فقط وقتی به مشتری مربوط است که آنلاین پرداخت کرده باشد
@@ -119,18 +127,13 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
   const showCommission =
     commission > 0 && (!!booking.onlinePaidAt || !!booking.depositPaidAt);
   /**
-   * لینک مستقیم پرداخت بیعانه از پنل مشتری.
-   *
-   * همان توکنی است که در پیامک فرستاده می‌شود؛ اگر مشتری پیامک را گم کند
-   * می‌تواند از همین‌جا مستقیم به درگاه برود. اگر آدرس API در بیلد ست نشده
-   * باشد، فقط متن راهنما نمایش داده می‌شود.
+   * لینک صفحه صورت‌حساب و پرداخت بیعانه.
    */
-  const depositPayUrl = (() => {
-    const token = booking.depositToken?.trim();
-    const apiBase = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
-    if (!token || !apiBase) return null;
+  const depositInvoiceHref = (() => {
+    const baseToken = extractBaseDepositToken(booking.depositToken);
+    if (!baseToken) return null;
 
-    return `${apiBase}/payment/deposit/${token}`;
+    return `/deposit/${encodeURIComponent(baseToken)}`;
   })();
   const depositUnpaid =
     !!booking.sendDepositLink && !booking.depositPaidAt;
@@ -252,20 +255,30 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
               </span>
             </p>
 
-            {depositPayUrl ? (
-              <a
-                href={depositPayUrl}
+            {depositInvoiceHref ? (
+              <Link
+                href={depositInvoiceHref}
                 className="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-[11px] font-black text-white transition hover:bg-blue-700"
               >
                 <CreditCard size={13} />
-                پرداخت بیعانه
-              </a>
+                مشاهده صورت‌حساب و پرداخت بیعانه
+              </Link>
             ) : (
               <p className="text-[10px] font-semibold text-blue-700">
-                لینک پرداخت برای شما پیامک شده است.
+                لینک صورت‌حساب و پرداخت برای شما پیامک شده است.
               </p>
             )}
           </div>
+        )}
+
+        {booking.depositPaidAt && depositInvoiceHref && (
+          <Link
+            href={depositInvoiceHref}
+            className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px] font-bold text-emerald-800 transition hover:bg-emerald-50"
+          >
+            <span>بیعانه پرداخت شده است</span>
+            <span className="underline underline-offset-2">مشاهده رسید صورت‌حساب</span>
+          </Link>
         )}
 
         {/* آرایشگاه و خدمت */}

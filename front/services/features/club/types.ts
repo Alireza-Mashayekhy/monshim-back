@@ -45,7 +45,8 @@ export const REMINDER_HOURS_OPTIONS = [1, 2, 4, 6, 12, 24] as const;
 export interface CreateManualBookingDto {
   /** شناسه مشتری باشگاه */
   clubCustomerId: string;
-  serviceId: string;
+  serviceId?: string;
+  serviceIds?: string[];
   /** YYYY-MM-DD */
   date: string;
   /** HH:mm */

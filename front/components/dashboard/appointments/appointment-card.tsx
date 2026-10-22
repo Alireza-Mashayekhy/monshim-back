@@ -8,6 +8,7 @@ import {
   CheckCheck,
   ChevronLeft,
   Clock3,
+  Copy,
   Link2,
   NotebookPen,
   Phone,
@@ -16,6 +17,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import {
   AlertDialog,
@@ -36,6 +38,7 @@ import {
 } from '@/constants/booking';
 import { getDepositDeadlineLabel } from '@/lib/deposit-deadline';
 import { toISODate } from '@/lib/jalali';
+import { extractBaseDepositToken } from '@/lib/order-pricing';
 import { cn, formatPrice, toPersianDigits } from '@/lib/utils';
 import {
   useResendDepositLink,
@@ -91,6 +94,18 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const slotStarted = hasSlotStarted(booking.date, time);
 
   const depositDeadline = getDepositDeadlineLabel(booking.depositRequestedAt);
+  const baseDepositToken = extractBaseDepositToken(booking.depositToken);
+
+  const handleCopyInvoiceLink = async () => {
+    if (!baseDepositToken || typeof window === 'undefined') return;
+    const url = `${window.location.origin}/deposit/${encodeURIComponent(baseDepositToken)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('لینک صورت‌حساب در کلیپ‌بورد کپی شد');
+    } catch {
+      toast.error('کپی لینک با خطا مواجه شد');
+    }
+  };
 
   return (
     <div
@@ -278,6 +293,17 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                   className={resendDepositLink.isPending ? 'animate-spin' : ''}
                 />
                 ارسال مجدد لینک
+              </button>
+            ) : null}
+
+            {baseDepositToken ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-black text-slate-700 transition hover:border-primary/40 hover:text-primary"
+                onClick={() => void handleCopyInvoiceLink()}
+              >
+                <Copy size={11} />
+                کپی لینک صورت‌حساب
               </button>
             ) : null}
           </div>

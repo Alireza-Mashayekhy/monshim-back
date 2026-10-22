@@ -15,6 +15,7 @@ import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { DEPOSIT_TOKEN_BYTES } from 'src/common/constants/constants';
 import { getPagination } from 'src/common/query';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
+import { extractBaseDepositToken } from 'src/payment/deposit-amount';
 import {
   Payment,
   PaymentPurpose,
@@ -1131,22 +1132,41 @@ export class BookingsService {
 
     const sendReminder = smsEligible && (dto.sendSmsReminder ?? false);
 
-    const service = await this.serviceRepo.findOne({
-      where: { id: dto.serviceId },
-    });
+    const requestedServiceIds =
+      dto.serviceIds && dto.serviceIds.length > 0
+        ? [...new Set(dto.serviceIds)]
+        : dto.serviceId
+          ? [dto.serviceId]
+          : [];
 
-    if (!service) {
+    if (!requestedServiceIds.length) {
+      throw new BadRequestException('حداقل یک خدمت باید انتخاب شود');
+    }
+
+    const foundServices = await this.serviceRepo.find({
+      where: { id: In(requestedServiceIds) },
+    });
+    const serviceById = new Map(foundServices.map(item => [item.id, item]));
+    const services = requestedServiceIds.map(id => serviceById.get(id));
+
+    if (services.some(item => !item)) {
       throw new NotFoundException('سرویس مورد نظر یافت نشد');
     }
 
-    if (Number(service.barberId) !== Number(barberUserId)) {
+    const orderedServices = services as Service[];
+
+    if (
+      orderedServices.some(
+        item => Number(item.barberId) !== Number(barberUserId),
+      )
+    ) {
       throw new BadRequestException(
         'خدمت انتخاب‌شده متعلق به شما نیست. لطفاً لیست خدمات را بازخوانی کنید.',
       );
     }
 
-    if (!service.isActive) {
-      throw new BadRequestException('این خدمت غیرفعال شده است');
+    if (orderedServices.some(item => !item.isActive)) {
+      throw new BadRequestException('یکی از خدمات انتخاب‌شده غیرفعال شده است');
     }
 
     const toMinutes = (time: string) => {
@@ -1155,8 +1175,17 @@ export class BookingsService {
       return hours * 60 + minutes;
     };
 
+    const toTimeStr = (minutes: number) =>
+      `${Math.floor(minutes / 60)
+        .toString()
+        .padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
+
+    const totalDuration = orderedServices.reduce(
+      (sum, item) => sum + item.durationMinutes,
+      0,
+    );
     const bookingStart = toMinutes(dto.time);
-    const bookingEnd = bookingStart + service.durationMinutes;
+    const bookingEnd = bookingStart + totalDuration;
 
     // ساعت کاری همان روز
     const jsDay = new Date(dto.date).getDay();
@@ -1196,8 +1225,7 @@ export class BookingsService {
       sameDayBookings.some(existing => {
         const existingStart = toMinutes(existing.time);
         const existingEnd =
-          existingStart +
-          (existing.service?.durationMinutes ?? service.durationMinutes);
+          existingStart + (existing.service?.durationMinutes ?? 30);
 
         return bookingStart < existingEnd && bookingEnd > existingStart;
       }) || hasOverlap({ start: bookingStart, end: bookingEnd }, activeHolds);
@@ -1225,46 +1253,76 @@ export class BookingsService {
       );
     }
 
-    // ایجاد رزرو مستقیماً با استاتوس CONFIRMED
-    const booking = this.bookingRepo.create({
-      customerId: member.customerId,
-      barberId: barber.id,
-      serviceId: dto.serviceId,
-      date: dto.date,
-      time: dto.time,
-      price: service.price,
-      note: dto.customerNote ?? '',
-      status: BookingStatus.CONFIRMED,
-      // آرایشگر خودش این نوبت را ساخته است؛ ساعت از همین لحظه اشغال است.
-      holdsSlot: true,
-      barberNote: dto.barberNote?.trim() || null,
-      customerNote: dto.customerNote?.trim() || null,
-      sendDepositLink: sendDeposit,
-      // مهلت پرداخت بیعانه از همین لحظه شروع می‌شود
-      depositRequestedAt: sendDeposit ? new Date() : null,
-      sendSmsReminder: sendReminder,
-      reminderHours: sendReminder ? (dto.reminderHours ?? null) : null,
+    const baseDepositToken = sendDeposit ? this.createDepositToken() : null;
+    const depositRequestedAt = sendDeposit ? new Date() : null;
+
+    // ایجاد همهٔ خدمات انتخاب‌شده به‌صورت پشت‌سرهم با استاتوس CONFIRMED
+    let cursor = bookingStart;
+    const rowsToCreate = orderedServices.map((serviceItem, index) => {
+      const slotTime = toTimeStr(cursor);
+      cursor += serviceItem.durationMinutes;
+
+      return this.bookingRepo.create({
+        customerId: member.customerId,
+        barberId: barber.id,
+        serviceId: serviceItem.id,
+        date: dto.date,
+        time: slotTime,
+        price: serviceItem.price,
+        note: dto.customerNote ?? '',
+        status: BookingStatus.CONFIRMED,
+        // آرایشگر خودش این نوبت را ساخته است؛ ساعت از همین لحظه اشغال است.
+        holdsSlot: true,
+        barberNote: dto.barberNote?.trim() || null,
+        customerNote: dto.customerNote?.trim() || null,
+        sendDepositLink: sendDeposit,
+        depositToken: baseDepositToken
+          ? index === 0
+            ? baseDepositToken
+            : `${baseDepositToken}:${index}`
+          : null,
+        // مهلت پرداخت بیعانه از همین لحظه شروع می‌شود
+        depositRequestedAt,
+        // فقط ردیف اول یادآوری پیامکی می‌گیرد تا مشتری چند پیامک تکراری دریافت نکند
+        sendSmsReminder: index === 0 ? sendReminder : false,
+        reminderHours:
+          index === 0 && sendReminder ? (dto.reminderHours ?? null) : null,
+      });
     });
 
-    const saved = await this.bookingRepo.save(booking);
+    const savedBookings = await this.bookingRepo.save(rowsToCreate);
 
-    await this.sendManualBookingSms(saved, barber, service, member.customerId);
+    await this.sendManualBookingSms(
+      savedBookings,
+      barber,
+      orderedServices,
+      member.customerId,
+      baseDepositToken,
+    );
 
     await this.clubService.addFromSuccessfulBooking({
       barberId: barber.id,
       customerId: member.customerId,
     });
 
-    return saved;
+    return {
+      ...savedBookings[0],
+      bookings: savedBookings,
+      depositToken: baseDepositToken,
+    };
   }
 
   private async sendManualBookingSms(
-    booking: Booking,
+    bookings: Booking[],
     barber: BarberProfile,
-    service: Service | null,
+    services: Service[],
     customerId: number,
+    baseDepositToken: string | null,
   ): Promise<void> {
     try {
+      const primary = bookings[0];
+      if (!primary) return;
+
       const customer = await this.userRepo.findOne({
         where: { id: customerId },
       });
@@ -1274,17 +1332,12 @@ export class BookingsService {
       const customerName = customer.fullName ?? 'مشتری';
       const salonName = barber.salonName ?? 'سالن شما';
 
-      if (booking.sendDepositLink) {
-        // فقط توکن را می‌فرستیم؛ دامنه و مسیر ثابت در قالب SMS.ir قرار می‌گیرد.
-        const paymentToken = this.createDepositToken();
-        booking.depositToken = paymentToken;
-
-        await this.bookingRepo.save(booking);
-
+      if (primary.sendDepositLink && baseDepositToken) {
+        // فقط توکن پایه (۲۴ کاراکتری) در پیامک قرار می‌گیرد؛ صورت‌حساب همهٔ خدمات گروه را نشان می‌دهد.
         await this.bookingSmsService.sendDepositLinkToCustomer(customer.phone, {
           customerName,
           salonName,
-          paymentToken,
+          paymentToken: baseDepositToken,
         });
 
         return;
@@ -1294,9 +1347,9 @@ export class BookingsService {
         customer.phone,
         {
           customerName,
-          serviceName: service?.name ?? 'خدمت',
-          date: booking.date,
-          time: booking.time,
+          serviceName: services.map(item => item.name).join('، ') || 'خدمت',
+          date: primary.date,
+          time: primary.time,
           salonName,
         },
       );
@@ -1393,13 +1446,42 @@ export class BookingsService {
       throw new BadRequestException('شمارهٔ تماس مشتری ثبت نشده است');
     }
 
-    const token = booking.depositToken || this.createDepositToken();
+    const existingBaseToken = extractBaseDepositToken(booking.depositToken);
+    const token = existingBaseToken || this.createDepositToken();
+    const requestedAt = new Date();
 
-    booking.depositToken = token;
-    booking.sendDepositLink = true;
-    // ارسال دوباره، مهلت پرداخت را از نو شروع می‌کند
-    booking.depositRequestedAt = new Date();
-    await this.bookingRepo.save(booking);
+    const siblingBookings = existingBaseToken
+      ? await this.bookingRepo
+          .createQueryBuilder('item')
+          .where(
+            '(item.depositToken = :exact OR item.depositToken LIKE :prefix)',
+            {
+              exact: existingBaseToken,
+              prefix: `${existingBaseToken}:%`,
+            },
+          )
+          .orderBy('item.time', 'ASC')
+          .addOrderBy('item.createdAt', 'ASC')
+          .getMany()
+      : [booking];
+
+    const activeGroup = siblingBookings.filter(
+      item =>
+        !item.depositPaidAt &&
+        (item.status === BookingStatus.PENDING ||
+          item.status === BookingStatus.CONFIRMED),
+    );
+    const targets = activeGroup.length ? activeGroup : [booking];
+
+    targets.forEach((item, index) => {
+      if (!item.depositToken) {
+        item.depositToken = index === 0 ? token : `${token}:${index}`;
+      }
+      item.sendDepositLink = true;
+      // ارسال دوباره، مهلت پرداخت را برای همهٔ خدمات این سفارش از نو شروع می‌کند
+      item.depositRequestedAt = requestedAt;
+    });
+    await this.bookingRepo.save(targets);
 
     await this.bookingSmsService.sendDepositLinkToCustomer(phone, {
       customerName: booking.customer?.fullName ?? 'مشتری',
