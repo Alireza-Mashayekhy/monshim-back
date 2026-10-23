@@ -5,10 +5,11 @@ jest.mock('@nestjs/schedule', () => ({
   CronExpression: { EVERY_10_MINUTES: '0 */10 * * * *' },
 }));
 
-import { PaymentService } from './payment.service';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
+import { SiteSettings } from 'src/settings/entities/setting.entity';
+
 import { Payment } from './entities/payment.entity';
-import { SiteSettings } from 'src/settings/entities/site-settings.entity';
+import { PaymentService } from './payment.service';
 
 describe('PaymentService deposit invoice & gateway payment flow', () => {
   const BASE_TOKEN = 'ABCDEFGH12345678abcdefgh';
@@ -107,6 +108,9 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
 
     const bookingRepo: any = {
       createQueryBuilder: jest.fn(() => bookingQb),
+      findOne: jest.fn(({ where }: any) =>
+        Promise.resolve(bookings.find(item => item.id === where.id)),
+      ),
       save: jest.fn(async (rows: Booking[]) => rows),
     };
 
@@ -150,9 +154,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
     };
 
     const settingsRepo: any = {
-      findOne: jest.fn(
-        async () => ({ commissionPercent: 10 }) as SiteSettings,
-      ),
+      findOne: jest.fn(async () => ({ commissionPercent: 10 }) as SiteSettings),
     };
 
     const walletService: any = {
@@ -180,6 +182,10 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
       }),
     };
 
+    const bookingSmsService: any = {
+      sendDepositPaidToBarber: jest.fn().mockResolvedValue(undefined),
+    };
+
     const service = new PaymentService(
       paymentRepo,
       {} as any,
@@ -191,7 +197,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
       {} as any,
       settingsRepo,
       {} as any,
-      {} as any,
+      bookingSmsService,
       {} as any,
       walletService,
       configService,
@@ -203,6 +209,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
       savedPayments,
       walletService,
       bookingQb,
+      bookingSmsService,
     };
   }
 
@@ -255,7 +262,8 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
 
   it('initiates gateway payment on button click, verifies Zibal callback, credits barber only depositAmount, and redirects to /deposit/:token receipt', async () => {
     const bookings = makeBookingsFixture();
-    const { service, walletService } = buildService(bookings);
+    const { service, walletService, bookingSmsService } =
+      buildService(bookings);
 
     const initiated = await service.initiateDepositPaymentByToken(BASE_TOKEN);
 
@@ -280,6 +288,27 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
     expect(bookings[0].depositPaidAt).toBeInstanceOf(Date);
     expect(bookings[1].depositPaidAt).toBeInstanceOf(Date);
 
+    // اطلاع پرداخت موفق فقط یک‌بار و با مشخصات نوبت به آرایشگر پیامک می‌شود.
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(bookingSmsService.sendDepositPaidToBarber).toHaveBeenCalledTimes(1);
+    expect(bookingSmsService.sendDepositPaidToBarber).toHaveBeenCalledWith(
+      '09121112233',
+      {
+        customerName: 'سارا محمدی',
+        date: '2099-05-10',
+        time: '14:00',
+      },
+    );
+
+    await service.handleCallback({
+      trackId: String(initiated.trackId),
+      success: '1',
+      status: '2',
+      orderId: initiated.orderId,
+    });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(bookingSmsService.sendDepositPaidToBarber).toHaveBeenCalledTimes(1);
+
     // Barber wallet receives ONLY 700,000 Toman (40,000 Toman commission stays with platform)
     expect(walletService.depositOnceWithManager).toHaveBeenCalledTimes(1);
     expect(walletService.depositOnceWithManager).toHaveBeenCalledWith(
@@ -301,7 +330,8 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
 
   it('queues full customer refund (deposit + commission) if salon canceled while customer was in gateway', async () => {
     const bookings = makeBookingsFixture();
-    const { service, walletService } = buildService(bookings);
+    const { service, walletService, bookingSmsService } =
+      buildService(bookings);
 
     const initiated = await service.initiateDepositPaymentByToken(BASE_TOKEN);
 
@@ -328,6 +358,8 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
         customerRefundAmount: 740_000,
       }),
     );
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(bookingSmsService.sendDepositPaidToBarber).not.toHaveBeenCalled();
   });
 
   it('rejects malformed tokens before touching database', async () => {

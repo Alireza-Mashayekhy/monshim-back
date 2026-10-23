@@ -27,6 +27,7 @@ import { BookingsService } from './booking.service';
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
+import { UpdateBookingTimeDto } from './dto/update-booking-time.dto';
 
 @Controller('bookings')
 @UseGuards(AuthGuard, RolesGuard)
@@ -104,6 +105,7 @@ export class BookingsController {
     @Query('date') date: string,
     @Query('serviceId') serviceId?: string,
     @Query('serviceIds') serviceIdsRaw?: string,
+    @Query('excludeBookingId') excludeBookingId?: string,
   ) {
     if (!barberId || !date) {
       throw new BadRequestException('باربرآیدی و تاریخ الزامی هستند');
@@ -118,6 +120,7 @@ export class BookingsController {
       barberId,
       date,
       serviceIds,
+      excludeBookingId,
     );
     return { slots };
   }
@@ -127,6 +130,22 @@ export class BookingsController {
   findOne(@Param('id') id: string, @Req() req: Request & { user: any }) {
     const user = req.user;
     return this.bookingsService.findOne(id, user.id, user.roles);
+  }
+
+  // تغییر ساعت نوبت توسط آرایشگر یا ادمین و اطلاع‌رسانی به مشتری
+  @Patch(':id/time')
+  @Roles(Role.Admin, Role.Barber)
+  updateTime(
+    @Param('id') id: string,
+    @Body() dto: UpdateBookingTimeDto,
+    @Req() req: Request & { user: any },
+  ) {
+    return this.bookingsService.updateTime(
+      id,
+      req.user.id,
+      req.user.roles,
+      dto,
+    );
   }
 
   // به‌روزرسانی وضعیت رزرو (فقط آرایشگر یا ادمین)
