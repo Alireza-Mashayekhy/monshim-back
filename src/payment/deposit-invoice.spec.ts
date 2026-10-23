@@ -184,6 +184,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
 
     const bookingSmsService: any = {
       sendDepositPaidToBarber: jest.fn().mockResolvedValue(undefined),
+      sendDepositPaidToCustomer: jest.fn().mockResolvedValue(undefined),
     };
 
     const service = new PaymentService(
@@ -288,7 +289,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
     expect(bookings[0].depositPaidAt).toBeInstanceOf(Date);
     expect(bookings[1].depositPaidAt).toBeInstanceOf(Date);
 
-    // اطلاع پرداخت موفق فقط یک‌بار و با مشخصات نوبت به آرایشگر پیامک می‌شود.
+    // اطلاع پرداخت موفق فقط یک‌بار و با مشخصات نوبت به آرایشگر و مشتری پیامک می‌شود.
     await new Promise<void>(resolve => setImmediate(resolve));
     expect(bookingSmsService.sendDepositPaidToBarber).toHaveBeenCalledTimes(1);
     expect(bookingSmsService.sendDepositPaidToBarber).toHaveBeenCalledWith(
@@ -297,6 +298,17 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
         customerName: 'سارا محمدی',
         date: '2099-05-10',
         time: '14:00',
+      },
+    );
+    expect(bookingSmsService.sendDepositPaidToCustomer).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(bookingSmsService.sendDepositPaidToCustomer).toHaveBeenCalledWith(
+      '09123456789',
+      {
+        date: '2099-05-10',
+        time: '14:00',
+        salonName: 'پیرایش VIP آریا',
       },
     );
 
@@ -308,6 +320,9 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
     });
     await new Promise<void>(resolve => setImmediate(resolve));
     expect(bookingSmsService.sendDepositPaidToBarber).toHaveBeenCalledTimes(1);
+    expect(bookingSmsService.sendDepositPaidToCustomer).toHaveBeenCalledTimes(
+      1,
+    );
 
     // Barber wallet receives ONLY 700,000 Toman (40,000 Toman commission stays with platform)
     expect(walletService.depositOnceWithManager).toHaveBeenCalledTimes(1);
@@ -360,6 +375,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
     );
     await new Promise<void>(resolve => setImmediate(resolve));
     expect(bookingSmsService.sendDepositPaidToBarber).not.toHaveBeenCalled();
+    expect(bookingSmsService.sendDepositPaidToCustomer).not.toHaveBeenCalled();
   });
 
   it('rejects malformed tokens before touching database', async () => {

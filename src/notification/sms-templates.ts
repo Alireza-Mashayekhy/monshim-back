@@ -33,6 +33,9 @@ export const SMS_TEMPLATES = {
 
   /** ✅ پرداخت موفق بیعانه از لینک — پیامک به آرایشگر */
   DEPOSIT_PAID_BARBER: 798384,
+
+  /** ✅ پرداخت موفق بیعانه از لینک — پیامک به مشتری */
+  DEPOSIT_PAID_CUSTOMER: 634504,
 } as const;
 
 /** تبدیل ارقام انگلیسی به فارسی */
@@ -113,6 +116,12 @@ export interface DepositPaidBarberParams {
   time: string;
 }
 
+export interface DepositPaidCustomerParams {
+  date: string;
+  time: string;
+  salonName: string;
+}
+
 /** پارامترهای مشترک قالب‌های نوبت */
 export function bookingParams(params: BookingSmsParams) {
   return [
@@ -145,6 +154,15 @@ export function depositPaidBarberParams(params: DepositPaidBarberParams) {
     { name: 'DATE', value: formatJalaliDateForSms(params.date) },
     { name: 'TIME', value: formatTimeForSms(params.time) },
     { name: 'NAME', value: clipForSms(params.customerName, 'مشتری') },
+  ];
+}
+
+/** پارامترهای قالب «پرداخت موفق بیعانه برای مشتری» (قالب 634504) */
+export function depositPaidCustomerParams(params: DepositPaidCustomerParams) {
+  return [
+    { name: 'DATE', value: formatJalaliDateForSms(params.date) },
+    { name: 'TIME', value: formatTimeForSms(params.time) },
+    { name: 'SALON_NAME', value: clipForSms(params.salonName, 'سالن') },
   ];
 }
 

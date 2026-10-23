@@ -3,12 +3,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
+import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { getBookingClock, isBookingSlotInPast } from 'src/booking/booking-time';
@@ -102,6 +104,8 @@ export class PaymentService {
     private readonly walletService: WalletService,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
+    @Optional()
+    private readonly baleNotificationService?: BaleNotificationService,
   ) {}
 
   private getMerchant(): string {
@@ -1427,6 +1431,10 @@ export class PaymentService {
         payment.userId,
         payment.purposeId,
       );
+      void this.baleNotificationService?.notifySubscriptionPurchased(
+        payment,
+        payment.purposeId,
+      );
 
       return { refunded: false };
     }
@@ -1437,6 +1445,7 @@ export class PaymentService {
 
     if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
       await this.publicPageService.activateAfterPayment(payment);
+      void this.baleNotificationService?.notifyPublicPagePurchased(payment);
 
       return { refunded: false };
     }
@@ -1448,6 +1457,7 @@ export class PaymentService {
         'شارژ آنلاین کیف پول از درگاه زیبال',
         payment.refNumber || payment.id,
       );
+      void this.baleNotificationService?.notifyWalletCharged(payment);
     }
 
     return { refunded: false };
@@ -1730,6 +1740,7 @@ export class PaymentService {
 
     let refunded = false;
     let newlyPaidBookingId: string | null = null;
+    let newlyPaidBookingIds: string[] = [];
 
     await this.dataSource.transaction(async manager => {
       const lockedBookings = targetBookingIds.length
@@ -1768,6 +1779,7 @@ export class PaymentService {
           row.depositPaidAt = paidTimestamp;
         }
         await manager.getRepository(Booking).save(unpaidRows);
+        newlyPaidBookingIds = unpaidRows.map(item => item.id);
         newlyPaidBookingId =
           unpaidRows.find(item => item.id === bookingId)?.id ??
           unpaidRows[0].id;
@@ -1823,9 +1835,13 @@ export class PaymentService {
     });
 
     // فقط گذار پرداخت‌نشده → پرداخت‌شده پیامک دارد. کال‌بک تکراری یا
-    // پرداختی که بازپرداخت شده است نباید پیامک تازه‌ای برای آرایشگر بفرستد.
+    // پرداختی که بازپرداخت شده است نباید پیامک تازه‌ای بفرستد.
     if (!refunded && newlyPaidBookingId) {
-      void this.sendDepositPaidToBarberSms(newlyPaidBookingId);
+      void this.sendDepositPaidSms(newlyPaidBookingId);
+      void this.baleNotificationService?.notifyDepositPaid(
+        payment,
+        newlyPaidBookingIds.length ? newlyPaidBookingIds : [newlyPaidBookingId],
+      );
     }
 
     return { refunded };
@@ -1983,6 +1999,13 @@ export class PaymentService {
       void this.sendPaidBookingSms(booking);
     }
 
+    if (!refunded && createdBookings.length > 0) {
+      void this.baleNotificationService?.notifyOnlineBookingPaid(
+        payment,
+        createdBookings.map(booking => booking.id),
+      );
+    }
+
     return { refunded };
   }
 
@@ -2026,7 +2049,7 @@ export class PaymentService {
     });
   }
 
-  private async sendDepositPaidToBarberSms(bookingId: string): Promise<void> {
+  private async sendDepositPaidSms(bookingId: string): Promise<void> {
     try {
       const booking = await this.bookingRepo.findOne({
         where: { id: bookingId },
@@ -2038,14 +2061,24 @@ export class PaymentService {
 
       if (!booking) return;
 
-      await this.bookingSmsService.sendDepositPaidToBarber(
-        booking.barber?.user?.phone ?? '',
-        {
-          customerName: booking.customer?.fullName ?? 'مشتری',
-          date: booking.date,
-          time: booking.time,
-        },
-      );
+      await Promise.allSettled([
+        this.bookingSmsService.sendDepositPaidToBarber(
+          booking.barber?.user?.phone ?? '',
+          {
+            customerName: booking.customer?.fullName ?? 'مشتری',
+            date: booking.date,
+            time: booking.time,
+          },
+        ),
+        this.bookingSmsService.sendDepositPaidToCustomer(
+          booking.customer?.phone ?? '',
+          {
+            date: booking.date,
+            time: booking.time,
+            salonName: booking.barber?.salonName ?? 'سالن',
+          },
+        ),
+      ]);
     } catch (error: any) {
       // خطای پیامک نباید پرداخت تأییدشده یا واریز بیعانه را برگرداند.
       this.logger.error(

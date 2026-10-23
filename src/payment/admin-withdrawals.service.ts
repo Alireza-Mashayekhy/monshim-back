@@ -86,22 +86,25 @@ export class AdminWithdrawalsService {
     );
     const { skip, take } = getPagination(page, limit);
 
-    const [transactions, total] = await this.createBaseQuery(query)
-      .skip(skip)
-      .take(take)
-      .getManyAndCount();
+    const matchingCardIds = await this.findMatchingCardIds(query.search);
+    const filterQuery = this.createFilterQuery(query, matchingCardIds);
 
-    const [cards, summary] = await Promise.all([
-      this.getCards(transactions),
+    const [total, pageIdRows, summary] = await Promise.all([
+      filterQuery.clone().getCount(),
+      this.fetchPageIds(filterQuery.clone(), skip, take),
       this.getSummary(),
     ]);
+
+    const pageIds = pageIdRows.map(row => row.id).filter(Boolean);
+    const transactions = await this.loadTransactionsByIds(pageIds);
+    const cards = await this.getCards(transactions);
     const cardMap = new Map(cards.map(card => [card.id, card]));
 
     const withdrawals = transactions.map(transaction =>
       this.mapRow(
         transaction,
         transaction.referenceId
-          ? (cardMap.get(transaction.referenceId) ?? null)
+          ? (cardMap.get(transaction.referenceId.trim()) ?? null)
           : null,
       ),
     );
@@ -134,29 +137,27 @@ export class AdminWithdrawalsService {
    * ولی درخواست برداشت نیست (از ابتدا COMPLETED است و پول به آرایشگر
    * برنمی‌گردد)؛ برای همین مثل گزارش مالی از لیست برداشت‌ها کنار گذاشته
    * می‌شود تا ادمین آن را با درخواست واقعی اشتباه نگیرد.
+   *
+   * توجه: صفحهبندی با `offset/limit` روی شناسهها انجام میشود، چون استفادهٔ
+   * همزمان از `skip/take` و عبارت `CASE WHEN ...` در `orderBy` همراه با
+   * join در TypeORM باعث خطای `alias was not found` (کد ۵۰۰) میشد.
    */
-  private createBaseQuery(query: AdminWithdrawalQueryDto) {
+  private createFilterQuery(
+    query: AdminWithdrawalQueryDto,
+    matchingCardIds: string[],
+  ) {
     const qb = this.transactionRepo
       .createQueryBuilder('transaction')
-      .innerJoinAndSelect('transaction.wallet', 'wallet')
-      .leftJoinAndSelect('wallet.user', 'user')
-      .leftJoinAndSelect('user.barberProfile', 'barberProfile')
-      .leftJoin(BankCard, 'card', 'card.id = transaction.referenceId')
+      .innerJoin('transaction.wallet', 'wallet')
+      .leftJoin('wallet.user', 'user')
+      .leftJoin('user.barberProfile', 'barberProfile')
       .where('transaction.type = :withdrawalType', {
         withdrawalType: TransactionType.WITHDRAWAL,
       })
       .andWhere(
         '(transaction.description IS NULL OR transaction.description NOT LIKE :cancellationPrefix)',
         { cancellationPrefix: `${BARBER_CANCELLATION_DEBIT_PREFIX}%` },
-      )
-      // درخواست‌های در انتظار همیشه بالای لیست می‌آیند تا از دید ادمین
-      // خارج نشوند؛ بقیه بر اساس جدیدترین مرتب می‌شوند.
-      .orderBy(
-        "CASE WHEN transaction.status = 'PENDING' THEN 0 ELSE 1 END",
-        'ASC',
-      )
-      .addOrderBy('transaction.createdAt', 'DESC')
-      .addOrderBy('transaction.id', 'DESC');
+      );
 
     if (query.status) {
       qb.andWhere('transaction.status = :status', { status: query.status });
@@ -173,18 +174,86 @@ export class AdminWithdrawalsService {
             .orWhere('transaction.id LIKE :search', { search })
             .orWhere('transaction.description LIKE :search', { search })
             .orWhere('transaction.referenceId LIKE :search', { search })
-            .orWhere('card.cardNumber LIKE :search', { search })
-            .orWhere('card.shebaNumber LIKE :search', { search })
-            .orWhere('card.ownerName LIKE :search', { search })
             .orWhere('CAST(transaction.amount AS CHAR) LIKE :search', {
               search,
             });
+
+          if (matchingCardIds.length > 0) {
+            searchQuery.orWhere(
+              'transaction.referenceId IN (:...matchingCardIds)',
+              { matchingCardIds },
+            );
+          }
         }),
       );
     }
 
     this.applyDateFilters(qb, query);
     return qb;
+  }
+
+  private fetchPageIds(
+    qb: SelectQueryBuilder<Transaction>,
+    skip: number,
+    take: number,
+  ) {
+    return (
+      qb
+        .select('transaction.id', 'id')
+        // درخواست‌های در انتظار همیشه بالای لیست می‌آیند تا از دید ادمین
+        // خارج نشوند؛ بقیه بر اساس جدیدترین مرتب می‌شوند.
+        .orderBy(
+          'CASE WHEN transaction.status = :pendingOrderStatus THEN 0 ELSE 1 END',
+          'ASC',
+        )
+        .addOrderBy('transaction.createdAt', 'DESC')
+        .addOrderBy('transaction.id', 'DESC')
+        .setParameter('pendingOrderStatus', TransactionStatus.PENDING)
+        .offset(skip)
+        .limit(take)
+        .getRawMany<{ id: string }>()
+    );
+  }
+
+  private async loadTransactionsByIds(ids: string[]): Promise<Transaction[]> {
+    if (!ids.length) {
+      return [];
+    }
+
+    const rows = await this.transactionRepo.find({
+      where: { id: In(ids) },
+      relations: {
+        wallet: {
+          user: {
+            barberProfile: true,
+          },
+        },
+      },
+    });
+
+    const rowMap = new Map(rows.map(row => [row.id, row]));
+    return ids
+      .map(id => rowMap.get(id))
+      .filter((row): row is Transaction => Boolean(row));
+  }
+
+  private async findMatchingCardIds(rawSearch?: string): Promise<string[]> {
+    const trimmed = rawSearch?.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const search = `%${trimmed}%`;
+    const rows = await this.bankCardRepo
+      .createQueryBuilder('card')
+      .select('card.id', 'id')
+      .where('card.cardNumber LIKE :search', { search })
+      .orWhere('card.shebaNumber LIKE :search', { search })
+      .orWhere('card.ownerName LIKE :search', { search })
+      .orWhere('card.bankName LIKE :search', { search })
+      .getRawMany<{ id: string }>();
+
+    return rows.map(row => row.id).filter(Boolean);
   }
 
   private applyDateFilters(
@@ -224,8 +293,10 @@ export class AdminWithdrawalsService {
     const cardIds = [
       ...new Set(
         transactions
-          .map(transaction => transaction.referenceId)
-          .filter((value): value is string => Boolean(value)),
+          .map(transaction => transaction.referenceId?.trim())
+          .filter(
+            (value): value is string => Boolean(value) && value.length <= 64,
+          ),
       ),
     ];
 
