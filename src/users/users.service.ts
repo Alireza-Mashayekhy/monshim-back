@@ -58,6 +58,12 @@ export class UsersService {
     });
   }
 
+  async findWithNationalCode(nationalCode: string) {
+    return await this.usersRepository.findOne({
+      where: { nationalCode },
+    });
+  }
+
   async findWithPhoneWithPassword(phone: string) {
     return await this.usersRepository
       .createQueryBuilder('user')
