@@ -2,7 +2,13 @@
 import { api } from '@/services/api/client';
 import { ApiListResponse, ApiSingleResponse } from '@/services/api/types';
 
-import { BankCard, Transaction, WalletBalance, WithdrawRequest } from './types';
+import {
+  BankCard,
+  CreateBankCardPayload,
+  Transaction,
+  WalletBalance,
+  WithdrawRequest,
+} from './types';
 
 export const walletApi = {
   // دریافت موجودی
@@ -37,7 +43,7 @@ export const walletApi = {
 
   // افزودن کارت بانکی
   addCard: async (
-    dto: Omit<BankCard, 'id' | 'isDefault'>,
+    dto: CreateBankCardPayload,
   ): Promise<BankCard> => {
     const { data } = await api.post('/wallet/cards', dto);
     return data;

@@ -10,6 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { getPagination } from 'src/common/query';
 import { ZohalService } from 'src/common/services/zohal.service';
+import {
+  isValidIranianNationalCode,
+  normalizeNationalCode,
+} from 'src/common/utils/national-code.util';
 import { User } from 'src/users/entities/user.entity';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
@@ -611,28 +615,70 @@ export class WalletService {
   }
 
   async addCard(userId: number, dto: CreateCardDto): Promise<BankCard> {
+    const cleanCardNumber = String(dto.cardNumber ?? '')
+      .trim()
+      .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+      .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+      .replace(/[\s\-]/g, '');
+
     // بررسی تکراری نبودن شماره کارت برای این کاربر
     const existing = await this.bankCardRepo.findOne({
-      where: { userId, cardNumber: dto.cardNumber },
+      where: { userId, cardNumber: cleanCardNumber },
     });
     if (existing) {
       throw new BadRequestException('این شماره کارت قبلاً ثبت شده است');
     }
 
     // نرمال‌سازی شبا به حروف بزرگ بدون فاصله
-    dto.shebaNumber = String(dto.shebaNumber ?? '')
+    const cleanSheba = String(dto.shebaNumber ?? '')
       .trim()
       .toUpperCase()
       .replace(/[\s\-]/g, '');
 
-    // استعلام شبا و احراز هویت صاحب حساب از طریق زحل
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException('کاربر یافت نشد');
     }
 
-    await this.zohalService.verifyIbanOwnership({
-      iban: dto.shebaNumber,
+    // بررسی کد ملی: اول از dto سپس از پروفایل کاربر
+    let nationalCode = dto.nationalCode?.trim() || user.nationalCode?.trim();
+    if (!nationalCode) {
+      throw new BadRequestException(
+        'کد ملی برای احراز هویت بانکی و تطبیق با شماره موبایل الزامی است. لطفاً کد ملی خود را وارد کنید.',
+      );
+    }
+
+    nationalCode = normalizeNationalCode(nationalCode);
+    if (!isValidIranianNationalCode(nationalCode)) {
+      throw new BadRequestException('کد ملی وارد شده معتبر نیست');
+    }
+
+    // اگر کاربر در پروفایل کد ملی نداشت، آن را در پروفایل ذخیره می‌کنیم
+    if (!user.nationalCode) {
+      const existingUserWithNc = await this.userRepo.findOne({
+        where: { nationalCode },
+      });
+      if (existingUserWithNc && existingUserWithNc.id !== user.id) {
+        throw new BadRequestException(
+          'این کد ملی قبلاً برای کاربر دیگری در سامانه ثبت شده است',
+        );
+      }
+      user.nationalCode = nationalCode;
+      await this.userRepo.save(user);
+    } else if (
+      dto.nationalCode &&
+      normalizeNationalCode(user.nationalCode) !== nationalCode
+    ) {
+      throw new BadRequestException(
+        'کد ملی وارد شده با کد ملی ثبت‌شده در پروفایل شما مغایرت دارد',
+      );
+    }
+
+    // اعتبارسنجی جامع مالکیت کارت بانکی، شبا، کد ملی و شاهکار از طریق زحل
+    const inquiry = await this.zohalService.verifyCardAndIbanOwnership({
+      card: cleanCardNumber,
+      iban: cleanSheba,
+      nationalCode,
       userFullName: user.fullName,
       userPhone: user.phone,
     });
@@ -643,7 +689,10 @@ export class WalletService {
 
     const card = this.bankCardRepo.create({
       userId,
-      ...dto,
+      bankName: inquiry.bank_name || dto.bankName,
+      cardNumber: cleanCardNumber,
+      shebaNumber: cleanSheba,
+      ownerName: inquiry.name || dto.ownerName,
       isDefault,
     });
     return this.bankCardRepo.save(card);

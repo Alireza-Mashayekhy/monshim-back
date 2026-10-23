@@ -32,6 +32,15 @@ export class User {
   email: string | null;
 
   @Column({
+    name: 'national_code',
+    type: 'varchar',
+    length: 10,
+    unique: true,
+    nullable: true,
+  })
+  nationalCode?: string | null;
+
+  @Column({
     type: 'date',
     nullable: true,
   })

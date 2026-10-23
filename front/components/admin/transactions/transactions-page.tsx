@@ -113,6 +113,8 @@ function getTypeLabel(transaction: AdminTransaction) {
         return 'پرداخت رزرو';
       case 'WALLET':
         return 'شارژ کیف پول';
+      case 'PUBLIC_PAGE':
+        return 'خرید صفحه اختصاصی';
       default:
         return transaction.type;
     }
@@ -343,9 +345,9 @@ export default function AdminTransactionsPage() {
       tone: 'amber' as const,
     },
     {
-      title: 'سود ماست',
-      amount: summary?.bookingCommissionAmount ?? 0,
-      caption: 'کمیسیون رزروهای موفق',
+      title: 'درآمد ما',
+      amount: summary?.netRevenueAmount ?? 0,
+      caption: 'مجموع کمیسیون + فروش اشتراک + فروش صفحه اختصاصی',
       icon: BadgePercent,
       tone: 'violet' as const,
     },
@@ -360,11 +362,11 @@ export default function AdminTransactionsPage() {
       tone: 'teal' as const,
     },
     {
-      title: 'دریافتی درگاه از رزروها',
-      amount: summary?.bookingPaymentsAmount ?? 0,
-      caption: 'مبلغ پرداخت‌شده بابت رزروها، شامل کمیسیون',
-      icon: ArrowLeftRight,
-      tone: 'blue' as const,
+      title: 'درآمد خالص سامانه',
+      amount: summary?.netRevenueAmount ?? 0,
+      caption: 'مجموع کمیسیون + فروش اشتراک + فروش صفحه اختصاصی',
+      icon: BadgePercent,
+      tone: 'violet' as const,
     },
     {
       title: 'کمیسیون رزروهای موفق',
@@ -383,24 +385,31 @@ export default function AdminTransactionsPage() {
       tone: 'blue' as const,
     },
     {
+      title: 'فروش صفحه اختصاصی',
+      amount: summary?.publicPageRevenueAmount ?? 0,
+      caption: `${amountFormatter.format(summary?.publicPageCount ?? 0)} خرید صفحه اختصاصی`,
+      icon: CalendarDays,
+      tone: 'blue' as const,
+    },
+    {
+      title: 'دریافتی درگاه از رزروها',
+      amount: summary?.bookingPaymentsAmount ?? 0,
+      caption: 'مبلغ پرداخت‌شده بابت رزروها، شامل کمیسیون',
+      icon: ArrowLeftRight,
+      tone: 'blue' as const,
+    },
+    {
       title: 'شارژ کیف پول از درگاه',
       amount: summary?.walletTopUpAmount ?? 0,
-      caption: 'درآمد ثبت‌شده به‌عنوان شارژ کیف پول',
+      caption: 'مبالغ شارژ کیف پول توسط کاربران',
       icon: Wallet,
       tone: 'green' as const,
     },
     {
       title: 'واریزی درآمد به آرایشگران',
       amount: summary?.barberWalletCreditsAmount ?? 0,
-      caption: 'اعتبارهای ثبت‌شده بابت درآمد رزرو',
+      caption: 'اعتبارهای ثبت‌شده بابت درآمد رزرو در کیف‌پول',
       icon: ArrowDownLeft,
-      tone: 'amber' as const,
-    },
-    {
-      title: 'کل مبالغ در انتظار',
-      amount: summary?.pendingAmount ?? 0,
-      caption: `${amountFormatter.format(summary?.pendingCount ?? 0)} پرداخت یا درخواست در انتظار`,
-      icon: Wallet,
       tone: 'amber' as const,
     },
     {
@@ -423,13 +432,6 @@ export default function AdminTransactionsPage() {
       caption: `${amountFormatter.format(summary?.barberCancellationDebitCount ?? 0)} لغو با کسر مبلغ بازپرداخت‌شده به مشتری`,
       icon: ArrowUpRight,
       tone: 'violet' as const,
-    },
-    {
-      title: 'ناموفق یا لغوشده',
-      amount: summary?.unsuccessfulAmount ?? 0,
-      caption: `${amountFormatter.format(summary?.unsuccessfulCount ?? 0)} تراکنش ناموفق یا لغوشده`,
-      icon: XCircle,
-      tone: 'rose' as const,
     },
   ];
 
@@ -563,6 +565,7 @@ export default function AdminTransactionsPage() {
               <SelectItem value={ALL_FILTERS}>همه انواع</SelectItem>
               <SelectItem value="BOOKING">پرداخت رزرو</SelectItem>
               <SelectItem value="SUBSCRIPTION">خرید اشتراک</SelectItem>
+              <SelectItem value="PUBLIC_PAGE">خرید صفحه اختصاصی</SelectItem>
               <SelectItem value="WALLET">شارژ کیف پول</SelectItem>
               <SelectItem value="DEPOSIT">واریز کیف پول</SelectItem>
               <SelectItem value="WITHDRAWAL">برداشت کیف پول</SelectItem>
@@ -577,11 +580,9 @@ export default function AdminTransactionsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_FILTERS}>همه وضعیت‌ها</SelectItem>
-              <SelectItem value="PAID">موفق</SelectItem>
-              <SelectItem value="COMPLETED">انجام‌شده</SelectItem>
-              <SelectItem value="PENDING">در انتظار</SelectItem>
-              <SelectItem value="FAILED">ناموفق</SelectItem>
-              <SelectItem value="CANCELED">لغوشده</SelectItem>
+              <SelectItem value="PAID">موفق (درگاه)</SelectItem>
+              <SelectItem value="COMPLETED">انجام‌شده (کیف پول)</SelectItem>
+              <SelectItem value="PENDING">در انتظار (برداشت)</SelectItem>
             </SelectContent>
           </Select>
 

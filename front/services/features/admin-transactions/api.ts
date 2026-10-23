@@ -74,6 +74,8 @@ function getTypeLabel(transaction: AdminTransaction) {
         return 'پرداخت رزرو';
       case 'WALLET':
         return 'شارژ کیف پول';
+      case 'PUBLIC_PAGE':
+        return 'خرید صفحه اختصاصی';
       default:
         return transaction.type;
     }
@@ -211,13 +213,19 @@ export async function exportAdminTransactions(
     ['تعداد کل تراکنش‌های مطابق فیلتر', summary.matchedCount],
     ['دریافتی موفق از درگاه (تومان)', summary.gatewayReceivedAmount],
     ['تعداد پرداخت موفق درگاه', summary.successfulGatewayPaymentCount],
-    ['پرداخت رزرو از درگاه (تومان)', summary.bookingPaymentsAmount],
+    [
+      'درآمد خالص سامانه (کمیسیون + اشتراک + صفحه اختصاصی) (تومان)',
+      summary.netRevenueAmount,
+    ],
     ['کمیسیون قطعی رزروهای موفق (تومان)', summary.bookingCommissionAmount],
     [
       'پرداخت‌های رزرو با کمیسیون نامشخص',
       summary.bookingCommissionUnknownCount,
     ],
     ['درآمد اشتراک (تومان)', summary.subscriptionRevenueAmount],
+    ['فروش صفحه اختصاصی (تومان)', summary.publicPageRevenueAmount],
+    ['تعداد خرید صفحه اختصاصی', summary.publicPageCount ?? 0],
+    ['پرداخت رزرو از درگاه (تومان)', summary.bookingPaymentsAmount],
     ['شارژ کیف پول از درگاه (تومان)', summary.walletTopUpAmount],
     [
       'واریزی درآمد رزرو به آرایشگران (تومان)',
@@ -234,13 +242,9 @@ export async function exportAdminTransactions(
       'تعداد لغوهای دارای کسر از کیف پول آرایشگر',
       summary.barberCancellationDebitCount,
     ],
-    ['کل مبالغ در انتظار (تومان)', summary.pendingAmount],
-    ['تراکنش‌های ناموفق یا لغوشده (تومان)', summary.unsuccessfulAmount],
-    ['تعداد تراکنش‌های ناموفق یا لغوشده', summary.unsuccessfulCount],
-    ['تعداد تراکنش‌های در انتظار', summary.pendingCount],
     [
       'یادداشت',
-      'شاخص‌های خلاصه ممکن است هم‌پوشانی داشته باشند و نباید با هم جمع شوند: شارژ درگاه و ثبت کیف پول دو مرحلهٔ یک جریان‌اند و برداشت‌های در انتظار زیرمجموعهٔ کل مبالغ در انتظار هستند. کمیسیونِ بدون دادهٔ ثبت‌شده با عنوان نامشخص می‌ماند و صفر فرض نمی‌شود.',
+      'در این گزارش فقط تراکنش‌های موفق و واقعی ثبت و محاسبه شده‌اند. درآمد خالص سامانه حاصل‌جمع کمیسیون رزروهای موفق، فروش اشتراک و فروش صفحه اختصاصی است.',
     ],
   ];
   const summarySheet = xlsx.utils.aoa_to_sheet(summaryRows);

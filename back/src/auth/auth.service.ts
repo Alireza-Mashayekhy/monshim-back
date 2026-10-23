@@ -24,6 +24,10 @@ import {
 } from 'src/common/utils/auth-cookie.util';
 import { isDuplicateEntryError } from 'src/common/utils/db-error.util';
 import { normalizeRoles } from 'src/common/utils/roles.util';
+import {
+  isValidIranianNationalCode,
+  normalizeNationalCode,
+} from 'src/common/utils/national-code.util';
 import { OtpService } from 'src/otp/otp.service';
 import { ReferralService } from 'src/referral/referral.service';
 import { ServicesService } from 'src/services/services.service';
@@ -178,6 +182,18 @@ export class AuthService {
     if (existingUser) {
       throw new ConflictException(PHONE_ALREADY_REGISTERED_MESSAGE);
     }
+
+    if (dto.nationalCode?.trim()) {
+      const cleanNc = normalizeNationalCode(dto.nationalCode);
+      if (!isValidIranianNationalCode(cleanNc)) {
+        throw new BadRequestException('کد ملی وارد شده معتبر نیست');
+      }
+      const existingNc = await this.usersService.findWithNationalCode(cleanNc);
+      if (existingNc) {
+        throw new ConflictException('این کد ملی قبلاً در سامانه ثبت شده است');
+      }
+    }
+
     let referredByUserId: number | null = null;
     if (dto.referralCode?.trim()) {
       const referrerProfile =
@@ -203,6 +219,9 @@ export class AuthService {
           {
             fullName: dto.fullName,
             phone: dto.phone,
+            nationalCode: dto.nationalCode
+              ? normalizeNationalCode(dto.nationalCode)
+              : null,
             isActive: true,
             birthDate: dto.birthDate,
           },
@@ -283,6 +302,19 @@ export class AuthService {
     }
 
     const payload = { ...createUserDto };
+
+    if (createUserDto.nationalCode?.trim()) {
+      const cleanNc = normalizeNationalCode(createUserDto.nationalCode);
+      if (!isValidIranianNationalCode(cleanNc)) {
+        throw new BadRequestException('کد ملی وارد شده معتبر نیست');
+      }
+      const existingNc = await this.usersService.findWithNationalCode(cleanNc);
+      if (existingNc) {
+        throw new ConflictException('این کد ملی قبلاً در سامانه ثبت شده است');
+      }
+      payload.nationalCode = cleanNc;
+    }
+
     if (payload.password) {
       payload.password = await bcrypt.hash(payload.password, 10);
     }

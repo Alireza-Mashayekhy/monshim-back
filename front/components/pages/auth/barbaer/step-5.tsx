@@ -25,6 +25,7 @@ import { type CallbackUrlValue, getAuthDestination } from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
 import { getImageUploadError, MAX_PORTFOLIO_IMAGES } from '@/lib/image-upload';
 import { toFa } from '@/lib/jalali';
+import { isValidIranianNationalCode } from '@/lib/national-code';
 import { isValidPhone, normalizePhone, onlyDigits } from '@/lib/phone';
 import { formatPrice } from '@/lib/utils';
 import { useRegisterBarber, useSendOtp } from '@/services/features/auth/hooks';
@@ -66,6 +67,7 @@ export default function BarbaerStep5({
   const {
     fullName,
     phone,
+    nationalCode,
     image,
     shopName,
     provinceId,
@@ -93,6 +95,10 @@ export default function BarbaerStep5({
       !address.trim()
     ) {
       toast.error('اطلاعات فردی و سالن را در مراحل قبل تکمیل کنید.');
+      return false;
+    }
+    if (nationalCode && !isValidIranianNationalCode(nationalCode)) {
+      toast.error('کد ملی وارد شده در مرحله اول معتبر نیست.');
       return false;
     }
     if (!activityType) {
@@ -177,6 +183,7 @@ export default function BarbaerStep5({
       const payload: any = {
         fullName: fullName.trim(),
         phone: normalizePhone(phone),
+        nationalCode: nationalCode?.trim() || undefined,
         salonName: shopName.trim(),
         provinceId,
         cityId,
@@ -266,6 +273,12 @@ export default function BarbaerStep5({
               <span className="text-gray-500 shrink-0">شماره موبایل</span>
               <span className="font-medium text-left dir-ltr">
                 {phone || '—'}
+              </span>
+            </div>
+            <div className="flex justify-between items-start gap-2">
+              <span className="text-gray-500 shrink-0">کد ملی</span>
+              <span className="font-medium text-left dir-ltr">
+                {nationalCode || '—'}
               </span>
             </div>
             <div className="flex justify-between items-start gap-2">
