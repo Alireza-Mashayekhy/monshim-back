@@ -35,8 +35,9 @@ export const getAvailableSlots = async (
   barberId: string,
   date: string | null,
   serviceIds: string[],
+  excludeBookingId?: string,
 ) => {
-  const params: any = { barberId, date };
+  const params: any = { barberId, date, excludeBookingId };
   if (serviceIds.length === 1) {
     params.serviceId = serviceIds[0];
   } else if (serviceIds.length > 1) {
@@ -72,6 +73,15 @@ export const updateBookingStatus = async (
   status: Booking['status'],
 ): Promise<Booking> => {
   const { data } = await api.patch(`/bookings/${id}/status`, { status });
+  return data;
+};
+
+// تغییر ساعت نوبت توسط آرایشگر
+export const updateBookingTime = async (
+  id: string,
+  time: string,
+): Promise<Booking> => {
+  const { data } = await api.patch(`/bookings/${id}/time`, { time });
   return data;
 };
 

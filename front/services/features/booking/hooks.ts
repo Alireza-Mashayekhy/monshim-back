@@ -12,6 +12,7 @@ import {
   getMyBookings,
   resendDepositLink,
   updateBookingStatus,
+  updateBookingTime,
 } from './api';
 import { Booking, BookingQueryParams, MyBookingsQuery } from './types';
 
@@ -19,11 +20,19 @@ export const useAvailableSlots = (
   barberId: string,
   date: string | null,
   serviceIds: string[],
+  excludeBookingId?: string,
 ) => {
   return useQuery({
-    queryKey: ['available-slots', barberId, date, [...serviceIds].sort()],
+    queryKey: [
+      'available-slots',
+      barberId,
+      date,
+      [...serviceIds].sort(),
+      excludeBookingId ?? null,
+    ],
 
-    queryFn: () => getAvailableSlots(barberId, date!, serviceIds),
+    queryFn: () =>
+      getAvailableSlots(barberId, date!, serviceIds, excludeBookingId),
 
     enabled: !!barberId && !!date && serviceIds.length > 0,
 
@@ -71,6 +80,23 @@ export const useUpdateBookingStatus = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'خطا در تغییر وضعیت نوبت');
+    },
+  });
+};
+
+export const useUpdateBookingTime = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, time }: { id: string; time: string }) =>
+      updateBookingTime(id, time),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['barber-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
+      toast.success('ساعت نوبت تغییر کرد و پیامک آن برای مشتری ارسال شد.');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'خطا در تغییر ساعت نوبت');
     },
   });
 };

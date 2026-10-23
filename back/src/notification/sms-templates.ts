@@ -27,6 +27,12 @@ export const SMS_TEMPLATES = {
 
   /** ⏳ لینک پرداخت بیعانه — پیامک به مشتری */
   DEPOSIT_LINK_CUSTOMER: 196593,
+
+  /** 🔔 تغییر ساعت نوبت — پیامک به مشتری */
+  BOOKING_TIME_CHANGED_CUSTOMER: 488101,
+
+  /** ✅ پرداخت موفق بیعانه از لینک — پیامک به آرایشگر */
+  DEPOSIT_PAID_BARBER: 798384,
 } as const;
 
 /** تبدیل ارقام انگلیسی به فارسی */
@@ -101,6 +107,12 @@ export interface DepositLinkParams {
   paymentToken: string;
 }
 
+export interface DepositPaidBarberParams {
+  customerName: string;
+  date: string;
+  time: string;
+}
+
 /** پارامترهای مشترک قالب‌های نوبت */
 export function bookingParams(params: BookingSmsParams) {
   return [
@@ -125,6 +137,15 @@ export function barberNewBookingParams(params: BarberParams) {
 /** پارامترهای قالب «لغو برای آرایشگر» */
 export function barberCanceledParams(params: BarberParams) {
   return barberNewBookingParams(params);
+}
+
+/** پارامترهای قالب «پرداخت موفق بیعانه برای آرایشگر» (#NAME# = نام مشتری) */
+export function depositPaidBarberParams(params: DepositPaidBarberParams) {
+  return [
+    { name: 'DATE', value: formatJalaliDateForSms(params.date) },
+    { name: 'TIME', value: formatTimeForSms(params.time) },
+    { name: 'NAME', value: clipForSms(params.customerName, 'مشتری') },
+  ];
 }
 
 /**

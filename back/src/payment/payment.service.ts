@@ -952,7 +952,8 @@ export class PaymentService {
       isBookingSlotInPast(primary.date, primary.time, getBookingClock())
     ) {
       status = 'expired';
-      statusReason = 'زمان این نوبت گذشته است و امکان پرداخت بیعانه وجود ندارد.';
+      statusReason =
+        'زمان این نوبت گذشته است و امکان پرداخت بیعانه وجود ندارد.';
     }
 
     let receipt: {
@@ -985,9 +986,7 @@ export class PaymentService {
         paidPayment?.paidAt ?? paidBookings[0]?.depositPaidAt ?? new Date();
       receipt = {
         paidAt: paidDate.toISOString(),
-        amount: paidPayment
-          ? Number(paidPayment.amount)
-          : pricing.amountToPay,
+        amount: paidPayment ? Number(paidPayment.amount) : pricing.amountToPay,
         trackId: paidPayment?.trackId ? Number(paidPayment.trackId) : null,
         refNumber: paidPayment?.refNumber ?? null,
       };
@@ -1182,9 +1181,7 @@ export class PaymentService {
   private buildPaymentResultRedirect(
     frontUrl: string,
     payment: Payment,
-    result:
-      | { status: 'success' }
-      | { status: 'failed'; message: string },
+    result: { status: 'success' } | { status: 'failed'; message: string },
   ): string {
     const depositToken = this.getDepositTokenFromPayment(payment);
 
@@ -1627,7 +1624,10 @@ export class PaymentService {
         );
 
         // قبلاً همهٔ ردیف‌های سفارش ثبت شده‌اند
-        if (!bookings.length || bookings.every(row => Boolean(row.depositPaidAt))) {
+        if (
+          !bookings.length ||
+          bookings.every(row => Boolean(row.depositPaidAt))
+        ) {
           continue;
         }
 
@@ -1729,6 +1729,7 @@ export class PaymentService {
         : amount;
 
     let refunded = false;
+    let newlyPaidBookingId: string | null = null;
 
     await this.dataSource.transaction(async manager => {
       const lockedBookings = targetBookingIds.length
@@ -1767,6 +1768,9 @@ export class PaymentService {
           row.depositPaidAt = paidTimestamp;
         }
         await manager.getRepository(Booking).save(unpaidRows);
+        newlyPaidBookingId =
+          unpaidRows.find(item => item.id === bookingId)?.id ??
+          unpaidRows[0].id;
       }
 
       /**
@@ -1817,6 +1821,12 @@ export class PaymentService {
         legacyReference: payment.refNumber,
       });
     });
+
+    // فقط گذار پرداخت‌نشده → پرداخت‌شده پیامک دارد. کال‌بک تکراری یا
+    // پرداختی که بازپرداخت شده است نباید پیامک تازه‌ای برای آرایشگر بفرستد.
+    if (!refunded && newlyPaidBookingId) {
+      void this.sendDepositPaidToBarberSms(newlyPaidBookingId);
+    }
 
     return { refunded };
   }
@@ -2014,6 +2024,34 @@ export class PaymentService {
 
       return hasOverlap({ start, end: start + duration }, busy);
     });
+  }
+
+  private async sendDepositPaidToBarberSms(bookingId: string): Promise<void> {
+    try {
+      const booking = await this.bookingRepo.findOne({
+        where: { id: bookingId },
+        relations: {
+          customer: true,
+          barber: { user: true },
+        },
+      });
+
+      if (!booking) return;
+
+      await this.bookingSmsService.sendDepositPaidToBarber(
+        booking.barber?.user?.phone ?? '',
+        {
+          customerName: booking.customer?.fullName ?? 'مشتری',
+          date: booking.date,
+          time: booking.time,
+        },
+      );
+    } catch (error: any) {
+      // خطای پیامک نباید پرداخت تأییدشده یا واریز بیعانه را برگرداند.
+      this.logger.error(
+        `Failed to send deposit-paid SMS for booking ${bookingId}: ${error?.message ?? String(error)}`,
+      );
+    }
   }
 
   private async sendPaidBookingSms(booking: Booking): Promise<void> {
