@@ -76,14 +76,9 @@ export default function MarketingMobileMenu({
           </ul>
 
           <div className="mt-5 grid gap-2 border-t border-primary-100/60 pt-5">
-            <Button asChild variant="outline" className="w-full">
+            <Button asChild className="w-full">
               <Link href="/login" onClick={() => onOpenChange(false)}>
                 ورود
-              </Link>
-            </Button>
-            <Button asChild className="w-full">
-              <Link href="/register" onClick={() => onOpenChange(false)}>
-                ثبت‌نام رایگان
               </Link>
             </Button>
           </div>

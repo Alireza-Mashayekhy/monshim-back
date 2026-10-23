@@ -65,14 +65,9 @@ export default function MarketingHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <Button asChild variant="ghost" size="sm">
+          <Button asChild size="sm" className="px-5">
             <Link href="/login" title="ورود به حساب کاربری منشیم">
               ورود
-            </Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/register" title="ثبت‌نام رایگان در منشیم">
-              ثبت‌نام رایگان
             </Link>
           </Button>
 
