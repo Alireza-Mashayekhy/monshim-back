@@ -7,9 +7,9 @@ import {
   BadgePercent,
   Banknote,
   CalendarDays,
-  CheckCircle2,
   CreditCard,
   Download,
+  Eye,
   Search,
   Wallet,
   X,
@@ -32,6 +32,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -56,9 +63,8 @@ import {
   useApproveAdminWithdrawal,
   useExportAdminTransactions,
   useRejectAdminWithdrawal,
-  useSettleAdminRefund,
 } from '@/services/features/admin-transactions/hooks';
-import {
+import type {
   AdminTransaction,
   AdminTransactionFilters,
   AdminTransactionSource,
@@ -164,6 +170,8 @@ function getStatusClass(status: AdminTransactionStatus) {
   }
 }
 
+type SummaryTone = 'teal' | 'violet' | 'blue' | 'amber' | 'rose' | 'green';
+
 function SummaryCard({
   title,
   amount,
@@ -175,9 +183,9 @@ function SummaryCard({
   amount: number;
   caption: string;
   icon: typeof Wallet;
-  tone: 'teal' | 'violet' | 'blue' | 'amber' | 'rose' | 'green';
+  tone: SummaryTone;
 }) {
-  const toneClasses = {
+  const toneClasses: Record<SummaryTone, string> = {
     teal: 'bg-teal-50 text-teal-700 ring-teal-100',
     violet: 'bg-violet-50 text-violet-700 ring-violet-100',
     blue: 'bg-blue-50 text-blue-700 ring-blue-100',
@@ -223,18 +231,20 @@ export default function AdminTransactionsPage() {
   >(ALL_FILTERS);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [refundPage, setRefundPage] = useState(1);
-  const [refundToSettle, setRefundToSettle] = useState<AdminTransaction | null>(
-    null,
-  );
-  const [transferReference, setTransferReference] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [withdrawalAction, setWithdrawalAction] = useState<{
+    id: string;
+    action: 'approve' | 'reject';
+  } | null>(null);
+  const [withdrawalNote, setWithdrawalNote] = useState('');
 
   const debouncedSearch = useDebounce(search, 400);
   const hasInvalidDateRange = Boolean(from && to && from > to);
-  const filters = useMemo<AdminTransactionFilters>(
+
+  const activeFilters = useMemo<
+    Omit<AdminTransactionFilters, 'page' | 'limit'>
+  >(
     () => ({
-      page,
-      limit: PAGE_SIZE,
       ...(source !== ALL_FILTERS ? { source } : {}),
       ...(type !== ALL_FILTERS ? { type } : {}),
       ...(status !== ALL_FILTERS ? { status } : {}),
@@ -242,8 +252,14 @@ export default function AdminTransactionsPage() {
       ...(from ? { from } : {}),
       ...(to ? { to } : {}),
     }),
-    [page, source, type, status, debouncedSearch, from, to],
+    [source, type, status, debouncedSearch, from, to],
   );
+  const filters = useMemo<AdminTransactionFilters>(
+    () => ({ ...activeFilters, page, limit: PAGE_SIZE }),
+    [activeFilters, page],
+  );
+  // برای خروجی از مقدار فعلی جستجو استفاده می‌کنیم تا حتی قبل از پایان
+  // debounce هم فایل دقیقاً مطابق چیزی باشد که کاربر در فیلترها دیده است.
   const exportFilters = useMemo<
     Omit<AdminTransactionFilters, 'page' | 'limit'>
   >(
@@ -258,39 +274,17 @@ export default function AdminTransactionsPage() {
     [source, type, status, search, from, to],
   );
 
-  const refundFilters = useMemo<AdminTransactionFilters>(
-    () => ({
-      page: refundPage,
-      limit: 10,
-      source: 'wallet',
-      type: 'REFUND',
-      status: 'PENDING',
-    }),
-    [refundPage],
-  );
   const { data, isLoading, isFetching, isError, error, refetch } =
     useAdminTransactions(filters, !hasInvalidDateRange);
-  const refundQuery = useAdminTransactions(refundFilters);
   const exportMutation = useExportAdminTransactions();
-  const settleRefundMutation = useSettleAdminRefund();
   const approveWithdrawalMutation = useApproveAdminWithdrawal();
   const rejectWithdrawalMutation = useRejectAdminWithdrawal();
-  const [withdrawalAction, setWithdrawalAction] = useState<{
-    id: string;
-    action: 'approve' | 'reject';
-  } | null>(null);
-  const [withdrawalNote, setWithdrawalNote] = useState('');
   const isReviewingWithdrawal =
     approveWithdrawalMutation.isPending || rejectWithdrawalMutation.isPending;
+
   const transactions = data?.data?.transactions ?? [];
   const summary = data?.data?.summary;
   const pagination = data?.pagination;
-  const refundTransactions =
-    refundQuery.data?.data?.transactions.filter(
-      transaction => transaction.isCustomerRefundRequest,
-    ) ?? [];
-  const refundSummary = refundQuery.data?.data?.summary;
-  const refundPagination = refundQuery.data?.pagination;
 
   const resetFilters = () => {
     setSearch('');
@@ -321,7 +315,43 @@ export default function AdminTransactionsPage() {
     setPage(1);
   };
 
-  const summaryCards = [
+  const handleExport = () => {
+    if (hasInvalidDateRange) return;
+
+    exportMutation.mutate(exportFilters, {
+      onSuccess: () => toast.success('خروجی Excel مطابق فیلترها آماده شد.'),
+      onError: exportError =>
+        toast.error(
+          getApiErrorMessage(exportError, 'دریافت خروجی تراکنش‌ها ناموفق بود.'),
+        ),
+    });
+  };
+
+  const overviewCards = [
+    {
+      title: 'وارد حساب ما شده',
+      amount: summary?.gatewayReceivedAmount ?? 0,
+      caption: 'مجموع پرداخت‌های موفق از درگاه',
+      icon: CreditCard,
+      tone: 'teal' as const,
+    },
+    {
+      title: 'برای آرایشگرهاست',
+      amount: summary?.barberWalletCreditsAmount ?? 0,
+      caption: 'مبالغ واریزشده به کیف‌پول آرایشگران',
+      icon: ArrowDownLeft,
+      tone: 'amber' as const,
+    },
+    {
+      title: 'سود ماست',
+      amount: summary?.bookingCommissionAmount ?? 0,
+      caption: 'کمیسیون رزروهای موفق',
+      icon: BadgePercent,
+      tone: 'violet' as const,
+    },
+  ];
+
+  const detailSummaryCards = [
     {
       title: 'دریافتی موفق از درگاه',
       amount: summary?.gatewayReceivedAmount ?? 0,
@@ -416,206 +446,91 @@ export default function AdminTransactionsPage() {
                 تراکنش‌ها و گزارش مالی
               </h1>
               <p className="mt-1 text-sm leading-6 text-gray-500">
-                پرداخت‌های درگاه، گردش کیف پول، کمیسیون، واریزی به آرایشگران و
-                برداشت‌ها را یکجا بررسی کنید.
+                خلاصهٔ مالی سامانه را ببینید و برای بررسی کامل، جزئیات را باز
+                کنید.
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className="h-11 shrink-0 gap-2 px-4"
-            >
-              <Link href="/admin/withdrawals">
-                <Banknote className="h-4 w-4" />
-                درخواست‌های برداشت
-                {!!summary?.pendingWithdrawalCount && (
-                  <Badge
-                    variant="outline"
-                    className="border-amber-200 bg-amber-50 text-[10px] text-amber-800"
-                  >
-                    {amountFormatter.format(summary.pendingWithdrawalCount)}
-                  </Badge>
-                )}
-              </Link>
-            </Button>
-            <Button
-              onClick={() =>
-                exportMutation.mutate(exportFilters, {
-                  onSuccess: () => toast.success('خروجی Excel آماده شد.'),
-                  onError: error =>
-                    toast.error(
-                      getApiErrorMessage(
-                        error,
-                        'دریافت خروجی تراکنش‌ها ناموفق بود.',
-                      ),
-                    ),
-                })
-              }
-              loading={exportMutation.isPending}
-              disabled={exportMutation.isPending || hasInvalidDateRange}
-              className="h-11 shrink-0 gap-2 px-4"
-            >
-              <Download className="h-4 w-4" />
-              خروجی Excel
-            </Button>
-          </div>
-        </div>
-        <div className="border-t border-gray-100 bg-gray-50/70 px-5 py-3 text-xs leading-6 text-gray-500 sm:px-6">
-          فایل Excel واقعی (.xlsx) شامل همهٔ ردیف‌های مطابق فیلتر و دو برگهٔ
-          «تراکنش‌ها» و «خلاصه مالی» است. شاخص‌های خلاصه ممکن است هم‌پوشانی
-          داشته باشند و نباید با هم جمع شوند: پرداخت شارژ از درگاه و ثبت کیف پول
-          دو مرحلهٔ یک جریان‌اند و برداشت‌های در انتظار زیرمجموعهٔ کل مبالغ در
-          انتظارند. اگر جزئیات کمیسیون ثبت نشده باشد، مقدار نامشخص می‌ماند و صفر
-          فرض نمی‌شود.
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 shrink-0 gap-2 px-4"
+          >
+            <Link href="/admin/withdrawals">
+              <Banknote className="h-4 w-4" />
+              درخواست‌های برداشت
+              {!!summary?.pendingWithdrawalCount && (
+                <Badge
+                  variant="outline"
+                  className="border-amber-200 bg-amber-50 text-[10px] text-amber-800"
+                >
+                  {amountFormatter.format(summary.pendingWithdrawalCount)}
+                </Badge>
+              )}
+            </Link>
+          </Button>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {summaryCards.map(card => (
-          <SummaryCard key={card.title} {...card} />
-        ))}
-      </section>
-
-      <section className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 border-b border-amber-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
+      <section className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-bold text-gray-900">
-              بازپرداخت مشتریان در انتظار واریز
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-gray-500">
-              پس از انتقال وجه به مشتری، «ثبت واریز» را بزنید تا درخواست از صف
-              خارج و در سوابق بسته شود.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className="border-amber-200 bg-amber-50 text-amber-800"
-            >
-              {amountFormatter.format(refundPagination?.total ?? 0)} درخواست باز
-            </Badge>
-            <span className="text-sm font-black text-gray-800">
-              {formatToman(refundSummary?.pendingAmount ?? 0)}
-            </span>
-          </div>
-        </div>
-
-        {refundQuery.isError ? (
-          <div className="rounded-xl bg-rose-50 p-4 text-sm text-rose-700">
-            <p>بارگذاری صف بازپرداخت ناموفق بود.</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void refundQuery.refetch()}
-              className="mt-2"
-            >
-              تلاش دوباره
-            </Button>
-          </div>
-        ) : refundQuery.isLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map(item => (
-              <div
-                key={item}
-                className="h-16 animate-pulse rounded-xl bg-gray-50"
-              />
-            ))}
-          </div>
-        ) : refundTransactions.length ? (
-          <div className="space-y-2">
-            {refundTransactions.map(transaction => (
-              <div
-                key={transaction.id}
-                className="flex flex-col gap-3 rounded-xl border border-gray-100 p-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-gray-900">
-                      {transaction.user?.fullName || 'مشتری'}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="border-amber-200 bg-amber-50 text-amber-800"
-                    >
-                      در انتظار واریز
-                    </Badge>
-                  </div>
-                  {transaction.user?.phone && (
-                    <p className="mt-1 text-xs text-gray-500" dir="ltr">
-                      {transaction.user.phone}
-                    </p>
-                  )}
-                  <p className="mt-1 break-all text-[11px] text-gray-400">
-                    {transaction.description}
-                  </p>
-                  {transaction.referenceId && (
-                    <p className="mt-1 break-all text-[10px] text-gray-400">
-                      شناسه پرداخت: {transaction.referenceId}
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-                  <span className="font-black tabular-nums text-gray-900">
-                    {formatToman(transaction.amount)}
-                  </span>
-                  <Button
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => {
-                      setTransferReference('');
-                      setRefundToSettle(transaction);
-                    }}
-                    disabled={settleRefundMutation.isPending}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    ثبت واریز
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-xl border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">
-            درخواست بازپرداختِ در انتظار واریزی وجود ندارد.
-          </p>
-        )}
-
-        {!!refundPagination && refundPagination.totalPages > 1 && (
-          <div className="mt-4">
-            <CustomPagination
-              currentPage={refundPage}
-              totalPages={refundPagination.totalPages}
-              onPageChange={setRefundPage}
-            />
-          </div>
-        )}
-      </section>
-
-      <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div>
-            <h2 className="font-bold text-gray-900">
-              فیلتر و جستجوی تراکنش‌ها
-            </h2>
+            <h2 className="font-bold text-gray-900">خلاصه مالی</h2>
             <p className="mt-1 text-xs text-gray-500">
-              جستجو با نام، موبایل، شماره سفارش، کد پیگیری و شناسه مرجع
+              سه عدد اصلی، بر اساس فیلترهای انتخابی
             </p>
           </div>
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            onClick={resetFilters}
-            className="shrink-0 gap-1.5"
+            className="h-10 shrink-0 gap-2"
+            onClick={() => setDetailsOpen(true)}
+            aria-haspopup="dialog"
           >
-            <X className="h-3.5 w-3.5" />
-            پاک‌کردن فیلترها
+            <Eye className="h-4 w-4" />
+            جزئیات
           </Button>
         </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {overviewCards.map(card => (
+            <SummaryCard key={card.title} {...card} />
+          ))}
+        </div>
+      </section>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+      <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-bold text-gray-900">فیلتر و جستجو</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              جستجو با نام، موبایل، شماره سفارش، کد پیگیری و شناسه مرجع
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              onClick={handleExport}
+              loading={exportMutation.isPending}
+              disabled={exportMutation.isPending || hasInvalidDateRange}
+              className="h-9 gap-2"
+            >
+              <Download className="h-4 w-4" />
+              خروجی Excel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              className="h-9 shrink-0 gap-1.5"
+            >
+              <X className="h-3.5 w-3.5" />
+              پاک‌کردن فیلترها
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7">
           <div className="relative md:col-span-2 xl:col-span-2">
             <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
@@ -691,14 +606,17 @@ export default function AdminTransactionsPage() {
             className="bg-white"
           />
         </div>
-        {from && to && from > to && (
-          <p className="mt-2 text-xs font-medium text-rose-600">
-            تاریخ شروع نباید بعد از تاریخ پایان باشد.
-          </p>
-        )}
+        <div className="mt-3 flex flex-col gap-1 text-[11px] leading-5 text-gray-400 sm:flex-row sm:items-center sm:justify-between">
+          <span>خروجی Excel شامل همهٔ ردیف‌های مطابق فیلترهاست.</span>
+          {hasInvalidDateRange && (
+            <span className="font-medium text-rose-600">
+              تاریخ شروع نباید بعد از تاریخ پایان باشد.
+            </span>
+          )}
+        </div>
       </section>
 
-      {isError && !data ? (
+      {isError && !data && (
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center">
           <p className="font-semibold text-rose-800">
             {getApiErrorMessage(error, 'دریافت گزارش تراکنش‌ها ناموفق بود.')}
@@ -711,341 +629,340 @@ export default function AdminTransactionsPage() {
             تلاش دوباره
           </Button>
         </section>
-      ) : (
-        <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="flex flex-col gap-1 border-b border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div>
-              <h2 className="font-bold text-gray-900">دفتر کامل تراکنش‌ها</h2>
-              <p className="mt-1 text-xs text-gray-500">
-                {amountFormatter.format(pagination?.total ?? 0)} تراکنش مطابق
-                فیلترها
-              </p>
-            </div>
-            {isFetching && !isLoading && (
-              <span className="text-xs text-gray-400">در حال به‌روزرسانی…</span>
-            )}
-          </div>
-
-          <Table dir="rtl">
-            <TableHeader>
-              <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
-                <TableHead>زمان</TableHead>
-                <TableHead>منبع و نوع</TableHead>
-                <TableHead>کاربر / سالن</TableHead>
-                <TableHead className="min-w-64">شرح و شناسه‌ها</TableHead>
-                <TableHead>مبلغ</TableHead>
-                <TableHead>کمیسیون</TableHead>
-                <TableHead>وضعیت</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }, (_, index) => (
-                  <TableRow key={`loading-${index}`}>
-                    {Array.from({ length: 7 }, (_, cell) => (
-                      <TableCell key={cell}>
-                        <div className="h-4 w-20 animate-pulse rounded bg-gray-100" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : hasInvalidDateRange ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="h-36 text-center text-sm text-rose-600"
-                  >
-                    برای نمایش تراکنش‌ها، بازهٔ تاریخ را اصلاح کنید.
-                  </TableCell>
-                </TableRow>
-              ) : transactions.length ? (
-                transactions.map(transaction => {
-                  const outgoing =
-                    transaction.source === 'wallet' &&
-                    transaction.type === 'WITHDRAWAL';
-                  const pendingWithdrawal =
-                    outgoing && transaction.status === 'PENDING';
-                  const commissionUnknown =
-                    transaction.source === 'gateway' &&
-                    transaction.type === 'BOOKING' &&
-                    transaction.status === 'PAID' &&
-                    transaction.commissionAmount === null;
-                  const estimateUnknown =
-                    transaction.source === 'gateway' &&
-                    transaction.type === 'BOOKING' &&
-                    transaction.status === 'PENDING' &&
-                    transaction.estimatedCommissionAmount === null;
-                  return (
-                    <TableRow key={`${transaction.source}:${transaction.id}`}>
-                      <TableCell className="min-w-32">
-                        <div className="font-medium text-gray-800">
-                          {formatDateTime(transaction.createdAt)}
-                        </div>
-                        {transaction.paidAt &&
-                          transaction.paidAt !== transaction.createdAt && (
-                            <div className="mt-1 text-[10px] text-gray-400">
-                              پرداخت: {formatDateTime(transaction.paidAt)}
-                            </div>
-                          )}
-                      </TableCell>
-                      <TableCell className="min-w-40">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge
-                            variant="outline"
-                            className={
-                              transaction.source === 'gateway'
-                                ? 'border-blue-200 bg-blue-50 text-blue-700'
-                                : 'border-violet-200 bg-violet-50 text-violet-700'
-                            }
-                          >
-                            {transaction.source === 'gateway'
-                              ? 'درگاه'
-                              : 'کیف پول'}
-                          </Badge>
-                        </div>
-                        <p className="mt-1.5 text-xs font-semibold text-gray-700">
-                          {getTypeLabel(transaction)}
-                        </p>
-                      </TableCell>
-                      <TableCell className="min-w-40">
-                        <div className="font-semibold text-gray-800">
-                          {transaction.user?.fullName || '—'}
-                        </div>
-                        {transaction.user?.phone && (
-                          <div className="mt-1 text-xs text-gray-500" dir="ltr">
-                            {transaction.user.phone}
-                          </div>
-                        )}
-                        {transaction.user?.salonName && (
-                          <div className="mt-1 text-xs text-gray-500">
-                            {transaction.user.salonName}
-                          </div>
-                        )}
-                        {transaction.user?.roles?.includes('admin') && (
-                          <div className="mt-1 text-[10px] text-primary">
-                            مدیر سامانه
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="min-w-64 max-w-80 whitespace-normal">
-                        <p className="break-words text-sm text-gray-700">
-                          {transaction.description || getTypeLabel(transaction)}
-                        </p>
-                        <div className="mt-1.5 space-y-0.5 text-[10px] text-gray-400">
-                          {transaction.orderId && (
-                            <p>سفارش: {transaction.orderId}</p>
-                          )}
-                          {transaction.trackId && (
-                            <p>پیگیری درگاه: {transaction.trackId}</p>
-                          )}
-                          {transaction.referenceNumber && (
-                            <p>شماره مرجع: {transaction.referenceNumber}</p>
-                          )}
-                          {transaction.referenceId && (
-                            <p>شناسه مرجع: {transaction.referenceId}</p>
-                          )}
-                          {transaction.cardNumber && (
-                            <p>کارت پرداخت: {transaction.cardNumber}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="min-w-40">
-                        <div
-                          className={cn(
-                            'font-bold tabular-nums',
-                            outgoing ? 'text-rose-700' : 'text-gray-900',
-                          )}
-                        >
-                          {outgoing ? '− ' : ''}
-                          {formatToman(transaction.amount)}
-                        </div>
-                        {transaction.serviceAmount !== null && (
-                          <div className="mt-1 text-[10px] text-gray-500">
-                            مبلغ خدمات: {formatToman(transaction.serviceAmount)}
-                          </div>
-                        )}
-                        {transaction.barberAmount !== null && (
-                          <div className="mt-1 text-[10px] text-gray-500">
-                            سهم آرایشگر: {formatToman(transaction.barberAmount)}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="min-w-36">
-                        {transaction.commissionAmount !== null &&
-                        transaction.commissionAmount > 0 ? (
-                          <div className="font-bold text-emerald-700">
-                            {formatToman(transaction.commissionAmount)}
-                          </div>
-                        ) : transaction.estimatedCommissionAmount !== null &&
-                          transaction.estimatedCommissionAmount > 0 ? (
-                          <div className="text-xs font-medium text-amber-700">
-                            برآورد:{' '}
-                            {formatToman(transaction.estimatedCommissionAmount)}
-                          </div>
-                        ) : commissionUnknown || estimateUnknown ? (
-                          <span
-                            className="text-xs font-medium text-amber-700"
-                            title="دادهٔ کافی برای محاسبهٔ کمیسیون در پرداخت ثبت نشده است."
-                          >
-                            نامشخص
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={getStatusClass(transaction.status)}
-                        >
-                          {getStatusLabel(transaction.status)}
-                        </Badge>
-                        {pendingWithdrawal && (
-                          <div className="mt-2 flex items-center gap-1.5">
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="h-7 rounded-lg bg-emerald-600 px-2 text-[10px] font-bold text-white hover:bg-emerald-700"
-                              onClick={() => {
-                                setWithdrawalNote('');
-                                setWithdrawalAction({
-                                  id: transaction.id,
-                                  action: 'approve',
-                                });
-                              }}
-                            >
-                              تایید واریز
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-7 rounded-lg border-rose-200 px-2 text-[10px] font-bold text-rose-600 hover:bg-rose-50"
-                              onClick={() => {
-                                setWithdrawalNote('');
-                                setWithdrawalAction({
-                                  id: transaction.id,
-                                  action: 'reject',
-                                });
-                              }}
-                            >
-                              رد
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-36 text-center">
-                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2 text-gray-400">
-                      <ArrowLeftRight className="h-7 w-7" />
-                      <p className="font-medium text-gray-600">
-                        تراکنشی با این فیلترها پیدا نشد.
-                      </p>
-                      <p className="text-xs">
-                        فیلترها را تغییر دهید یا پاک کنید.
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-
-          <div className="flex flex-col gap-2 border-t border-gray-100 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <p className="text-xs text-gray-500">
-              صفحه {amountFormatter.format(pagination?.page ?? page)} از{' '}
-              {amountFormatter.format(pagination?.totalPages ?? 1)}
-            </p>
-            <CustomPagination
-              totalPages={pagination?.totalPages ?? 1}
-              currentPage={page}
-              onPageChange={setPage}
-            />
-          </div>
-        </section>
       )}
 
-      <AlertDialog
-        open={refundToSettle !== null}
-        onOpenChange={open => {
-          if (!open && !settleRefundMutation.isPending) {
-            setRefundToSettle(null);
-            setTransferReference('');
-          }
-        }}
-      >
-        <AlertDialogContent dir="rtl" className="max-w-md rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>ثبت واریز بازپرداخت به مشتری</AlertDialogTitle>
-            <AlertDialogDescription>
-              با تأیید، این درخواست از صف بازپرداخت‌های در انتظار خارج می‌شود.
-              لطفاً فقط پس از انتقال واقعی وجه ادامه دهید.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {refundToSettle && (
-            <div className="space-y-2 rounded-xl bg-gray-50 p-3 text-sm">
-              <p className="font-bold text-gray-800">
-                {refundToSettle.user?.fullName || 'مشتری'}
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent
+          dir="rtl"
+          className="flex h-[85dvh] max-w-[calc(100%-1rem)] flex-col gap-4 overflow-hidden rounded-2xl p-4 sm:max-w-[95vw] sm:p-6 xl:max-w-[1400px]"
+        >
+          <DialogHeader className="shrink-0 pl-8">
+            <DialogTitle className="text-lg font-black text-gray-900">
+              جزئیات تراکنش‌ها و گزارش مالی
+            </DialogTitle>
+            <DialogDescription>
+              همهٔ شاخص‌ها و تراکنش‌های مطابق فیلترهای انتخابی در این بخش نمایش
+              داده می‌شوند.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pl-1">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-bold text-gray-900">گزارش تفصیلی مالی</h2>
+                <span className="text-xs text-gray-500">
+                  {amountFormatter.format(summary?.matchedCount ?? 0)} تراکنش
+                  مطابق فیلترها
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {detailSummaryCards.map(card => (
+                  <SummaryCard key={card.title} {...card} />
+                ))}
+              </div>
+              <p className="rounded-xl bg-gray-50 p-3 text-[11px] leading-5 text-gray-500">
+                شاخص‌های خلاصه ممکن است هم‌پوشانی داشته باشند و نباید با هم جمع
+                شوند؛ مثلاً شارژ درگاه و ثبت کیف پول دو مرحله از یک جریان هستند.
+                کمیسیونِ بدون دادهٔ ثبت‌شده نیز نامشخص می‌ماند و صفر فرض
+                نمی‌شود.
               </p>
-              <p className="font-black text-gray-900">
-                {formatToman(refundToSettle.amount)}
-              </p>
-              <label
-                htmlFor="refund-transfer-reference"
-                className="block pt-2 text-xs font-medium text-gray-600"
-              >
-                شماره پیگیری واریز (اختیاری)
-              </label>
-              <Input
-                id="refund-transfer-reference"
-                value={transferReference}
-                onChange={event => setTransferReference(event.target.value)}
-                maxLength={128}
-                placeholder="شناسه حواله یا رسید بانکی"
-                className="bg-white"
-              />
-            </div>
-          )}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={settleRefundMutation.isPending}>
-              انصراف
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={settleRefundMutation.isPending || !refundToSettle}
-              onClick={event => {
-                event.preventDefault();
-                if (!refundToSettle) return;
-                settleRefundMutation.mutate(
-                  { id: refundToSettle.id, transferReference },
-                  {
-                    onSuccess: () => {
-                      toast.success('واریز بازپرداخت ثبت شد.');
-                      setRefundToSettle(null);
-                      setTransferReference('');
-                    },
-                    onError: error =>
-                      toast.error(
-                        getApiErrorMessage(
-                          error,
-                          'ثبت واریز بازپرداخت ناموفق بود.',
-                        ),
-                      ),
-                  },
-                );
-              }}
-              className="bg-primary text-white hover:bg-primary/90"
-            >
-              {settleRefundMutation.isPending
-                ? 'در حال ثبت…'
-                : 'تأیید و ثبت واریز'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </section>
+
+            {isError && !data ? (
+              <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center">
+                <p className="font-semibold text-rose-800">
+                  {getApiErrorMessage(
+                    error,
+                    'دریافت جزئیات تراکنش‌ها ناموفق بود.',
+                  )}
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => void refetch()}
+                  className="mt-3"
+                >
+                  تلاش دوباره
+                </Button>
+              </section>
+            ) : (
+              <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div className="flex flex-col gap-1 border-b border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <div>
+                    <h2 className="font-bold text-gray-900">
+                      دفتر کامل تراکنش‌ها
+                    </h2>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {amountFormatter.format(pagination?.total ?? 0)} تراکنش
+                      مطابق فیلترها
+                    </p>
+                  </div>
+                  {isFetching && !isLoading && (
+                    <span className="text-xs text-gray-400">
+                      در حال به‌روزرسانی…
+                    </span>
+                  )}
+                </div>
+
+                <Table dir="rtl">
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                      <TableHead>زمان</TableHead>
+                      <TableHead>منبع و نوع</TableHead>
+                      <TableHead>کاربر / سالن</TableHead>
+                      <TableHead className="min-w-64">شرح و شناسه‌ها</TableHead>
+                      <TableHead>مبلغ</TableHead>
+                      <TableHead>کمیسیون</TableHead>
+                      <TableHead>وضعیت</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      Array.from({ length: 6 }, (_, index) => (
+                        <TableRow key={`loading-${index}`}>
+                          {Array.from({ length: 7 }, (_, cell) => (
+                            <TableCell key={cell}>
+                              <div className="h-4 w-20 animate-pulse rounded bg-gray-100" />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : hasInvalidDateRange ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={7}
+                          className="h-36 text-center text-sm text-rose-600"
+                        >
+                          برای نمایش تراکنش‌ها، بازهٔ تاریخ را اصلاح کنید.
+                        </TableCell>
+                      </TableRow>
+                    ) : transactions.length ? (
+                      transactions.map(transaction => {
+                        const outgoing =
+                          transaction.source === 'wallet' &&
+                          transaction.type === 'WITHDRAWAL';
+                        const pendingWithdrawal =
+                          outgoing && transaction.status === 'PENDING';
+                        const commissionUnknown =
+                          transaction.source === 'gateway' &&
+                          transaction.type === 'BOOKING' &&
+                          transaction.status === 'PAID' &&
+                          transaction.commissionAmount === null;
+                        const estimateUnknown =
+                          transaction.source === 'gateway' &&
+                          transaction.type === 'BOOKING' &&
+                          transaction.status === 'PENDING' &&
+                          transaction.estimatedCommissionAmount === null;
+                        return (
+                          <TableRow
+                            key={`${transaction.source}:${transaction.id}`}
+                          >
+                            <TableCell className="min-w-32">
+                              <div className="font-medium text-gray-800">
+                                {formatDateTime(transaction.createdAt)}
+                              </div>
+                              {transaction.paidAt &&
+                                transaction.paidAt !==
+                                  transaction.createdAt && (
+                                  <div className="mt-1 text-[10px] text-gray-400">
+                                    پرداخت: {formatDateTime(transaction.paidAt)}
+                                  </div>
+                                )}
+                            </TableCell>
+                            <TableCell className="min-w-40">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    transaction.source === 'gateway'
+                                      ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                      : 'border-violet-200 bg-violet-50 text-violet-700'
+                                  }
+                                >
+                                  {transaction.source === 'gateway'
+                                    ? 'درگاه'
+                                    : 'کیف پول'}
+                                </Badge>
+                              </div>
+                              <p className="mt-1.5 text-xs font-semibold text-gray-700">
+                                {getTypeLabel(transaction)}
+                              </p>
+                            </TableCell>
+                            <TableCell className="min-w-40">
+                              <div className="font-semibold text-gray-800">
+                                {transaction.user?.fullName || '—'}
+                              </div>
+                              {transaction.user?.phone && (
+                                <div
+                                  className="mt-1 text-xs text-gray-500"
+                                  dir="ltr"
+                                >
+                                  {transaction.user.phone}
+                                </div>
+                              )}
+                              {transaction.user?.salonName && (
+                                <div className="mt-1 text-xs text-gray-500">
+                                  {transaction.user.salonName}
+                                </div>
+                              )}
+                              {transaction.user?.roles?.includes('admin') && (
+                                <div className="mt-1 text-[10px] text-primary">
+                                  مدیر سامانه
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="min-w-64 max-w-80 whitespace-normal">
+                              <p className="break-words text-sm text-gray-700">
+                                {transaction.description ||
+                                  getTypeLabel(transaction)}
+                              </p>
+                              <div className="mt-1.5 space-y-0.5 text-[10px] text-gray-400">
+                                {transaction.orderId && (
+                                  <p>سفارش: {transaction.orderId}</p>
+                                )}
+                                {transaction.trackId && (
+                                  <p>پیگیری درگاه: {transaction.trackId}</p>
+                                )}
+                                {transaction.referenceNumber && (
+                                  <p>
+                                    شماره مرجع: {transaction.referenceNumber}
+                                  </p>
+                                )}
+                                {transaction.referenceId && (
+                                  <p>شناسه مرجع: {transaction.referenceId}</p>
+                                )}
+                                {transaction.cardNumber && (
+                                  <p>کارت پرداخت: {transaction.cardNumber}</p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="min-w-40">
+                              <div
+                                className={cn(
+                                  'font-bold tabular-nums',
+                                  outgoing ? 'text-rose-700' : 'text-gray-900',
+                                )}
+                              >
+                                {outgoing ? '− ' : ''}
+                                {formatToman(transaction.amount)}
+                              </div>
+                              {transaction.serviceAmount !== null && (
+                                <div className="mt-1 text-[10px] text-gray-500">
+                                  مبلغ خدمات:{' '}
+                                  {formatToman(transaction.serviceAmount)}
+                                </div>
+                              )}
+                              {transaction.barberAmount !== null && (
+                                <div className="mt-1 text-[10px] text-gray-500">
+                                  سهم آرایشگر:{' '}
+                                  {formatToman(transaction.barberAmount)}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="min-w-36">
+                              {transaction.commissionAmount !== null &&
+                              transaction.commissionAmount > 0 ? (
+                                <div className="font-bold text-emerald-700">
+                                  {formatToman(transaction.commissionAmount)}
+                                </div>
+                              ) : transaction.estimatedCommissionAmount !==
+                                  null &&
+                                transaction.estimatedCommissionAmount > 0 ? (
+                                <div className="text-xs font-medium text-amber-700">
+                                  برآورد:{' '}
+                                  {formatToman(
+                                    transaction.estimatedCommissionAmount,
+                                  )}
+                                </div>
+                              ) : commissionUnknown || estimateUnknown ? (
+                                <span
+                                  className="text-xs font-medium text-amber-700"
+                                  title="دادهٔ کافی برای محاسبهٔ کمیسیون در پرداخت ثبت نشده است."
+                                >
+                                  نامشخص
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={getStatusClass(transaction.status)}
+                              >
+                                {getStatusLabel(transaction.status)}
+                              </Badge>
+                              {pendingWithdrawal && (
+                                <div className="mt-2 flex items-center gap-1.5">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="h-7 rounded-lg bg-emerald-600 px-2 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                    onClick={() => {
+                                      setWithdrawalNote('');
+                                      setWithdrawalAction({
+                                        id: transaction.id,
+                                        action: 'approve',
+                                      });
+                                    }}
+                                  >
+                                    تایید واریز
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 rounded-lg border-rose-200 px-2 text-[10px] font-bold text-rose-600 hover:bg-rose-50"
+                                    onClick={() => {
+                                      setWithdrawalNote('');
+                                      setWithdrawalAction({
+                                        id: transaction.id,
+                                        action: 'reject',
+                                      });
+                                    }}
+                                  >
+                                    رد
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-36 text-center">
+                          <div className="mx-auto flex max-w-sm flex-col items-center gap-2 text-gray-400">
+                            <ArrowLeftRight className="h-7 w-7" />
+                            <p className="font-medium text-gray-600">
+                              تراکنشی با این فیلترها پیدا نشد.
+                            </p>
+                            <p className="text-xs">
+                              فیلترها را تغییر دهید یا پاک کنید.
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                <div className="flex flex-col gap-2 border-t border-gray-100 p-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <p className="text-xs text-gray-500">
+                    صفحه {amountFormatter.format(pagination?.page ?? page)} از{' '}
+                    {amountFormatter.format(pagination?.totalPages ?? 1)}
+                  </p>
+                  <CustomPagination
+                    totalPages={pagination?.totalPages ?? 1}
+                    currentPage={page}
+                    onPageChange={setPage}
+                  />
+                </div>
+              </section>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog
         open={withdrawalAction !== null}
         onOpenChange={open => {
@@ -1114,10 +1031,10 @@ export default function AdminTransactionsPage() {
                   setWithdrawalAction(null);
                   setWithdrawalNote('');
                 };
-                const onError = (error: unknown) =>
+                const onError = (mutationError: unknown) =>
                   toast.error(
                     getApiErrorMessage(
-                      error,
+                      mutationError,
                       'بررسی درخواست برداشت ناموفق بود.',
                     ),
                   );
