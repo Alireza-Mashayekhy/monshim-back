@@ -4,10 +4,12 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
+import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { ClubService } from 'src/club/club.service';
@@ -93,6 +95,8 @@ export class BookingsService {
     private clubService: ClubService,
     private userSubscriptionService: UserSubscriptionService,
     private bookingSmsService: BookingSmsService,
+    @Optional()
+    private readonly baleNotificationService?: BaleNotificationService,
   ) {}
 
   private assertBookingSlotIsNotPast(date: string, time: string): void {
@@ -296,6 +300,7 @@ export class BookingsService {
 
     // ✅ پیامک تأیید به مشتری + اطلاع رزرو جدید به آرایشگر (رایگان)
     this.sendBookingRequestSms(saved, barber, service);
+    void this.baleNotificationService?.notifyBookingRequestCreated(saved.id);
 
     return saved;
   }
@@ -1190,17 +1195,34 @@ export class BookingsService {
       dto.clubCustomerId,
     );
 
-    const smsEligible = await this.hasSmsCredit(barberUserId);
+    const sendDeposit = dto.sendDepositLink ?? false;
+    const wantsReminder = dto.sendSmsReminder ?? false;
+    const requiredSmsCredits =
+      (sendDeposit ? 0 : CONFIRMATION_SMS_COST) +
+      (wantsReminder ? REMINDER_SMS_COST : 0);
 
-    if (dto.sendSmsReminder && !smsEligible) {
+    const smsEligible =
+      requiredSmsCredits > 0
+        ? await this.hasSmsCredit(barberUserId, requiredSmsCredits)
+        : true;
+
+    if (wantsReminder && !smsEligible) {
       throw new BadRequestException(
         'برای ارسال پیامک یادآوری، اشتراک فعال و اعتبار پیامک کافی لازم است',
       );
     }
 
-    const sendDeposit = dto.sendDepositLink ?? false;
+    if (!sendDeposit && !smsEligible) {
+      throw new BadRequestException(
+        'برای ثبت نوبت بدون لینک بیعانه، اشتراک پیامکی فعال و اعتبار کافی لازم است',
+      );
+    }
 
-    const sendReminder = smsEligible && (dto.sendSmsReminder ?? false);
+    const sendReminder = wantsReminder && smsEligible;
+
+    if (sendReminder && !dto.reminderHours) {
+      throw new BadRequestException('زمان ارسال پیامک یادآوری را انتخاب کنید');
+    }
 
     const requestedServiceIds =
       dto.serviceIds && dto.serviceIds.length > 0
@@ -1375,6 +1397,14 @@ export class BookingsService {
       customerId: member.customerId,
     });
 
+    void this.baleNotificationService?.notifyManualBookingCreated({
+      bookings: savedBookings,
+      barber,
+      services: orderedServices,
+      customerId: member.customerId,
+      sendDepositLink: sendDeposit,
+    });
+
     return {
       ...savedBookings[0],
       bookings: savedBookings,
@@ -1440,7 +1470,10 @@ export class BookingsService {
     return randomBytes(DEPOSIT_TOKEN_BYTES).toString('hex');
   }
 
-  private async hasSmsCredit(barberUserId: number): Promise<boolean> {
+  private async hasSmsCredit(
+    barberUserId: number,
+    requiredCredits = CONFIRMATION_SMS_COST,
+  ): Promise<boolean> {
     const subscription = await this.userSubscriptionRepo.findOne({
       where: {
         userId: barberUserId,
@@ -1455,10 +1488,7 @@ export class BookingsService {
       return false;
     }
 
-    // حداقل اعتبار برای یک پیامک (هزینه هر پیامک ۲ اعتبار است)
-    return (
-      subscription.smsTotal - subscription.smsUsed >= CONFIRMATION_SMS_COST
-    );
+    return subscription.smsTotal - subscription.smsUsed >= requiredCredits;
   }
 
   /**

@@ -4,8 +4,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { getPagination } from 'src/common/query';
 import { ZohalService } from 'src/common/services/zohal.service';
 import { User } from 'src/users/entities/user.entity';
@@ -41,6 +43,8 @@ export class WalletService {
     private userRepo: Repository<User>,
     private dataSource: DataSource,
     private zohalService: ZohalService,
+    @Optional()
+    private readonly baleNotificationService?: BaleNotificationService,
   ) {}
 
   // ==================== کیف پول ====================
@@ -410,7 +414,7 @@ export class WalletService {
       throw new NotFoundException('کارت بانکی یافت نشد');
     }
 
-    return this.dataSource.transaction(async manager => {
+    const result = await this.dataSource.transaction(async manager => {
       /**
        * قفل ردیف کیف پول و بررسی موجودی *داخل* تراکنش.
        *
@@ -440,7 +444,8 @@ export class WalletService {
         throw new BadRequestException('موجودی کافی نیست');
       }
 
-      wallet.balance = balance - amount;
+      const remainingBalance = balance - amount;
+      wallet.balance = remainingBalance;
       await manager.save(wallet);
 
       // ثبت تراکنش با وضعیت PENDING (منتظر تایید ادمین)
@@ -459,8 +464,22 @@ export class WalletService {
       return {
         message: 'درخواست برداشت با موفقیت ثبت شد و در انتظار تأیید است',
         transaction,
+        remainingBalance,
       };
     });
+
+    void this.baleNotificationService?.notifyWithdrawalRequested({
+      userId,
+      transaction: result.transaction,
+      card,
+      remainingBalance: result.remainingBalance,
+      note: dto.description,
+    });
+
+    return {
+      message: result.message,
+      transaction: result.transaction,
+    };
   }
 
   /**

@@ -11,6 +11,7 @@ import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatTransactionReason } from '@/lib/transaction-reason';
 import { formatPrice } from '@/lib/utils';
 import {
   useTransactions,
@@ -96,7 +97,7 @@ export default function FinancialPage() {
               <AppCard key={t.id} className="flex justify-between items-center">
                 <div>
                   <p className="font-bold text-gray-800 text-sm">
-                    {t.description}
+                    {formatTransactionReason(t)}
                   </p>
                   <span className="text-xs text-gray-400">
                     {new Date(t.createdAt).toLocaleDateString('fa-IR')}

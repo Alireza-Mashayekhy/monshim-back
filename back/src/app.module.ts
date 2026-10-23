@@ -10,6 +10,7 @@ import { SentryModule } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { BaleModule } from './bale/bale.module';
 import { BarberModule } from './barber/barber.module';
 import { BookingModule } from './booking/booking.module';
 import { ClubModule } from './club/club.module';
@@ -89,6 +90,7 @@ const THROTTLE_LIMIT = Number(process.env.THROTTLE_LIMIT ?? 120);
     PaymentModule,
     PublicPageModule,
     NotificationModule,
+    BaleModule,
   ],
   controllers: [AppController],
   providers: [
