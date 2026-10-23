@@ -28,6 +28,12 @@ export class CreateUserDto {
   email?: string;
 
   @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{10}$/, { message: 'کد ملی باید ۱۰ رقم باشد' })
+  nationalCode?: string;
+
+  @ApiPropertyOptional()
   @IsString()
   @MaxLength(4)
   @MinLength(4)

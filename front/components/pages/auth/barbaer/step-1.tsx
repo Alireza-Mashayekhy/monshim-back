@@ -1,8 +1,7 @@
-// components/pages/auth/barbaer/step-1.tsx
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Smartphone, User } from 'lucide-react';
+import { IdCard, Smartphone, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -12,6 +11,10 @@ import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
 import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
+import {
+  isValidIranianNationalCode,
+  normalizeNationalCode,
+} from '@/lib/national-code';
 import { normalizePhone, phoneSchema } from '@/lib/phone';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
@@ -20,11 +23,19 @@ interface Step1Props {
 }
 
 export default function BarbaerStep1({ onSubmit }: Step1Props) {
-  const { fullName, phone, birthDate } = useBarberSignupStore();
+  const { fullName, phone, nationalCode, birthDate } = useBarberSignupStore();
 
   const schema = z.object({
     fullName: z.string().trim().nonempty('نام و نام خانوادگی اجباری است.'),
     phone: phoneSchema,
+    nationalCode: z
+      .string()
+      .trim()
+      .nonempty('کد ملی اجباری است.')
+      .transform(normalizeNationalCode)
+      .refine(val => isValidIranianNationalCode(val), {
+        message: 'کد ملی وارد شده معتبر نیست (باید ۱۰ رقم باشد)',
+      }),
     birthDate: z.string().optional(),
   });
 
@@ -34,6 +45,7 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
     defaultValues: {
       fullName: fullName || '',
       phone: phone || '',
+      nationalCode: nationalCode || '',
       birthDate: birthDate || '',
     },
     resolver: zodResolver(schema),
@@ -43,6 +55,7 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
     onSubmit({
       fullName: data.fullName,
       phone: normalizePhone(data.phone),
+      nationalCode: normalizeNationalCode(data.nationalCode),
       birthDate: data.birthDate || '',
     });
   };
@@ -62,6 +75,15 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
             name="phone"
             isRequired
             startIcon={<Smartphone className="w-4 h-4" />}
+          />
+          <RHFInput
+            label="کد ملی"
+            name="nationalCode"
+            placeholder="مثلاً ۰۰۱۰۳۲۱۲۶۸"
+            isRequired
+            maxLength={10}
+            dir="ltr"
+            startIcon={<IdCard className="w-4 h-4" />}
           />
           <PersianDatePicker
             name="birthDate"
@@ -85,3 +107,4 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
     </FormProvider>
   );
 }
+

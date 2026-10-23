@@ -12,6 +12,10 @@ export class UpdateBarberDto {
 
   @IsOptional()
   @IsString()
+  nationalCode?: string | null;
+
+  @IsOptional()
+  @IsString()
   salonName?: string;
 
   @IsOptional()

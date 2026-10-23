@@ -30,6 +30,10 @@ export class CreateCardDto {
   ownerName: string;
 
   @IsOptional()
+  @IsString()
+  nationalCode?: string;
+
+  @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
 }

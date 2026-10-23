@@ -310,6 +310,14 @@ export default function ProfilePage() {
                 value={profile?.data?.fullName || 'ثبت نشده'}
               />
               <InfoRow
+                label="کد ملی"
+                value={profile?.data?.nationalCode || 'ثبت نشده'}
+              />
+              <InfoRow
+                label="شماره موبایل"
+                value={profile?.data?.phone || 'ثبت نشده'}
+              />
+              <InfoRow
                 label="تاریخ تولد"
                 value={
                   profile?.data?.birthDate

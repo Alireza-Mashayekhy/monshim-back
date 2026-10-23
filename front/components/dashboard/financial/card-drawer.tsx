@@ -3,7 +3,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, CreditCard, Info, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -18,6 +18,11 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  isValidIranianNationalCode,
+  normalizeNationalCode,
+} from '@/lib/national-code';
+import { useMyBarberProfile } from '@/services/features/barber/hooks';
 import {
   useAddCard,
   useBankCards,
@@ -37,6 +42,13 @@ const schema = z.object({
     .length(26, 'شماره شبا باید ۲۶ کاراکتر باشد (IR + ۲۴ رقم)')
     .regex(/^IR\d{24}$/, 'فرمت شماره شبا معتبر نیست (مثال: IRxxxxxxxxxxxxxxxxxxxxxxxx)'),
   ownerName: z.string().min(1, 'نام صاحب حساب الزامی است'),
+  nationalCode: z
+    .string()
+    .min(1, 'کد ملی الزامی است')
+    .transform(normalizeNationalCode)
+    .refine(val => isValidIranianNationalCode(val), {
+      message: 'کد ملی وارد شده معتبر نیست (باید ۱۰ رقم باشد)',
+    }),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -50,10 +62,12 @@ const formatCardNumber = (num: string) => num.replace(/(\d{4})(?=\d)/g, '$1 ');
 
 function OwnerMismatchNotice() {
   return (
-    <p className="flex items-start gap-1.5 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] font-medium leading-5 text-amber-700">
+    <div className="flex items-start gap-1.5 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] font-medium leading-5 text-amber-700">
       <Info size={14} className="mt-0.5 shrink-0" />
-      در صورت مغایرت صاحب کارت با اکانت آرایشگر، پول پرداخت نمی‌شود.
-    </p>
+      <span>
+        شماره کارت و شبا باید دقیقاً متعلق به شخصی باشد که شماره موبایل و کد ملی به نام او ثبت شده است. استعلام مالکیت و تطبیق شاهکار از طریق زحل انجام می‌شود.
+      </span>
+    </div>
   );
 }
 
@@ -61,6 +75,7 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
   const [view, setView] = useState<'list' | 'add'>('list');
 
   const { data: cards, isLoading: cardsLoading } = useBankCards();
+  const { data: profile } = useMyBarberProfile();
   const addCard = useAddCard();
   const deleteCard = useDeleteCard();
 
@@ -71,14 +86,28 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
       cardNumber: '',
       shebaNumber: '',
       ownerName: '',
+      nationalCode: '',
     },
   });
 
   const { reset, handleSubmit } = methods;
 
+  useEffect(() => {
+    if (view === 'add' && profile?.data) {
+      reset({
+        bankName: '',
+        cardNumber: '',
+        shebaNumber: '',
+        ownerName: profile.data.fullName || '',
+        nationalCode: profile.data.nationalCode || '',
+      });
+    }
+  }, [view, profile?.data, reset]);
+
   const onSubmit = (data: FormData) => {
     const payload = {
       ...data,
+      nationalCode: normalizeNationalCode(data.nationalCode),
       shebaNumber: String(data.shebaNumber ?? '')
         .trim()
         .toUpperCase()
@@ -212,7 +241,7 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
               name="shebaNumber"
               label="شماره شبا"
               placeholder="IRxxxxxxxxxxxxxxxxxxxxxxxx"
-              helperText="شماره شبا باید متعلق به خودتان باشد؛ مالکیت آن از طریق زحل استعلام می‌شود"
+              helperText="شماره شبا باید با IR شروع شود و ۲۶ کاراکتر باشد"
               dir="ltr"
               maxLength={26}
               isRequired
@@ -224,12 +253,22 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
               placeholder="نام و نام خانوادگی"
               isRequired
             />
+            <RHFInput
+              name="nationalCode"
+              label="کد ملی صاحب حساب"
+              placeholder="مثلاً ۰۰۱۰۳۲۱۲۶۸"
+              inputMode="numeric"
+              maxLength={10}
+              dir="ltr"
+              helperText="کد ملی باید با شماره موبایل ثبت‌نامی و صاحب حساب بانکی مطابقت داشته باشد"
+              isRequired
+            />
             <Button
               type="submit"
               className="w-full"
               disabled={addCard.isPending}
             >
-              {addCard.isPending ? 'در حال ثبت...' : 'افزودن کارت'}
+              {addCard.isPending ? 'در حال استعلام و ثبت...' : 'افزودن کارت'}
             </Button>
             <OwnerMismatchNotice />
           </FormProvider>

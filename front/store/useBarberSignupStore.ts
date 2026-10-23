@@ -14,6 +14,7 @@ interface BarberSignupState {
   step: number;
   fullName: string;
   phone: string;
+  nationalCode: string;
   image: string | null; // base64
   shopName: string;
   cityId: string | null;
@@ -48,6 +49,7 @@ const initialState = {
   step: 1,
   fullName: '',
   phone: '',
+  nationalCode: '',
   image: null, // اضافه شد
   shopName: '',
   cityId: null,

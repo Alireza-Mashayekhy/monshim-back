@@ -1,11 +1,16 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
+import {
+  isValidIranianNationalCode,
+  normalizeNationalCode,
+} from 'src/common/utils/national-code.util';
 import { City } from 'src/locations/entities/city.entity';
 import { Service } from 'src/services/entities/service.entity';
 import { User } from 'src/users/entities/user.entity';
@@ -579,6 +584,25 @@ export class BarberService {
     }
     if (dto.birthDate !== undefined) {
       user.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
+    }
+    if (dto.nationalCode !== undefined) {
+      if (dto.nationalCode) {
+        const cleanNc = normalizeNationalCode(dto.nationalCode);
+        if (!isValidIranianNationalCode(cleanNc)) {
+          throw new BadRequestException('کد ملی وارد شده معتبر نیست');
+        }
+        const existing = await this.userRepo.findOne({
+          where: { nationalCode: cleanNc },
+        });
+        if (existing && existing.id !== user.id) {
+          throw new ConflictException(
+            'این کد ملی قبلاً برای کاربر دیگری ثبت شده است',
+          );
+        }
+        user.nationalCode = cleanNc;
+      } else {
+        user.nationalCode = null;
+      }
     }
     await this.userRepo.save(user);
 

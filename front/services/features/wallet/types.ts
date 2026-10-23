@@ -19,6 +19,16 @@ export interface BankCard {
   cardNumber: string; // ۱۶ رقم
   shebaNumber?: string;
   ownerName: string;
+  nationalCode?: string;
+  isDefault?: boolean;
+}
+
+export interface CreateBankCardPayload {
+  bankName: string;
+  cardNumber: string;
+  shebaNumber: string;
+  ownerName: string;
+  nationalCode?: string;
   isDefault?: boolean;
 }
 

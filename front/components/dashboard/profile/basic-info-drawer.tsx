@@ -17,11 +17,25 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { isoToJalali, jalaliToIso } from '@/lib/date-utils';
+import {
+  isValidIranianNationalCode,
+  normalizeNationalCode,
+} from '@/lib/national-code';
 import { useUpdateBarberProfile } from '@/services/features/barber/hooks';
 import { useMyBarberProfile } from '@/services/features/barber/hooks';
 
 const schema = z.object({
   fullName: z.string().min(1, 'نام و نام خانوادگی الزامی است'),
+  nationalCode: z
+    .string()
+    .optional()
+    .nullable()
+    .refine(
+      val => !val || isValidIranianNationalCode(normalizeNationalCode(val)),
+      {
+        message: 'کد ملی وارد شده معتبر نیست (باید ۱۰ رقم باشد)',
+      },
+    ),
   birthDate: z.string().optional().nullable(),
 });
 
@@ -41,6 +55,7 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
     resolver: zodResolver(schema),
     defaultValues: {
       fullName: '',
+      nationalCode: '',
       birthDate: null,
     },
   });
@@ -51,6 +66,7 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
     if (profile?.data) {
       reset({
         fullName: profile.data.fullName || '',
+        nationalCode: profile.data.nationalCode || '',
         birthDate: isoToJalali(profile.data.birthDate) || null,
       });
     }
@@ -59,6 +75,9 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
   const onSubmit = (data: FormData) => {
     const payload = {
       fullName: data.fullName,
+      nationalCode: data.nationalCode
+        ? normalizeNationalCode(data.nationalCode)
+        : null,
       birthDate: jalaliToIso(data.birthDate),
     };
     updateMutation.mutate(payload, {
@@ -79,7 +98,7 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
         <DrawerHeader>
           <DrawerTitle className="text-center">ویرایش اطلاعات فردی</DrawerTitle>
           <DrawerDescription className="text-center text-sm">
-            نام و نام خانوادگی و تاریخ تولد خود را ویرایش کنید
+            نام و نام خانوادگی، کد ملی و تاریخ تولد خود را ویرایش کنید
           </DrawerDescription>
         </DrawerHeader>
 
@@ -89,6 +108,14 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
           className="px-4 pb-4 space-y-4"
         >
           <RHFInput name="fullName" label="نام و نام خانوادگی" isRequired />
+          <RHFInput
+            name="nationalCode"
+            label="کد ملی"
+            placeholder="مثلاً ۰۰۱۰۳۲۱۲۶۸"
+            maxLength={10}
+            dir="ltr"
+            helperText="کد ملی برای احراز هویت بانکی و تسویه حساب الزامی است"
+          />
           <PersianDatePicker
             name="birthDate"
             label="تاریخ تولد"
@@ -103,3 +130,4 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
     </Drawer>
   );
 }
+
