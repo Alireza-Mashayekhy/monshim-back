@@ -6,6 +6,7 @@ export type AdminTransactionType =
   | 'SUBSCRIPTION'
   | 'BOOKING'
   | 'WALLET'
+  | 'PUBLIC_PAGE'
   | 'DEPOSIT'
   | 'WITHDRAWAL'
   | 'INCOME'
@@ -57,7 +58,10 @@ export interface AdminTransactionSummary {
   bookingCommissionAmount: number;
   bookingCommissionUnknownCount: number;
   subscriptionRevenueAmount: number;
+  publicPageRevenueAmount: number;
+  publicPageCount: number;
   walletTopUpAmount: number;
+  netRevenueAmount: number;
   barberWalletCreditsAmount: number;
   pendingWithdrawalsAmount: number;
   pendingWithdrawalCount: number;
