@@ -102,6 +102,12 @@ export const endpoints = {
     paymentConfig: '/settings/payment-config',
   },
 
+  adminWithdrawals: {
+    list: '/admin/withdrawals',
+    approve: (id: string) => `/admin/withdrawals/${id}/approve`,
+    reject: (id: string) => `/admin/withdrawals/${id}/reject`,
+  },
+
   adminTransactions: {
     list: '/admin/transactions',
     export: '/admin/transactions/export',

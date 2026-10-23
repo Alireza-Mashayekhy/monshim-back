@@ -5,6 +5,7 @@ import {
   ArrowLeftRight,
   ArrowUpRight,
   BadgePercent,
+  Banknote,
   CalendarDays,
   CheckCircle2,
   CreditCard,
@@ -14,6 +15,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -419,26 +421,46 @@ export default function AdminTransactionsPage() {
               </p>
             </div>
           </div>
-          <Button
-            onClick={() =>
-              exportMutation.mutate(exportFilters, {
-                onSuccess: () => toast.success('خروجی Excel آماده شد.'),
-                onError: error =>
-                  toast.error(
-                    getApiErrorMessage(
-                      error,
-                      'دریافت خروجی تراکنش‌ها ناموفق بود.',
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="h-11 shrink-0 gap-2 px-4"
+            >
+              <Link href="/admin/withdrawals">
+                <Banknote className="h-4 w-4" />
+                درخواست‌های برداشت
+                {!!summary?.pendingWithdrawalCount && (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-200 bg-amber-50 text-[10px] text-amber-800"
+                  >
+                    {amountFormatter.format(summary.pendingWithdrawalCount)}
+                  </Badge>
+                )}
+              </Link>
+            </Button>
+            <Button
+              onClick={() =>
+                exportMutation.mutate(exportFilters, {
+                  onSuccess: () => toast.success('خروجی Excel آماده شد.'),
+                  onError: error =>
+                    toast.error(
+                      getApiErrorMessage(
+                        error,
+                        'دریافت خروجی تراکنش‌ها ناموفق بود.',
+                      ),
                     ),
-                  ),
-              })
-            }
-            loading={exportMutation.isPending}
-            disabled={exportMutation.isPending || hasInvalidDateRange}
-            className="h-11 shrink-0 gap-2 px-4"
-          >
-            <Download className="h-4 w-4" />
-            خروجی Excel
-          </Button>
+                })
+              }
+              loading={exportMutation.isPending}
+              disabled={exportMutation.isPending || hasInvalidDateRange}
+              className="h-11 shrink-0 gap-2 px-4"
+            >
+              <Download className="h-4 w-4" />
+              خروجی Excel
+            </Button>
+          </div>
         </div>
         <div className="border-t border-gray-100 bg-gray-50/70 px-5 py-3 text-xs leading-6 text-gray-500 sm:px-6">
           فایل Excel واقعی (.xlsx) شامل همهٔ ردیف‌های مطابق فیلتر و دو برگهٔ

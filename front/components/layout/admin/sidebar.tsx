@@ -2,6 +2,7 @@
 
 import {
   ArrowLeftRight,
+  Banknote,
   Check,
   Headphones,
   MessageSquareText,
@@ -24,7 +25,8 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { cn } from '@/lib/utils';
+import { cn, toPersianDigits } from '@/lib/utils';
+import { usePendingWithdrawalsCount } from '@/services/features/admin-withdrawals/hooks';
 
 const items = [
   {
@@ -36,6 +38,11 @@ const items = [
     link: '/admin/wallet',
     icon: ArrowLeftRight,
     name: 'تراکنش‌ها',
+  },
+  {
+    link: '/admin/withdrawals',
+    icon: Banknote,
+    name: 'درخواست برداشت',
   },
   {
     link: '/admin/approvals',
@@ -62,6 +69,8 @@ const items = [
 export default function AdminSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const { data: pendingWithdrawals = 0 } = usePendingWithdrawalsCount();
+  const showPendingBadge = state !== 'collapsed' || isMobile;
 
   return (
     <Sidebar
@@ -84,6 +93,7 @@ export default function AdminSidebar() {
           <SidebarMenu className="gap-2">
             {items.map(item => {
               const isActive = pathname.startsWith(item.link);
+              const isWithdrawals = item.link === '/admin/withdrawals';
 
               return (
                 <SidebarMenuItem key={item.name}>
@@ -103,6 +113,21 @@ export default function AdminSidebar() {
                     >
                       <item.icon />
                       <span>{item.name}</span>
+                      {isWithdrawals &&
+                        pendingWithdrawals > 0 &&
+                        showPendingBadge && (
+                          <span
+                            aria-label={`${pendingWithdrawals} درخواست برداشت در انتظار بررسی`}
+                            className={cn(
+                              'ms-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums',
+                              isActive
+                                ? 'bg-primary text-white'
+                                : 'bg-amber-100 text-amber-800',
+                            )}
+                          >
+                            {toPersianDigits(pendingWithdrawals)}
+                          </span>
+                        )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
