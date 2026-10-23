@@ -176,7 +176,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
 
     const configService: any = {
       get: jest.fn((key: string) => {
-        if (key === 'FRONTEND_URL') return 'https://monshim.ir';
+        if (key === 'FRONT_URL') return 'https://monshim.ir';
         if (key === 'APP_URL') return 'https://monshim.ir';
         return undefined;
       }),
