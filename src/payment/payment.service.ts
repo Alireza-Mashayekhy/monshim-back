@@ -134,7 +134,7 @@ export class PaymentService {
   /** origin فرانت برای ریدایرکت کاربر بعد از پرداخت (مثلاً https://monshiim.ir) */
   private getFrontUrl(requestOrigin?: string | null): string {
     return this.resolveOrigin({
-      key: 'FRONTEND_URL',
+      key: 'FRONT_URL',
       requestOrigin,
       fallback: DEFAULT_FRONT_ORIGIN,
       extra: 'کاربر بعد از پرداخت به این origin ریدایرکت می‌شود',
@@ -149,7 +149,7 @@ export class PaymentService {
    * origin همان درخواست استفاده می‌شود تا کاربر به localhost نرود.
    */
   private resolveOrigin(params: {
-    key: 'APP_URL' | 'FRONTEND_URL';
+    key: 'APP_URL' | 'FRONT_URL';
     requestOrigin?: string | null;
     fallback: string;
     extra: string;

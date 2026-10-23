@@ -82,7 +82,7 @@ export class PublicPageService {
     // فقط origin استفاده می‌شود تا مقدار اضافه‌ای مثل `/panel` در FRONTEND_URL
     // باعث تولید لینک اشتباه (مثل `.../panel/barber/1`) نشود.
     const frontUrl = resolvePublicOrigin({
-      configured: this.configService.get<string>('FRONTEND_URL'),
+      configured: this.configService.get<string>('FRONT_URL'),
       fallback: DEFAULT_FRONT_ORIGIN,
       isProduction: process.env.NODE_ENV === 'production',
     }).origin;
