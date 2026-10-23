@@ -2,7 +2,13 @@ import {
   DEPOSIT_TOKEN_BYTES,
   SMS_PARAM_MAX_LENGTH,
 } from '../common/constants/constants';
-import { bookingParams, clipForSms, depositLinkParams } from './sms-templates';
+import {
+  bookingParams,
+  clipForSms,
+  depositLinkParams,
+  depositPaidBarberParams,
+  SMS_TEMPLATES,
+} from './sms-templates';
 
 const MAX = SMS_PARAM_MAX_LENGTH;
 
@@ -70,6 +76,28 @@ describe('sms-templates', () => {
     expect(
       parameters.find(parameter => parameter.name === 'DATE')!.value,
     ).toMatch(/^[۰-۹]{4}\/[۰-۹]{2}\/[۰-۹]{2}$/);
+  });
+
+  it('از قالب‌های خواسته‌شده برای تغییر ساعت و پرداخت بیعانه استفاده می‌کند', () => {
+    expect(SMS_TEMPLATES.BOOKING_TIME_CHANGED_CUSTOMER).toBe(488101);
+    expect(SMS_TEMPLATES.DEPOSIT_PAID_BARBER).toBe(798384);
+  });
+
+  it('پارامترهای پیامک پرداخت بیعانه به آرایشگر را با ترتیب قالب می‌سازد', () => {
+    const parameters = depositPaidBarberParams({
+      customerName: 'سارا محمدی',
+      date: '2026-10-20',
+      time: '16:30:00',
+    });
+
+    expect(parameters.map(parameter => parameter.name)).toEqual([
+      'DATE',
+      'TIME',
+      'NAME',
+    ]);
+    expect(parameters).toContainEqual({ name: 'TIME', value: '۱۶:۳۰' });
+    expect(parameters).toContainEqual({ name: 'NAME', value: 'سارا محمدی' });
+    expectAllParamsWithinLimit(parameters);
   });
 });
 

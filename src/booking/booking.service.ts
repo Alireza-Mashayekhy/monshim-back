@@ -53,6 +53,7 @@ import {
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
+import { UpdateBookingTimeDto } from './dto/update-booking-time.dto';
 import { Booking, BookingStatus } from './entities/booking.entity';
 import { SlotHold } from './entities/slot-hold.entity';
 import { BusyInterval, hasOverlap } from './slot-intervals';
@@ -1091,6 +1092,75 @@ export class BookingsService {
     return this.bookingRepo.save(booking);
   }
 
+  /**
+   * تغییر ساعت یک نوبت فعال بدون تغییر وضعیت آن.
+   *
+   * ساعت جدید از همان تقویم اسلات‌های آزاد عبور می‌کند؛ بنابراین ساعت کاری،
+   * زمان گذشته، نوبت‌های دیگر و نگه‌داشتن‌های موقت همگی دوباره بررسی
+   * می‌شوند. رزرو فعلی از بررسی تداخل مستثنا است.
+   */
+  async updateTime(
+    id: string,
+    userId: number,
+    roles: string[],
+    dto: UpdateBookingTimeDto,
+  ): Promise<Booking> {
+    const booking = await this.findOne(id, userId, roles);
+    const isBarber = booking.barber?.userId === userId;
+    const isAdmin = roles?.includes('admin');
+
+    if (!isBarber && !isAdmin) {
+      throw new ForbiddenException(
+        'فقط آرایشگر یا ادمین می‌توانند ساعت نوبت را تغییر دهند',
+      );
+    }
+
+    if (
+      booking.status !== BookingStatus.PENDING &&
+      booking.status !== BookingStatus.CONFIRMED
+    ) {
+      throw new BadRequestException(
+        'فقط ساعت نوبت‌های در انتظار یا تاییدشده قابل تغییر است',
+      );
+    }
+
+    const newTime = dto.time.slice(0, 5);
+    const currentTime = booking.time.slice(0, 5);
+    if (newTime === currentTime) return booking;
+
+    this.assertBookingSlotIsNotPast(booking.date, newTime);
+
+    const availableSlots = await this.getAvailableSlots(
+      booking.barberId,
+      booking.date,
+      [booking.serviceId],
+      booking.id,
+    );
+
+    if (!availableSlots.includes(newTime)) {
+      throw new BadRequestException(
+        'ساعت انتخاب‌شده خارج از ساعت کاری است یا با نوبت دیگری تداخل دارد',
+      );
+    }
+
+    booking.time = newTime;
+    const savedBooking = await this.bookingRepo.save(booking);
+
+    // خطای پیامک نباید تغییر ساعتِ ثبت‌شده را ناموفق کند.
+    void this.bookingSmsService.sendBookingTimeChangedToCustomer(
+      booking.customer?.phone ?? '',
+      {
+        customerName: booking.customer?.fullName ?? 'مشتری',
+        serviceName: booking.service?.name ?? 'خدمت',
+        date: booking.date,
+        time: newTime,
+        salonName: booking.barber?.salonName ?? 'سالن شما',
+      },
+    );
+
+    return savedBooking;
+  }
+
   // =========================================================
   // MANUAL BOOKING BY BARBER FOR CLUB CUSTOMER
   // =========================================================
@@ -1957,6 +2027,7 @@ export class BookingsService {
     userId: string,
     date: string,
     serviceIds: string[],
+    excludeBookingId?: string,
   ): Promise<string[]> {
     const barberUserId = Number(userId);
 
@@ -2024,20 +2095,23 @@ export class BookingsService {
     // نگه‌داشتن‌های موقتِ رزروهای در جریان (پرداخت ناتمام)
     const activeHolds = await this.getActiveHoldIntervals(barber.id, date);
 
-    // رزروهای همان روز
-    const bookings = await this.bookingRepo.find({
-      where: {
-        barberId: barber.id,
-        date,
-        holdsSlot: true,
-      },
-      relations: {
-        service: true,
-      },
-      order: {
-        time: 'ASC',
-      },
-    });
+    // رزروهای همان روز. هنگام تغییر ساعت، رزرو فعلی از فهرست اشغال
+    // حذف می‌شود تا ساعت‌های نزدیک به زمان قبلی هم قابل انتخاب باشند.
+    const bookings = (
+      await this.bookingRepo.find({
+        where: {
+          barberId: barber.id,
+          date,
+          holdsSlot: true,
+        },
+        relations: {
+          service: true,
+        },
+        order: {
+          time: 'ASC',
+        },
+      })
+    ).filter(booking => booking.id !== excludeBookingId);
 
     const toMinutes = (time: string) => {
       const [hours, minutes] = time.split(':').map(Number);
