@@ -158,7 +158,11 @@ export class PaymentService {
     fallback: string;
     extra: string;
   }): string {
-    const configured = this.configService.get<string>(params.key);
+    const configured =
+      this.configService.get<string>(params.key) ??
+      (params.key === 'FRONT_URL'
+        ? this.configService.get<string>('FRONTEND_URL')
+        : undefined);
 
     const { origin, source } = resolvePublicOrigin({
       configured,

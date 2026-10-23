@@ -61,7 +61,10 @@ export interface AdminTransactionSummary {
   bookingCommissionAmount: number;
   bookingCommissionUnknownCount: number;
   subscriptionRevenueAmount: number;
+  publicPageRevenueAmount: number;
+  publicPageCount: number;
   walletTopUpAmount: number;
+  netRevenueAmount: number;
   barberWalletCreditsAmount: number;
   pendingWithdrawalsAmount: number;
   pendingWithdrawalCount: number;
@@ -267,6 +270,12 @@ export class AdminTransactionsService {
       .orderBy('payment.createdAt', 'DESC')
       .addOrderBy('payment.id', 'DESC');
 
+    // در این گزارش مالی، فقط مبالغی که واقعاً از درگاه پرداخت وارد حساب شده‌اند (PAID) ثبت می‌شوند.
+    // تلاش‌های ناموفق، انصرافی یا ناتمام درگاه کلاً حذف می‌شوند.
+    qb.andWhere('payment.status = :paidStatus', {
+      paidStatus: PaymentStatus.PAID,
+    });
+
     if (query.type) {
       if (
         Object.values(PaymentPurpose).includes(query.type as PaymentPurpose)
@@ -280,12 +289,8 @@ export class AdminTransactionsService {
     }
 
     if (query.status) {
-      if (
-        Object.values(PaymentStatus).includes(query.status as PaymentStatus)
-      ) {
-        qb.andWhere('payment.status = :paymentStatus', {
-          paymentStatus: query.status,
-        });
+      if (query.status === 'PAID') {
+        // پرداخت با paidStatus فیلتر شده است
       } else {
         qb.andWhere('1 = 0');
       }
@@ -321,6 +326,11 @@ export class AdminTransactionsService {
       .orderBy('transaction.createdAt', 'DESC')
       .addOrderBy('transaction.id', 'DESC');
 
+    // تراکنش‌های ناموفق کیف پول کلاً حذف می‌شوند
+    qb.andWhere('transaction.status != :failedStatus', {
+      failedStatus: TransactionStatus.FAILED,
+    });
+
     if (query.type) {
       if (
         Object.values(TransactionType).includes(query.type as TransactionType)
@@ -337,7 +347,8 @@ export class AdminTransactionsService {
       if (
         Object.values(TransactionStatus).includes(
           query.status as TransactionStatus,
-        )
+        ) &&
+        query.status !== TransactionStatus.FAILED
       ) {
         qb.andWhere('transaction.status = :walletStatus', {
           walletStatus: query.status,
@@ -522,7 +533,10 @@ export class AdminTransactionsService {
       bookingCommissionAmount: 0,
       bookingCommissionUnknownCount: 0,
       subscriptionRevenueAmount: 0,
+      publicPageRevenueAmount: 0,
+      publicPageCount: 0,
       walletTopUpAmount: 0,
+      netRevenueAmount: 0,
       barberWalletCreditsAmount: 0,
       pendingWithdrawalsAmount: 0,
       pendingWithdrawalCount: 0,
@@ -542,8 +556,12 @@ export class AdminTransactionsService {
         summary.successfulGatewayPaymentCount += 1;
 
         if (payment.purpose === PaymentPurpose.BOOKING) {
-          summary.bookingPaymentsAmount += amount;
           const metadata = this.parseMetadata(payment.metadata);
+          if (metadata?.refundQueued === true) {
+            continue;
+          }
+
+          summary.bookingPaymentsAmount += amount;
           const commissionAmount = this.getBookingBreakdown(
             payment.purpose,
             amount,
@@ -556,18 +574,12 @@ export class AdminTransactionsService {
           }
         } else if (payment.purpose === PaymentPurpose.SUBSCRIPTION) {
           summary.subscriptionRevenueAmount += amount;
+        } else if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
+          summary.publicPageRevenueAmount += amount;
+          summary.publicPageCount += 1;
         } else if (payment.purpose === PaymentPurpose.WALLET) {
           summary.walletTopUpAmount += amount;
         }
-      } else if (
-        payment.status === PaymentStatus.FAILED ||
-        payment.status === PaymentStatus.CANCELED
-      ) {
-        summary.unsuccessfulAmount += amount;
-        summary.unsuccessfulCount += 1;
-      } else if (payment.status === PaymentStatus.PENDING) {
-        summary.pendingCount += 1;
-        summary.pendingAmount += amount;
       }
     }
 
@@ -580,9 +592,6 @@ export class AdminTransactionsService {
           summary.pendingWithdrawalsAmount += amount;
           summary.pendingWithdrawalCount += 1;
         }
-      } else if (transaction.status === TransactionStatus.FAILED) {
-        summary.unsuccessfulAmount += amount;
-        summary.unsuccessfulCount += 1;
       } else if (
         transaction.status === TransactionStatus.COMPLETED &&
         transaction.type === TransactionType.WITHDRAWAL
@@ -606,12 +615,20 @@ export class AdminTransactionsService {
       }
     }
 
+    summary.netRevenueAmount = this.roundAmount(
+      summary.bookingCommissionAmount +
+        summary.subscriptionRevenueAmount +
+        summary.publicPageRevenueAmount,
+    );
+
     for (const key of [
       'gatewayReceivedAmount',
       'bookingPaymentsAmount',
       'bookingCommissionAmount',
       'subscriptionRevenueAmount',
+      'publicPageRevenueAmount',
       'walletTopUpAmount',
+      'netRevenueAmount',
       'barberWalletCreditsAmount',
       'pendingWithdrawalsAmount',
       'completedWithdrawalsAmount',
@@ -635,6 +652,14 @@ export class AdminTransactionsService {
         commissionAmount: 0,
         serviceAmount: null,
         barberAmount: null,
+      };
+    }
+
+    if (metadata?.refundQueued === true) {
+      return {
+        commissionAmount: 0,
+        serviceAmount: this.getServiceAmount(metadata),
+        barberAmount: 0,
       };
     }
 
