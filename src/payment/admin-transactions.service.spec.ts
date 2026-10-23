@@ -1,10 +1,10 @@
-import { PaymentPurpose, PaymentStatus } from './entities/payment.entity';
 import {
-  Transaction,
   TransactionStatus,
   TransactionType,
 } from 'src/wallet/entities/transaction.entity';
+
 import { AdminTransactionsService } from './admin-transactions.service';
+import { PaymentPurpose, PaymentStatus } from './entities/payment.entity';
 
 describe('AdminTransactionsService', () => {
   function createMockQueryBuilder(params: {
@@ -18,6 +18,7 @@ describe('AdminTransactionsService', () => {
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -26,21 +27,31 @@ describe('AdminTransactionsService', () => {
       clone: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockImplementation(() => {
         if (params.payments !== undefined) {
-          return Promise.resolve([params.payments, params.count ?? params.payments.length]);
+          return Promise.resolve([
+            params.payments,
+            params.count ?? params.payments.length,
+          ]);
         }
         if (params.transactions !== undefined) {
-          return Promise.resolve([params.transactions, params.count ?? params.transactions.length]);
+          return Promise.resolve([
+            params.transactions,
+            params.count ?? params.transactions.length,
+          ]);
         }
         return Promise.resolve([[], 0]);
       }),
       getMany: jest.fn().mockImplementation(() => {
-        if (params.payments !== undefined) return Promise.resolve(params.payments);
-        if (params.transactions !== undefined) return Promise.resolve(params.transactions);
+        if (params.payments !== undefined)
+          return Promise.resolve(params.payments);
+        if (params.transactions !== undefined)
+          return Promise.resolve(params.transactions);
         return Promise.resolve([]);
       }),
       getRawMany: jest.fn().mockImplementation(() => {
-        if (params.paymentSummaries !== undefined) return Promise.resolve(params.paymentSummaries);
-        if (params.walletSummaries !== undefined) return Promise.resolve(params.walletSummaries);
+        if (params.paymentSummaries !== undefined)
+          return Promise.resolve(params.paymentSummaries);
+        if (params.walletSummaries !== undefined)
+          return Promise.resolve(params.walletSummaries);
         return Promise.resolve([]);
       }),
     };
@@ -110,6 +121,8 @@ describe('AdminTransactionsService', () => {
         type: TransactionType.DEPOSIT,
         status: TransactionStatus.COMPLETED,
         description: 'درآمد رزرو نوبت #1',
+        referenceId: 'paid-booking-1',
+        bookingPaymentId: 'paid-booking-1',
       },
       // درآمد واریزشده به کیف‌پول آرایشگر از رزرو دوم
       {
@@ -117,6 +130,17 @@ describe('AdminTransactionsService', () => {
         type: TransactionType.DEPOSIT,
         status: TransactionStatus.COMPLETED,
         description: 'درآمد رزرو نوبت #2',
+        referenceId: 'paid-booking-2',
+        bookingPaymentId: 'paid-booking-2',
+      },
+      // ثبت کیف پول ناشی از نوبت دستیِ پرداخت‌نشده نباید در محاسبات بیاید.
+      {
+        amount: '90000',
+        type: TransactionType.DEPOSIT,
+        status: TransactionStatus.COMPLETED,
+        description: 'درآمد رزرو نوبت دستی',
+        referenceId: 'manual-booking-without-payment',
+        bookingPaymentId: null,
       },
     ];
 
@@ -199,6 +223,25 @@ describe('AdminTransactionsService', () => {
     expect(walletQb.andWhere).toHaveBeenCalledWith(
       'transaction.status != :failedStatus',
       { failedStatus: TransactionStatus.FAILED },
+    );
+
+    // درآمد رزرو فقط وقتی در دفتر کیف پول نمایش داده می‌شود که به پرداخت
+    // موفق درگاه متصل باشد؛ وضعیت CONFIRMED رزرو برای اثبات پرداخت کافی نیست.
+    expect(walletQb.leftJoin).toHaveBeenCalledWith(
+      expect.anything(),
+      'bookingPayment',
+      expect.stringContaining('bookingPayment.status = :bookingPaymentStatus'),
+      {
+        bookingPaymentPurpose: PaymentPurpose.BOOKING,
+        bookingPaymentStatus: PaymentStatus.PAID,
+      },
+    );
+    expect(walletQb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('bookingPayment.id IS NOT NULL'),
+      expect.objectContaining({
+        bookingCreditType: TransactionType.DEPOSIT,
+        bookingCreditDescription: 'درآمد رزرو نوبت%',
+      }),
     );
   });
 });

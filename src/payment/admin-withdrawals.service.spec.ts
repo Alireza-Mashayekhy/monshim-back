@@ -269,7 +269,12 @@ describe('AdminWithdrawalsService', () => {
     );
 
     await expect(
-      service.list({ from: '2026-10-25', to: '2026-10-20' }),
+      service.list({
+        page: 1,
+        limit: 25,
+        from: '2026-10-25',
+        to: '2026-10-20',
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
