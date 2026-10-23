@@ -403,7 +403,7 @@ export function ManualBookingDrawer({
   const handleDepositLinkChange = (enabled: boolean) => {
     setValue('sendDepositLink', enabled);
 
-    if (enabled && sendSmsReminder) {
+    if (enabled && sendSmsReminder && !smsEligible) {
       setValue('sendSmsReminder', false);
       setValue('reminderHours', null);
     }
@@ -1020,7 +1020,13 @@ export function ManualBookingDrawer({
                     <span className="text-primary">
                       {toPersianDigits(smsRemaining)}
                     </span>{' '}
-                    — این سفارش ۲ اعتبار
+                    — این سفارش{' '}
+                    {toPersianDigits(
+                      canSendSmsReminder && sendSmsReminder
+                        ? SMS_CREDIT_COST_PER_TEMPLATE * 2
+                        : SMS_CREDIT_COST_PER_TEMPLATE,
+                    )}{' '}
+                    اعتبار
                   </span>
                 )}
               </div>
@@ -1053,7 +1059,7 @@ export function ManualBookingDrawer({
             </div>
 
             <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
-              {!effectiveDepositLink && (
+              {smsEligible && (
                 <div className="flex items-center justify-between gap-3 py-3">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-2/60 text-primary">
@@ -1066,7 +1072,9 @@ export function ManualBookingDrawer({
                       </p>
 
                       <p className="mt-0.5 text-[10px] font-medium text-gray-400">
-                        چند ساعت قبل از نوبت می‌رود؛ اعتبارش موقع ثبت کم می‌شود
+                        {effectiveDepositLink
+                          ? `پس از پرداخت بیعانه، قبل از نوبت ارسال می‌شود (۲ اعتبار از ${toPersianDigits(smsRemaining)} اعتبار باقیمانده)`
+                          : 'چند ساعت قبل از نوبت می‌رود؛ ۲ اعتبار موقع ثبت کم می‌شود'}
                       </p>
                     </div>
                   </div>
@@ -1086,11 +1094,12 @@ export function ManualBookingDrawer({
               {smsEligible && !canSendSmsReminder && !effectiveDepositLink && (
                 <p className="pb-2 text-[10px] leading-5 text-amber-700">
                   برای پیامک تأیید و یادآوری با هم، حداقل ۴ اعتبار لازم است؛
-                  بدون اعتبار کافی، لینک بیعانه انتخاب می‌شود.
+                  در صورت تمایل می‌توانید گزینهٔ «لینک بیعانه» را انتخاب کنید تا
+                  فقط ۲ اعتبار یادآوری کسر شود.
                 </p>
               )}
 
-              {!effectiveDepositLink && canSendSmsReminder && sendSmsReminder && (
+              {canSendSmsReminder && sendSmsReminder && (
                 <div className="space-y-2.5 py-3">
                   <p className="text-[11px] font-black text-gray-600">
                     یادآوری چند ساعت قبل ارسال شود؟

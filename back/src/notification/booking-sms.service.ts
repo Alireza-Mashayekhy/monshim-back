@@ -12,6 +12,8 @@ import {
   depositLinkParams,
   DepositPaidBarberParams,
   depositPaidBarberParams,
+  DepositPaidCustomerParams,
+  depositPaidCustomerParams,
   SMS_TEMPLATES,
 } from './sms-templates';
 
@@ -141,6 +143,19 @@ export class BookingSmsService {
       SMS_TEMPLATES.DEPOSIT_PAID_BARBER,
       depositPaidBarberParams(params),
       'پرداخت بیعانه به آرایشگر',
+    );
+  }
+
+  /** ✅ تأیید پرداخت بیعانه برای مشتری (قالب 634504) — رایگان */
+  async sendDepositPaidToCustomer(
+    customerPhone: string,
+    params: DepositPaidCustomerParams,
+  ): Promise<void> {
+    await this.safeSend(
+      customerPhone,
+      SMS_TEMPLATES.DEPOSIT_PAID_CUSTOMER,
+      depositPaidCustomerParams(params),
+      'پرداخت بیعانه به مشتری',
     );
   }
 

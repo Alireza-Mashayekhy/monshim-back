@@ -7,6 +7,7 @@ import {
   clipForSms,
   depositLinkParams,
   depositPaidBarberParams,
+  depositPaidCustomerParams,
   SMS_TEMPLATES,
 } from './sms-templates';
 
@@ -81,6 +82,7 @@ describe('sms-templates', () => {
   it('از قالب‌های خواسته‌شده برای تغییر ساعت و پرداخت بیعانه استفاده می‌کند', () => {
     expect(SMS_TEMPLATES.BOOKING_TIME_CHANGED_CUSTOMER).toBe(488101);
     expect(SMS_TEMPLATES.DEPOSIT_PAID_BARBER).toBe(798384);
+    expect(SMS_TEMPLATES.DEPOSIT_PAID_CUSTOMER).toBe(634504);
   });
 
   it('پارامترهای پیامک پرداخت بیعانه به آرایشگر را با ترتیب قالب می‌سازد', () => {
@@ -97,6 +99,23 @@ describe('sms-templates', () => {
     ]);
     expect(parameters).toContainEqual({ name: 'TIME', value: '۱۶:۳۰' });
     expect(parameters).toContainEqual({ name: 'NAME', value: 'سارا محمدی' });
+    expectAllParamsWithinLimit(parameters);
+  });
+
+  it('پارامترهای پیامک پرداخت موفق بیعانه به مشتری (634504) را با ترتیب قالب می‌سازد', () => {
+    const parameters = depositPaidCustomerParams({
+      date: '2026-10-20',
+      time: '14:00:00',
+      salonName: 'سالن زیبایی و تخصصی عروس خانم‌های تهران',
+    });
+
+    expect(parameters.map(parameter => parameter.name)).toEqual([
+      'DATE',
+      'TIME',
+      'SALON_NAME',
+    ]);
+    expect(parameters[0].value).toMatch(/^[۰-۹]{4}\/[۰-۹]{2}\/[۰-۹]{2}$/);
+    expect(parameters).toContainEqual({ name: 'TIME', value: '۱۴:۰۰' });
     expectAllParamsWithinLimit(parameters);
   });
 });
