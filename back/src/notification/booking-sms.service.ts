@@ -10,6 +10,8 @@ import {
   BookingSmsParams,
   DepositLinkParams,
   depositLinkParams,
+  DepositPaidBarberParams,
+  depositPaidBarberParams,
   SMS_TEMPLATES,
 } from './sms-templates';
 
@@ -35,6 +37,19 @@ export class BookingSmsService {
       SMS_TEMPLATES.BOOKING_SUCCESS_CUSTOMER,
       bookingParams(params),
       'تأیید رزرو به مشتری',
+    );
+  }
+
+  /** 🔔 تغییر ساعت نوبت برای مشتری (قالب 488101) — رایگان برای آرایشگر */
+  async sendBookingTimeChangedToCustomer(
+    customerPhone: string,
+    params: BookingSmsParams,
+  ): Promise<void> {
+    await this.safeSend(
+      customerPhone,
+      SMS_TEMPLATES.BOOKING_TIME_CHANGED_CUSTOMER,
+      bookingParams(params),
+      'تغییر ساعت نوبت به مشتری',
     );
   }
 
@@ -113,6 +128,19 @@ export class BookingSmsService {
       SMS_TEMPLATES.DEPOSIT_LINK_CUSTOMER,
       depositLinkParams(params),
       'لینک بیعانه به مشتری',
+    );
+  }
+
+  /** ✅ تأیید پرداخت بیعانه برای آرایشگر (قالب 798384) — رایگان */
+  async sendDepositPaidToBarber(
+    barberPhone: string,
+    params: DepositPaidBarberParams,
+  ): Promise<void> {
+    await this.safeSend(
+      barberPhone,
+      SMS_TEMPLATES.DEPOSIT_PAID_BARBER,
+      depositPaidBarberParams(params),
+      'پرداخت بیعانه به آرایشگر',
     );
   }
 

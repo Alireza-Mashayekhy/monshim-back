@@ -4,6 +4,7 @@
 import {
   AlertTriangle,
   BellRing,
+  CalendarClock,
   Check,
   CheckCheck,
   ChevronLeft,
@@ -46,6 +47,8 @@ import {
 } from '@/services/features/booking/hooks';
 import { Booking } from '@/services/features/booking/types';
 
+import { RescheduleBookingDialog } from './reschedule-booking-dialog';
+
 interface AppointmentCardProps {
   booking: Booking;
 }
@@ -67,6 +70,7 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
   const updateStatus = useUpdateBookingStatus();
   const resendDepositLink = useResendDepositLink();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   // رد کردن یک درخواست پرداخت‌شده، بازپرداخت دارد؛ پس تایید می‌گیریم.
   const [rejectOpen, setRejectOpen] = useState(false);
 
@@ -321,8 +325,8 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                 </span>
                 اگر مشتری در مهلت{' '}
                 {toPersianDigits(DEPOSIT_PAYMENT_TIMEOUT_HOURS)} ساعته پرداخت
-                نکند، نوبت خودکار لغو و ساعت آزاد می‌شود. «ارسال مجدد لینک»
-                مهلت را از نو شروع می‌کند.
+                نکند، نوبت خودکار لغو و ساعت آزاد می‌شود. «ارسال مجدد لینک» مهلت
+                را از نو شروع می‌کند.
               </span>
             </div>
           )}
@@ -338,18 +342,33 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
         {/* عملیات */}
         {!isDone && (
           <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-gray-50 pt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-lg text-[11px] font-bold"
-              onClick={handleCall}
-              disabled={!customer?.phone}
-            >
-              <Phone size={13} className="ml-1" />
-              تماس
-            </Button>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg text-[11px] font-bold"
+                onClick={handleCall}
+                disabled={!customer?.phone}
+              >
+                <Phone size={13} className="ml-1" />
+                تماس
+              </Button>
 
-            <div className="flex gap-1.5">
+              {(isPending || isConfirmed) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-lg text-[11px] font-bold text-primary"
+                  onClick={() => setRescheduleOpen(true)}
+                  disabled={updateStatus.isPending}
+                >
+                  <CalendarClock size={13} className="ml-1" />
+                  تغییر ساعت
+                </Button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
               {isPending && (
                 <>
                   <Button
@@ -425,8 +444,8 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
                   <AlertTriangle className="mt-0.5 shrink-0" size={15} />
                   <span>
                     مشتری مبلغ این نوبت را آنلاین پرداخت کرده است. با رد کردن،
-                    کل سفارش لغو می‌شود و مبلغ پرداختی (شامل کمیسیون) از کیف
-                    پول شما کسر و در صف بازپرداخت به مشتری ثبت می‌شود.
+                    کل سفارش لغو می‌شود و مبلغ پرداختی (شامل کمیسیون) از کیف پول
+                    شما کسر و در صف بازپرداخت به مشتری ثبت می‌شود.
                   </span>
                 </div>
               ) : (
@@ -499,6 +518,12 @@ export default function AppointmentCard({ booking }: AppointmentCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RescheduleBookingDialog
+        booking={booking}
+        open={rescheduleOpen}
+        onOpenChange={setRescheduleOpen}
+      />
     </div>
   );
 }
