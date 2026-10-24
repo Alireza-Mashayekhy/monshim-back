@@ -20,6 +20,11 @@ import {
   PaymentPurpose,
   PaymentStatus,
 } from './entities/payment.entity';
+import {
+  BOOKING_INCOME_DESCRIPTION_PATTERN,
+  NOT_REFUNDED_PARAMS,
+  notRefundedCondition,
+} from './payment-ledger';
 
 /**
  * ============================================================================
@@ -47,9 +52,13 @@ import {
  *       • «کسر کیف پول آرایشگر بابت لغو رزرو» به‌طور کامل حذف می‌شود؛ چون
  *         فقط قرینهٔ یک واریزِ باطل‌شده است و نمایش آن، هم کارت‌ها را به هم
  *         می‌ریزد و هم باعث می‌شود ادمین فکر کند پول واقعی جابه‌جا شده است.
- *       • واریز «درآمد رزرو نوبت» فقط وقتی می‌ماند که به یک پرداخت موفقِ
+ *       • واریز «درآمد رزرو نوبت» فقط وقتی معتبر است که به یک پرداخت موفقِ
  *         برگشت‌نخوردهٔ رزرو وصل باشد. رزرو دستی، رزرو پرداخت‌نشده و رزروی
  *         که پرداختش برگشت خورده، هیچ درآمدی برای آرایشگر ایجاد نمی‌کند.
+ *
+ *  ۴) جدول «جزئیات» و خروجی اکسل فقط ردیف‌های درگاه (بند ۱ و ۲) را نشان
+ *     می‌دهند تا تعداد و مبالغ با کارت‌های «خلاصه مالی» یکی باشد. دفتر کیف
+ *     پول فقط برای محاسبهٔ همان کارت‌ها خوانده می‌شود.
  *
  * رکورد «بازپرداخت مشتری» (REFUND در انتظار واریز دستی) عمداً حفظ می‌شود،
  * چون یک تعهد واقعی است که ادمین باید آن را به‌صورت دستی واریز و تسویه کند؛
@@ -139,12 +148,6 @@ type PaymentMetadata = Record<string, unknown> & {
   items?: Array<{ price?: number | string | null }>;
 };
 
-/** نشانهٔ متنیِ پرداختِ برگشت‌خورده در ستون JSON متادیتا */
-const REFUNDED_METADATA_PATTERN = '%"refundQueued":true%';
-
-/** شرح تراکنش واریز درآمد رزرو به کیف پول آرایشگر */
-const BOOKING_CREDIT_DESCRIPTION_PATTERN = 'درآمد رزرو نوبت%';
-
 @Injectable()
 export class AdminTransactionsService {
   constructor(
@@ -170,7 +173,16 @@ export class AdminTransactionsService {
     const paymentQuery = this.createPaymentQuery(query);
     const walletQuery = this.createWalletQuery(query);
 
-    const [paymentResult, walletResult, paymentSummaryRows, walletSummaryRows] =
+    /**
+     * ردیف‌های «جزئیات» فقط از درگاه می‌آیند.
+     *
+     * پیش از این، ردیف‌های دفتر کیف پول (برداشت، بازپرداخت، واریزهای
+     * بی‌پشتوانه و…) هم با ردیف‌های درگاه قاطی می‌شدند و تعداد و مبالغ جدول
+     * با کارت‌های «خلاصه مالی» — که فقط پرداخت‌های موفقِ برگشت‌نخوردهٔ درگاه
+     * را جمع می‌زند — هم‌خوان نبود. اکنون هر دو دقیقاً یک قاعده دارند؛
+     * درخواست‌های برداشت در صفحهٔ اختصاصی «درخواست برداشت» بررسی می‌شوند.
+     */
+    const [paymentResult, paymentSummaryRows, walletSummaryRows] =
       await Promise.all([
         includeGateway
           ? paymentQuery
@@ -178,29 +190,20 @@ export class AdminTransactionsService {
               .take(offset + limit)
               .getManyAndCount()
           : Promise.resolve([[], 0] as [Payment[], number]),
-        includeWallet
-          ? walletQuery
-              .clone()
-              .take(offset + limit)
-              .getManyAndCount()
-          : Promise.resolve([[], 0] as [Transaction[], number]),
         includeGateway
           ? this.getPaymentSummaryRows(paymentQuery)
           : Promise.resolve([]),
+        // دفتر کیف پول فقط برای محاسبهٔ کارت‌های خلاصه (برداشت‌ها، بدهی
+        // بازپرداخت و درآمد آرایشگر) خوانده می‌شود، نه برای نمایش ردیف.
         includeWallet
           ? this.getWalletSummaryRows(walletQuery)
           : Promise.resolve([]),
       ]);
 
-    const [payments, paymentCount] = paymentResult;
-    const [walletEntries, walletCount] = walletResult;
-    const transactions = [
-      ...payments.map(payment => this.mapPayment(payment)),
-      ...walletEntries.map(transaction =>
-        this.mapWalletTransaction(transaction),
-      ),
-    ].sort((left, right) => this.compareTransactions(left, right));
-    const total = paymentCount + walletCount;
+    const [payments, total] = paymentResult;
+    const transactions = payments
+      .map(payment => this.mapPayment(payment))
+      .sort((left, right) => this.compareTransactions(left, right));
 
     return {
       data: {
@@ -223,24 +226,22 @@ export class AdminTransactionsService {
     const includeWallet = query.source !== 'gateway';
     const paymentQuery = this.createPaymentQuery(query);
     const walletQuery = this.createWalletQuery(query);
-    const [payments, walletEntries, paymentSummaryRows, walletSummaryRows] =
-      await Promise.all([
+    const [payments, paymentSummaryRows, walletSummaryRows] = await Promise.all(
+      [
         includeGateway ? paymentQuery.clone().getMany() : Promise.resolve([]),
-        includeWallet ? walletQuery.clone().getMany() : Promise.resolve([]),
         includeGateway
           ? this.getPaymentSummaryRows(paymentQuery)
           : Promise.resolve([]),
         includeWallet
           ? this.getWalletSummaryRows(walletQuery)
           : Promise.resolve([]),
-      ]);
+      ],
+    );
 
-    const transactions = [
-      ...payments.map(payment => this.mapPayment(payment)),
-      ...walletEntries.map(transaction =>
-        this.mapWalletTransaction(transaction),
-      ),
-    ].sort((left, right) => this.compareTransactions(left, right));
+    // خروجی اکسل همان ردیف‌های جدول جزئیات است: فقط پرداخت‌های موفق درگاه.
+    const transactions = payments
+      .map(payment => this.mapPayment(payment))
+      .sort((left, right) => this.compareTransactions(left, right));
 
     return {
       data: {
@@ -310,26 +311,10 @@ export class AdminTransactionsService {
   // ==================== ساخت کوئری‌ها ====================
 
   /**
-   * شناسهٔ پرداخت‌هایی که برگشت خورده‌اند.
-   *
-   * هر جا برای یک پرداخت، رکورد بازپرداختِ مشتری (REFUND) ساخته می‌شود؛
-   * یعنی لغو رزرو قطعی شده و پول باید برگردد. این زیرکوئری عمداً
-   * غیرهم‌بسته (non-correlated) است تا MySQL یک‌بار آن را بسازد، نه یک‌بار
-   * برای هر ردیف پرداخت.
-   */
-  private refundedPaymentIdsSubquery() {
-    return `(
-      SELECT refund_tx.referenceId FROM transactions refund_tx
-      WHERE refund_tx.type = :refundTxType
-        AND refund_tx.referenceId IS NOT NULL
-    )`;
-  }
-
-  /**
    * شرط «این پرداخت برگشت نخورده است».
    *
-   * دو نشانه بررسی می‌شود تا هم داده‌های قدیمی (که فقط رکورد بازپرداخت
-   * دارند) پوشش داده شوند و هم داده‌های تازه‌ای که پرچم متادیتا می‌گیرند.
+   * منطق در `payment-ledger.ts` مشترک شده تا گزارش ربات بله و امور مالی
+   * آرایشگر هم دقیقاً همین قاعده را اجرا کنند و اعداد سه بخش با هم یکی باشد.
    *
    * @param paymentIdExpression عبارت SQL برای شناسهٔ پرداخت (payment.id یا bookingPayment.id)
    * @param metadataExpression ستون JSON متادیتای همان پرداخت
@@ -338,10 +323,7 @@ export class AdminTransactionsService {
     paymentIdExpression: string,
     metadataExpression: string,
   ) {
-    return `(
-      COALESCE(${metadataExpression}, '') NOT LIKE :refundedMetadataPattern
-      AND ${paymentIdExpression} NOT IN ${this.refundedPaymentIdsSubquery()}
-    )`;
+    return notRefundedCondition(paymentIdExpression, metadataExpression);
   }
 
   private createPaymentQuery(query: AdminTransactionQueryDto) {
@@ -359,10 +341,10 @@ export class AdminTransactionsService {
 
     // ۲) پرداخت‌های برگشت‌خورده (رزرو لغو/ردشده) هم نمی‌آیند؛ پولی که برگشته
     //    نه دریافتیِ ماست و نه درآمد آرایشگر.
-    qb.andWhere(this.notRefundedCondition('payment.id', 'payment.metadata'), {
-      refundedMetadataPattern: REFUNDED_METADATA_PATTERN,
-      refundTxType: TransactionType.REFUND,
-    });
+    qb.andWhere(
+      this.notRefundedCondition('payment.id', 'payment.metadata'),
+      NOT_REFUNDED_PARAMS,
+    );
 
     if (query.type) {
       if (
@@ -448,9 +430,8 @@ export class AdminTransactionsService {
         )
       )`,
       {
-        bookingCreditPattern: BOOKING_CREDIT_DESCRIPTION_PATTERN,
-        refundedMetadataPattern: REFUNDED_METADATA_PATTERN,
-        refundTxType: TransactionType.REFUND,
+        bookingCreditPattern: BOOKING_INCOME_DESCRIPTION_PATTERN,
+        ...NOT_REFUNDED_PARAMS,
       },
     );
 
@@ -590,40 +571,6 @@ export class AdminTransactionsService {
       referenceNumber: payment.refNumber,
       referenceId: payment.purposeId,
       cardNumber: payment.cardNumber,
-    };
-  }
-
-  private mapWalletTransaction(transaction: Transaction): AdminTransactionRow {
-    const isCustomerRefundRequest = Boolean(
-      transaction.type === TransactionType.REFUND &&
-      (transaction.description?.startsWith(CUSTOMER_REFUND_PENDING_PREFIX) ||
-        transaction.description?.startsWith(CUSTOMER_REFUND_SETTLED_PREFIX)),
-    );
-
-    return {
-      id: transaction.id,
-      source: 'wallet',
-      isCustomerRefundRequest,
-      type: transaction.type,
-      status: transaction.status,
-      amount: this.toAmount(transaction.amount),
-      commissionAmount: 0,
-      estimatedCommissionAmount: 0,
-      serviceAmount: null,
-      barberAmount: null,
-      description: transaction.description,
-      user: this.mapUser(transaction.wallet?.user),
-      createdAt: transaction.createdAt,
-      paidAt:
-        !isCustomerRefundRequest &&
-        transaction.status === TransactionStatus.COMPLETED
-          ? transaction.createdAt
-          : null,
-      orderId: null,
-      trackId: null,
-      referenceNumber: null,
-      referenceId: transaction.referenceId,
-      cardNumber: null,
     };
   }
 

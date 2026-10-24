@@ -14,6 +14,16 @@ import {
   getNationalCodeError,
   normalizeNationalCode,
 } from 'src/common/utils/national-code.util';
+import {
+  Payment,
+  PaymentPurpose,
+  PaymentStatus,
+} from 'src/payment/entities/payment.entity';
+import {
+  BOOKING_INCOME_DESCRIPTION_PATTERN,
+  NOT_REFUNDED_PARAMS,
+  notRefundedCondition,
+} from 'src/payment/payment-ledger';
 import { User } from 'src/users/entities/user.entity';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
@@ -87,6 +97,19 @@ export class WalletService {
     return { balance: Number(wallet.balance) };
   }
 
+  /**
+   * تراکنش‌های کیف پول کاربر (صفحهٔ «امور مالی» داشبورد آرایشگر).
+   *
+   * قاعدهٔ نمایش عمداً همان قاعدهٔ گزارش مالی ادمین است: «فقط پولی که واقعاً
+   * از درگاه وارد شده و نزد ما مانده است». بنابراین:
+   *   • تراکنش‌های ناموفق نمایش داده نمی‌شوند.
+   *   • «کسر کیف پول آرایشگر بابت لغو رزرو» حذف می‌شود؛ چون قرینهٔ واریزی
+   *     است که خودش برنگشته و نمایش آن آرایشگر را گمراه می‌کند.
+   *   • واریز «درآمد رزرو نوبت» فقط وقتی می‌ماند که به یک پرداخت موفق و
+   *     برگشت‌نخوردهٔ درگاه وصل باشد. درآمد رزرو دستی/پرداخت‌نشده، درآمدی
+   *     نیست که واقعاً پولی وارد سیستم کرده باشد.
+   * برداشت‌ها (تسویه‌ها) و شارژ کیف پول برای شفافیت آرایشگر باقی می‌مانند.
+   */
   async getTransactions(userId: number, query: TransactionQueryDto) {
     const wallet = await this.getOrCreateWallet(userId);
     const page = query.page ?? 1;
@@ -95,6 +118,37 @@ export class WalletService {
     const qb = this.transactionRepo
       .createQueryBuilder('transaction')
       .where('transaction.walletId = :walletId', { walletId: wallet.id })
+      // واریز درآمد رزرو فقط وقتی معتبر است که به پرداختِ موفقِ همان رزرو
+      // وصل باشد؛ رزرو دستی یا پرداخت‌نشده هیچ پولی وارد سیستم نکرده است.
+      .leftJoin(
+        Payment,
+        'gatewayPayment',
+        'gatewayPayment.id = transaction.referenceId AND gatewayPayment.purpose = :gatewayPaymentPurpose AND gatewayPayment.status = :gatewayPaymentStatus',
+        {
+          gatewayPaymentPurpose: PaymentPurpose.BOOKING,
+          gatewayPaymentStatus: PaymentStatus.PAID,
+        },
+      )
+      .andWhere('transaction.status != :failedStatus', {
+        failedStatus: TransactionStatus.FAILED,
+      })
+      .andWhere(
+        '(transaction.description IS NULL OR transaction.description NOT LIKE :cancellationDebitPrefix)',
+        { cancellationDebitPrefix: `${BARBER_CANCELLATION_DEBIT_PREFIX}%` },
+      )
+      .andWhere(
+        `(
+          COALESCE(transaction.description, '') NOT LIKE :bookingCreditPattern
+          OR (
+            gatewayPayment.id IS NOT NULL
+            AND ${notRefundedCondition('gatewayPayment.id', 'gatewayPayment.metadata')}
+          )
+        )`,
+        {
+          bookingCreditPattern: BOOKING_INCOME_DESCRIPTION_PATTERN,
+          ...NOT_REFUNDED_PARAMS,
+        },
+      )
       .orderBy('transaction.createdAt', 'DESC');
 
     if (query.type) {
