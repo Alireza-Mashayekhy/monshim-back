@@ -537,6 +537,9 @@ export class BarberService {
       workEndTime: profile.workEndTime,
       isApproved: profile.isApproved,
       rejectionReason: profile.rejectionReason || null,
+      slotIntervalMinutes: normalizeSlotIntervalMinutes(
+        profile.slotIntervalMinutes,
+      ),
       createdAt: profile.createdAt,
     };
   }
