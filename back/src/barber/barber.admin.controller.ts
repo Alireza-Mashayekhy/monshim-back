@@ -34,6 +34,18 @@ export class BarberAdminController {
     );
   }
 
+  /**
+   * جزئیات پروفایل برای صفحهٔ «تایید آرایشگر».
+   * شناسهٔ ورودی همان شناسهٔ برگشتی از لیست آرایشگرهای در انتظار تایید
+   * است (User.id)؛ مسیر قبلی (`GET /admin/barber/:id`) uuid پروفایل
+   * می‌خواست و برای همین همیشه ۴۰۴ می‌داد. این مسیر جدا اضافه شده تا
+   * رفتار `:id` برای بقیهٔ بخش‌ها تغییری نکند.
+   */
+  @Get(':id/approval')
+  findApprovalDetail(@Param('id') id: string) {
+    return this.barberService.findApprovalDetail(id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.barberService.findOneByProfileId(id);
