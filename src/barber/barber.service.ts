@@ -268,6 +268,7 @@ export class BarberService {
         citySlug: user.barberProfile?.city?.slug || null,
         provinceName: user.barberProfile?.province?.name || null,
         minPrice,
+        servicesCount: services.length,
         rating: Number(user.barberProfile?.rating || 0),
         reviewCount: Number(user.barberProfile?.reviewCount || 0),
       };
