@@ -22,6 +22,7 @@ import {
   IMAGE_MAX_SIZE_BYTES,
   MAX_BARBER_PORTFOLIO_IMAGES,
 } from 'src/common/constants/constants';
+import { isAllowedSlotIntervalMinutes } from 'src/booking/slot-intervals';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { QueryDto } from 'src/common/query';
 import { FilesService } from 'src/files/files.service';
@@ -218,7 +219,10 @@ export class BarberController {
   async setWorkHours(
     @Req() req: any,
     @Body()
-    dto: { hours: { dayOfWeek: number; startTime: string; endTime: string }[] },
+    dto: {
+      hours: { dayOfWeek: number; startTime: string; endTime: string }[];
+      slotIntervalMinutes?: number;
+    },
   ) {
     const user = req.user;
 
@@ -232,6 +236,17 @@ export class BarberController {
 
     if (!dto.hours || !Array.isArray(dto.hours)) {
       throw new BadRequestException('فیلد hours باید یک آرایه باشد');
+    }
+
+    if (dto.slotIntervalMinutes !== undefined) {
+      const interval = Number(dto.slotIntervalMinutes);
+      if (!isAllowedSlotIntervalMinutes(interval)) {
+        throw new BadRequestException(
+          'بازه زمانی رزرو باید یکی از مقادیر ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد',
+        );
+      }
+      profile.slotIntervalMinutes = interval;
+      await this.barberProfileRepo.save(profile);
     }
 
     // ارسال profile.id (UUID) به سرویس

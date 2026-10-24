@@ -11,12 +11,21 @@ import { BookingStatus } from './entities/booking.entity';
 describe('BookingsService reschedule', () => {
   const date = '2099-05-10';
 
-  function buildService(extraBookings: any[] = []) {
+  function buildService(
+    extraBookings: any[] = [],
+    options?: {
+      slotIntervalMinutes?: number;
+      startTime?: string;
+      endTime?: string;
+      serviceDuration?: number;
+    },
+  ) {
     const barber = {
       id: 'barber-profile-1',
       userId: 100,
       salonName: 'سالن آریا',
       isApproved: true,
+      slotIntervalMinutes: options?.slotIntervalMinutes,
     };
     const customer = {
       id: 200,
@@ -27,7 +36,7 @@ describe('BookingsService reschedule', () => {
       id: 'service-1',
       barberId: 100,
       name: 'رنگ مو',
-      durationMinutes: 60,
+      durationMinutes: options?.serviceDuration ?? 60,
       isActive: true,
     };
     const booking: any = {
@@ -60,8 +69,8 @@ describe('BookingsService reschedule', () => {
         {
           barberId: barber.id,
           dayOfWeek: (new Date(date).getDay() + 1) % 7,
-          startTime: '08:00',
-          endTime: '20:00',
+          startTime: options?.startTime ?? '08:00',
+          endTime: options?.endTime ?? '20:00',
         },
       ]),
     };
@@ -138,5 +147,60 @@ describe('BookingsService reschedule', () => {
     expect(
       bookingSmsService.sendBookingTimeChangedToCustomer,
     ).not.toHaveBeenCalled();
+  });
+
+  describe('getAvailableSlots با بازه زمانی انتخابی آرایشگر (slotIntervalMinutes)', () => {
+    it.each([
+      {
+        interval: undefined,
+        expected: ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30'],
+      },
+      {
+        interval: 15,
+        expected: [
+          '09:00',
+          '09:15',
+          '09:30',
+          '09:45',
+          '10:00',
+          '10:15',
+          '10:30',
+          '10:45',
+          '11:00',
+          '11:15',
+          '11:30',
+          '11:45',
+        ],
+      },
+      {
+        interval: 30,
+        expected: ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30'],
+      },
+      {
+        interval: 45,
+        expected: ['09:00', '09:45', '10:30', '11:15'],
+      },
+      {
+        interval: 60,
+        expected: ['09:00', '10:00', '11:00'],
+      },
+    ])(
+      'برای بازه ۰۹:۰۰ تا ۱۲:۰۰ و خدمت ۱۵ دقیقه‌ای با گام $interval اسلات‌های درست را می‌سازد',
+      async ({ interval, expected }) => {
+        const { service, bookingRepo } = buildService([], {
+          slotIntervalMinutes: interval,
+          startTime: '09:00',
+          endTime: '12:00',
+          serviceDuration: 15,
+        });
+        bookingRepo.find.mockResolvedValueOnce([]);
+
+        const slots = await service.getAvailableSlots('100', date, [
+          'service-1',
+        ]);
+
+        expect(slots).toEqual(expected);
+      },
+    );
   });
 });

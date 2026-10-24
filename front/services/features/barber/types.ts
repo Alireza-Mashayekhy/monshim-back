@@ -11,6 +11,7 @@ export interface BarberResponse {
   salonName: string;
   activityType?: string | null;
   minPrice?: number | null;
+  servicesCount?: number | null;
   rating?: number | null;
   reviewCount?: number | null;
 }
@@ -22,6 +23,8 @@ export interface Service {
   depositPrice?: number | null;
   durationMinutes: number;
 }
+
+export type SlotIntervalMinutes = 15 | 30 | 45 | 60;
 
 export interface Barber {
   id: number;
@@ -35,6 +38,7 @@ export interface Barber {
   bio: string | null;
   rating: number;
   reviewCount: number;
+  slotIntervalMinutes?: SlotIntervalMinutes;
   services: Service[];
   portfolio: string[];
   city: Pick<CityResponse, 'id' | 'name' | 'slug' | 'provinceId'> | null;
@@ -74,6 +78,7 @@ export interface BarberProfile {
   portfolioImages?: string[];
   workStartTime?: string | null;
   workEndTime?: string | null;
+  slotIntervalMinutes?: SlotIntervalMinutes;
   isApproved: boolean;
   rejectionReason?: string | null;
   createdAt: string;
@@ -90,6 +95,7 @@ export interface UpdateBarberProfile {
   bio?: string | null;
   workStartTime?: string | null;
   workEndTime?: string | null;
+  slotIntervalMinutes?: SlotIntervalMinutes;
   profileImage?: string | null;
   isApproved?: boolean;
   rejectionReason?: string | null;

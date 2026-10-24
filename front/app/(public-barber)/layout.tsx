@@ -1,15 +1,12 @@
 import type { ReactNode } from 'react';
 
-import MarketingFooter from '@/components/marketing/layout/marketing-footer';
-import MarketingHeader from '@/components/marketing/layout/marketing-header';
 import { siteConfig } from '@/lib/site-config';
 
 /**
- * لایهٔ صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[id]`).
+ * لایهٔ صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[slug]`).
  *
- * این گروه عمداً جدا از `(panel)` (صفحات خصوصیِ کاربر) و `(marketing)` است:
- * صفحه باید بدون ورود به سامانه در دسترس باشد و هدر/فوتر عمومیِ سایت را
- * داشته باشد، اما نباید با صفحات لندینگ یا پنل قاطی شود.
+ * طبق طراحی اختصاصی این صفحه، هدر و فوتر عمومی سایت نمایش داده نمی‌شوند و
+ * ناوبری بالای صفحه صرفاً با بردکرامب (`Breadcrumbs`) انجام می‌شود.
  */
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -32,12 +29,10 @@ export default function PublicBarberLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <MarketingHeader />
-      <main id="main-content" className="flex-1">
+    <div className="min-h-screen bg-[#f4f7f8]">
+      <main id="main-content" className="min-h-screen">
         {children}
       </main>
-      <MarketingFooter />
     </div>
   );
 }

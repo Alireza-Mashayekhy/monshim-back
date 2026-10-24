@@ -86,6 +86,13 @@ export class BarberProfile {
   })
   workEndTime: string | null;
 
+  @Column({
+    name: 'slot_interval_minutes',
+    type: 'int',
+    default: 30,
+  })
+  slotIntervalMinutes: number;
+
   @Column({ default: false })
   isApproved: boolean;
 
@@ -120,6 +127,15 @@ export class BarberProfile {
     nullable: true,
   })
   referralCode: string | null;
+
+  // اسلاگ یکتای آدرس صفحهٔ اختصاصی عمومی (/barber/[slug])
+  @Column({
+    type: 'varchar',
+    length: 80,
+    unique: true,
+    nullable: true,
+  })
+  slug: string | null;
 
   // شناسه کاربری که این آرایشگر را دعوت کرده
   @Column({ name: 'referred_by', type: 'int', nullable: true })

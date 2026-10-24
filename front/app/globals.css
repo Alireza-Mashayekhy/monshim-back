@@ -38,7 +38,31 @@
     .animate-fade-up {
       animation: none;
     }
+    .animate-reviews-ticker {
+      animation: none !important;
+      transform: none !important;
+    }
   }
+}
+
+@keyframes reviews-ticker {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0%, 0, 0);
+  }
+}
+
+.animate-reviews-ticker {
+  animation: reviews-ticker var(--ticker-duration, 42s) linear infinite;
+  will-change: transform;
+}
+
+.animate-reviews-ticker:hover,
+.animate-reviews-ticker:focus-within,
+.animate-reviews-ticker:active {
+  animation-play-state: paused;
 }
 
 @theme inline {

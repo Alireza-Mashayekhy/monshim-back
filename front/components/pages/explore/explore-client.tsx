@@ -317,12 +317,14 @@ export default function ExploreClient({
         </div>
 
         {/* ================= BARBER LIST SECTION ================= */}
-        <section aria-label="فهرست آرایشگاه‌ها" className="space-y-3 pt-1">
+        <section aria-label="فهرست آرایشگاه‌ها" className="pt-1">
           {isLoading ? (
             // وضعیت بارگذاری اسکلتون
-            Array.from({ length: 4 }).map((_, i) => (
-              <BarberCardSkeleton key={i} variant="horizontal" />
-            ))
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <BarberCardSkeleton key={i} variant="square" />
+              ))}
+            </div>
           ) : isError ? (
             <div className="bg-white rounded-3xl border border-rose-100 p-8 text-center space-y-3">
               <p className="text-sm font-bold text-rose-600">
@@ -368,21 +370,23 @@ export default function ExploreClient({
               </div>
             </div>
           ) : (
-            // فهرست کارت‌های واقعی مطابق با search2.png
+            // فهرست کارت‌های مربعی آرایشگاه‌ها
             <>
-              {barbers.map(barber => (
-                <BarberCard
-                  key={barber.id}
-                  barber={barber}
-                  variant="horizontal"
-                />
-              ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {barbers.map(barber => (
+                  <BarberCard
+                    key={barber.id}
+                    barber={barber}
+                    variant="square"
+                  />
+                ))}
+              </div>
 
               {/* شناساگر انتهای صفحه برای بارگذاری اسکرول نامحدود */}
-              <div ref={ref} className="py-2 flex justify-center">
+              <div ref={ref} className="py-3">
                 {isFetchingNextPage && (
-                  <div className="w-full space-y-3">
-                    <BarberCardSkeleton variant="horizontal" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <BarberCardSkeleton variant="square" />
                   </div>
                 )}
               </div>

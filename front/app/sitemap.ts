@@ -20,10 +20,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // اکنون هر دو صفحهٔ private محسوب می‌شوند (ورود به سامانه لازم است)، پس
   // اینجا اضافه نمی‌شوند تا در نتایج جستجو نمایش داده نشوند.
   //
-  // صفحات عمومی آرایشگاه (`/barber/[id]`) فقط وقتی وارد sitemap می‌شوند که
-  // واقعاً فعال باشند: آرایشگر پکیج صفحهٔ اختصاصی را خریده باشد یا به حد نصاب
-  // نوبت‌های پرداخت‌شده رسیده باشد. بک‌اند همین فهرست را برمی‌گرداند، بنابراین
-  // هیچ آدرسی که قرار است ۴۰۴ بدهد اینجا نمی‌آید.
+  // صفحات عمومی آرایشگاه (`/barber/[slug]`) فقط وقتی وارد sitemap می‌شوند که
+  // واقعاً فعال باشند و آرایشگر اسلاگ یکتای سالن خود را ثبت کرده باشد. بک‌اند
+  // همین فهرست را برمی‌گرداند، بنابراین نه شناسهٔ عددی در URL قرار می‌گیرد و نه
+  // صفحه‌ای که قرار است ۴۰۴ بدهد اینجا می‌آید.
   const activeBarbers = await fetchPublicApi<PublicPageDirectoryEntry[]>(
     '/public-page/directory',
   );
@@ -34,10 +34,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const barberEntries: MetadataRoute.Sitemap = (activeBarbers ?? [])
     .filter(
-      entry => Number.isInteger(Number(entry?.id)) && Number(entry.id) > 0,
+      entry => typeof entry?.slug === 'string' && entry.slug.trim().length > 0,
     )
     .map(entry => ({
-      url: `${siteConfig.url}/barber/${entry.id}`,
+      url: `${siteConfig.url}/barber/${encodeURIComponent(entry.slug.trim())}`,
       ...(entry.updatedAt ? { lastModified: new Date(entry.updatedAt) } : {}),
     }));
 

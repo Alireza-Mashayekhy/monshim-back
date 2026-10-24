@@ -4,14 +4,17 @@ import { Check, Share2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 /** اشتراک‌گذاری/کپی لینک صفحهٔ عمومی سالن */
 export default function ShareButton({
   url,
   title,
+  className,
 }: {
   url: string;
   title: string;
+  className?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -36,13 +39,14 @@ export default function ShareButton({
 
   return (
     <Button
+      type="button"
       variant="outline"
       size="sm"
       onClick={handleShare}
-      className="gap-1.5"
+      className={cn('gap-1.5', className)}
     >
       {copied ? <Check size={15} /> : <Share2 size={15} />}
-      {copied ? 'لینک کپی شد' : 'اشتراک‌گذاری'}
+      {copied ? 'کپی شد' : 'اشتراک‌گذاری'}
     </Button>
   );
 }

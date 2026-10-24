@@ -29,6 +29,7 @@ import {
   BarberResponse,
   BarberReview,
   CreateBarberReviewDto,
+  SlotIntervalMinutes,
   UpdateBarberPortfolio,
   UpdateBarberProfile,
   WorkHours,
@@ -139,11 +140,36 @@ export const useUpdateBarberProfile = () => {
     mutationFn: (dto: UpdateBarberProfile) => updateBarberProfile(dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['barber'] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
       toast.success('پروفایل با موفقیت به‌روزرسانی شد.');
     },
     onError: (error: any) => {
       toast.error(
         error.response?.data?.message || 'خطا در به‌روزرسانی پروفایل',
+      );
+    },
+  });
+};
+
+export const useUpdateSlotInterval = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (slotIntervalMinutes: SlotIntervalMinutes) =>
+      updateBarberProfile({ slotIntervalMinutes }),
+    onSuccess: (_data, slotIntervalMinutes) => {
+      queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['barber'] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
+      const label =
+        slotIntervalMinutes === 60
+          ? '۱ ساعت'
+          : `${slotIntervalMinutes.toLocaleString('fa-IR')} دقیقه`;
+      toast.success(`فاصله زمانی نوبت‌ها روی ${label} تنظیم شد.`);
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'خطا در ذخیره فاصله زمانی نوبت‌ها',
       );
     },
   });
@@ -191,14 +217,20 @@ export const useWorkHours = () => {
 export const useUpdateWorkHours = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (hours: { hours: WorkHours[] }) => updateWorkHours(hours),
+    mutationFn: (payload: {
+      hours: WorkHours[];
+      slotIntervalMinutes?: SlotIntervalMinutes;
+    }) => updateWorkHours(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-hours'] });
-      toast.success('ساعات کاری با موفقیت به‌روز شد.');
+      queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['barber'] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
+      toast.success('ساعات رزرو با موفقیت به‌روز شد.');
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || 'خطا در به‌روزرسانی ساعات کاری',
+        error.response?.data?.message || 'خطا در به‌روزرسانی ساعات رزرو',
       );
     },
   });
