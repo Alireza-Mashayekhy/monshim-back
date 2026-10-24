@@ -89,6 +89,7 @@ type WalletSummaryRow = {
   type: TransactionType;
   status: TransactionStatus;
   description: string | null;
+  bookingPaymentId: string | null;
 };
 
 type PaymentMetadata = Record<string, unknown> & {
@@ -323,6 +324,17 @@ export class AdminTransactionsService {
       .leftJoinAndSelect('transaction.wallet', 'wallet')
       .leftJoinAndSelect('wallet.user', 'user')
       .leftJoinAndSelect('user.barberProfile', 'barberProfile')
+      // اعتبارِ واریزیِ درآمد رزرو فقط وقتی معتبر است که به یک پرداخت موفق
+      // رزرو در درگاه ارجاع بدهد؛ رزرو دستی/پرداخت‌نشده نباید درآمد تلقی شود.
+      .leftJoin(
+        Payment,
+        'bookingPayment',
+        'bookingPayment.id = transaction.referenceId AND bookingPayment.purpose = :bookingPaymentPurpose AND bookingPayment.status = :bookingPaymentStatus',
+        {
+          bookingPaymentPurpose: PaymentPurpose.BOOKING,
+          bookingPaymentStatus: PaymentStatus.PAID,
+        },
+      )
       .orderBy('transaction.createdAt', 'DESC')
       .addOrderBy('transaction.id', 'DESC');
 
@@ -330,6 +342,15 @@ export class AdminTransactionsService {
     qb.andWhere('transaction.status != :failedStatus', {
       failedStatus: TransactionStatus.FAILED,
     });
+    // واریزی درآمد رزرو باید به Payment موفق درگاه متصل باشد. وضعیت رزرو
+    // یا ثبت دستی آن به‌تنهایی به معنی دریافت وجه نیست.
+    qb.andWhere(
+      "(transaction.type != :bookingCreditType OR COALESCE(transaction.description, '') NOT LIKE :bookingCreditDescription OR bookingPayment.id IS NOT NULL)",
+      {
+        bookingCreditType: TransactionType.DEPOSIT,
+        bookingCreditDescription: 'درآمد رزرو نوبت%',
+      },
+    );
 
     if (query.type) {
       if (
@@ -348,7 +369,7 @@ export class AdminTransactionsService {
         Object.values(TransactionStatus).includes(
           query.status as TransactionStatus,
         ) &&
-        query.status !== TransactionStatus.FAILED
+        (query.status as TransactionStatus) !== TransactionStatus.FAILED
       ) {
         qb.andWhere('transaction.status = :walletStatus', {
           walletStatus: query.status,
@@ -430,6 +451,7 @@ export class AdminTransactionsService {
       .addSelect('transaction.type', 'type')
       .addSelect('transaction.status', 'status')
       .addSelect('transaction.description', 'description')
+      .addSelect('bookingPayment.id', 'bookingPaymentId')
       .getRawMany<WalletSummaryRow>();
   }
 
@@ -609,7 +631,8 @@ export class AdminTransactionsService {
       if (
         transaction.status === TransactionStatus.COMPLETED &&
         transaction.type === TransactionType.DEPOSIT &&
-        transaction.description?.startsWith('درآمد رزرو نوبت')
+        transaction.description?.startsWith('درآمد رزرو نوبت') &&
+        transaction.bookingPaymentId
       ) {
         summary.barberWalletCreditsAmount += amount;
       }
