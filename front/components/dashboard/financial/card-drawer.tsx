@@ -3,7 +3,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, CreditCard, Info, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -19,8 +19,10 @@ import {
 } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  isValidIranianNationalCode,
+  getNationalCodeError,
   normalizeNationalCode,
+  sanitizeNationalCodeInput,
+  toEnglishDigits,
 } from '@/lib/national-code';
 import { useMyBarberProfile } from '@/services/features/barber/hooks';
 import {
@@ -44,10 +46,10 @@ const schema = z.object({
   ownerName: z.string().min(1, 'نام صاحب حساب الزامی است'),
   nationalCode: z
     .string()
-    .min(1, 'کد ملی الزامی است')
-    .transform(normalizeNationalCode)
-    .refine(val => isValidIranianNationalCode(val), {
-      message: 'کد ملی وارد شده معتبر نیست (باید ۱۰ رقم باشد)',
+    .transform(sanitizeNationalCodeInput)
+    .superRefine((val, ctx) => {
+      const error = getNationalCodeError(val);
+      if (error) ctx.addIssue({ code: 'custom', message: error });
     }),
 });
 
@@ -59,6 +61,21 @@ interface CardDrawerProps {
 }
 
 const formatCardNumber = (num: string) => num.replace(/(\d{4})(?=\d)/g, '$1 ');
+
+/**
+ * فقط رقم، حداکثر ۱۶ رقم. با این کار کپی‌کردن شماره کارت به‌صورت
+ * «6037 9918 1234 5678» هم درست خوانده می‌شود (قبلاً `maxLength` فاصله‌ها را
+ * هم می‌شمرد و چند رقم آخر حذف می‌شد).
+ */
+const sanitizeCardNumberInput = (value: string) =>
+  toEnglishDigits(value).replace(/\D/g, '').slice(0, 16);
+
+/** فقط IR و رقم، بدون فاصله/خط تیره، حداکثر ۲۶ کاراکتر */
+const sanitizeShebaInput = (value: string) =>
+  toEnglishDigits(value)
+    .toUpperCase()
+    .replace(/[^IR0-9]/g, '')
+    .slice(0, 26);
 
 function OwnerMismatchNotice() {
   return (
@@ -92,16 +109,25 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
 
   const { reset, handleSubmit } = methods;
 
+  // هر بار که فرم «افزودن کارت» باز می‌شود فقط یک بار از پروفایل پر می‌شود؛
+  // وگرنه هر refetch دادهٔ پروفایل، ورودی‌های در حال تایپ کاربر را پاک می‌کرد.
+  const prefilledRef = useRef(false);
+
   useEffect(() => {
-    if (view === 'add' && profile?.data) {
-      reset({
-        bankName: '',
-        cardNumber: '',
-        shebaNumber: '',
-        ownerName: profile.data.fullName || '',
-        nationalCode: profile.data.nationalCode || '',
-      });
+    if (view !== 'add') {
+      prefilledRef.current = false;
+      return;
     }
+    if (!profile?.data || prefilledRef.current) return;
+
+    prefilledRef.current = true;
+    reset({
+      bankName: '',
+      cardNumber: '',
+      shebaNumber: '',
+      ownerName: profile.data.fullName || '',
+      nationalCode: sanitizeNationalCodeInput(profile.data.nationalCode),
+    });
   }, [view, profile?.data, reset]);
 
   const onSubmit = (data: FormData) => {
@@ -233,8 +259,9 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
               label="شماره کارت"
               placeholder="۶۰۳۷۹۹..."
               inputMode="numeric"
-              maxLength={16}
+              autoComplete="off"
               dir="ltr"
+              sanitize={sanitizeCardNumberInput}
               isRequired
             />
             <RHFInput
@@ -243,7 +270,8 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
               placeholder="IRxxxxxxxxxxxxxxxxxxxxxxxx"
               helperText="شماره شبا باید با IR شروع شود و ۲۶ کاراکتر باشد"
               dir="ltr"
-              maxLength={26}
+              autoComplete="off"
+              sanitize={sanitizeShebaInput}
               isRequired
               style={{ textTransform: 'uppercase' }}
             />
@@ -258,8 +286,9 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
               label="کد ملی صاحب حساب"
               placeholder="مثلاً ۰۰۱۰۳۲۱۲۶۸"
               inputMode="numeric"
-              maxLength={10}
+              autoComplete="off"
               dir="ltr"
+              sanitize={sanitizeNationalCodeInput}
               helperText="کد ملی باید با شماره موبایل ثبت‌نامی و صاحب حساب بانکی مطابقت داشته باشد"
               isRequired
             />

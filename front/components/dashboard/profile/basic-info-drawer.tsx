@@ -18,8 +18,9 @@ import {
 } from '@/components/ui/drawer';
 import { isoToJalali, jalaliToIso } from '@/lib/date-utils';
 import {
-  isValidIranianNationalCode,
+  getNationalCodeError,
   normalizeNationalCode,
+  sanitizeNationalCodeInput,
 } from '@/lib/national-code';
 import { useUpdateBarberProfile } from '@/services/features/barber/hooks';
 import { useMyBarberProfile } from '@/services/features/barber/hooks';
@@ -30,12 +31,13 @@ const schema = z.object({
     .string()
     .optional()
     .nullable()
-    .refine(
-      val => !val || isValidIranianNationalCode(normalizeNationalCode(val)),
-      {
-        message: 'کد ملی وارد شده معتبر نیست (باید ۱۰ رقم باشد)',
-      },
-    ),
+    .transform(val => sanitizeNationalCodeInput(val))
+    .superRefine((val, ctx) => {
+      // خالی گذاشتن کد ملی در این فرم مجاز است
+      if (!val) return;
+      const error = getNationalCodeError(val);
+      if (error) ctx.addIssue({ code: 'custom', message: error });
+    }),
   birthDate: z.string().optional().nullable(),
 });
 
@@ -66,7 +68,7 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
     if (profile?.data) {
       reset({
         fullName: profile.data.fullName || '',
-        nationalCode: profile.data.nationalCode || '',
+        nationalCode: sanitizeNationalCodeInput(profile.data.nationalCode),
         birthDate: isoToJalali(profile.data.birthDate) || null,
       });
     }
@@ -112,8 +114,10 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
             name="nationalCode"
             label="کد ملی"
             placeholder="مثلاً ۰۰۱۰۳۲۱۲۶۸"
-            maxLength={10}
+            inputMode="numeric"
+            autoComplete="off"
             dir="ltr"
+            sanitize={sanitizeNationalCodeInput}
             helperText="کد ملی برای احراز هویت بانکی و تسویه حساب الزامی است"
           />
           <PersianDatePicker

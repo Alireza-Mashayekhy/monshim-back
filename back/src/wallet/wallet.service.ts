@@ -11,7 +11,7 @@ import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { getPagination } from 'src/common/query';
 import { ZohalService } from 'src/common/services/zohal.service';
 import {
-  isValidIranianNationalCode,
+  getNationalCodeError,
   normalizeNationalCode,
 } from 'src/common/utils/national-code.util';
 import { User } from 'src/users/entities/user.entity';
@@ -649,8 +649,9 @@ export class WalletService {
     }
 
     nationalCode = normalizeNationalCode(nationalCode);
-    if (!isValidIranianNationalCode(nationalCode)) {
-      throw new BadRequestException('کد ملی وارد شده معتبر نیست');
+    const nationalCodeError = getNationalCodeError(nationalCode);
+    if (nationalCodeError) {
+      throw new BadRequestException(nationalCodeError);
     }
 
     // اگر کاربر در پروفایل کد ملی نداشت، آن را در پروفایل ذخیره می‌کنیم

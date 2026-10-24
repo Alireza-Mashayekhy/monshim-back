@@ -13,8 +13,9 @@ import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
 import { useHydrated } from '@/hooks/use-hydrated';
 import {
-  isValidIranianNationalCode,
+  getNationalCodeError,
   normalizeNationalCode,
+  sanitizeNationalCodeInput,
 } from '@/lib/national-code';
 import { normalizePhone, phoneSchema } from '@/lib/phone';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
@@ -33,11 +34,10 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
     phone: phoneSchema,
     nationalCode: z
       .string()
-      .trim()
-      .nonempty('کد ملی اجباری است.')
-      .transform(normalizeNationalCode)
-      .refine(val => isValidIranianNationalCode(val), {
-        message: 'کد ملی وارد شده معتبر نیست (باید ۱۰ رقم باشد)',
+      .transform(sanitizeNationalCodeInput)
+      .superRefine((val, ctx) => {
+        const error = getNationalCodeError(val);
+        if (error) ctx.addIssue({ code: 'custom', message: error });
       }),
     birthDate: z.string().optional(),
   });
@@ -48,7 +48,7 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
     defaultValues: {
       fullName: fullName || '',
       phone: phone || '',
-      nationalCode: nationalCode || '',
+      nationalCode: sanitizeNationalCodeInput(nationalCode),
       birthDate: birthDate || '',
     },
     resolver: zodResolver(schema),
@@ -84,8 +84,10 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
             name="nationalCode"
             placeholder="مثلاً ۰۰۱۰۳۲۱۲۶۸"
             isRequired
-            maxLength={10}
+            inputMode="numeric"
+            autoComplete="off"
             dir="ltr"
+            sanitize={sanitizeNationalCodeInput}
             startIcon={<IdCard className="w-4 h-4" />}
           />
           <PersianDatePicker
