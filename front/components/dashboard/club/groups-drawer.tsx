@@ -3,6 +3,7 @@
 import { Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { useState } from 'react';
 
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -26,6 +27,10 @@ interface GroupsDrawerProps {
 
 export function GroupsDrawer({ open, onOpenChange }: GroupsDrawerProps) {
   const [name, setName] = useState('');
+  const [groupToDelete, setGroupToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const { data: groups, isLoading } = useClubGroups();
   const createGroup = useCreateClubGroup();
@@ -43,17 +48,15 @@ export function GroupsDrawer({ open, onOpenChange }: GroupsDrawerProps) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('آیا از حذف این گروه اطمینان دارید؟')) return;
-    try {
-      await deleteGroup.mutateAsync(id);
-    } catch {
-      // خطا در هوک نمایش داده می‌شود
-    }
+  const handleDelete = async () => {
+    if (!groupToDelete) return;
+    // خطا در هوک نمایش داده می‌شود؛ ConfirmDialog روی خطا باز می‌ماند
+    await deleteGroup.mutateAsync(groupToDelete.id);
   };
 
   const handleClose = () => {
     setName('');
+    setGroupToDelete(null);
     onOpenChange(false);
   };
 
@@ -135,7 +138,9 @@ export function GroupsDrawer({ open, onOpenChange }: GroupsDrawerProps) {
                     variant="ghost"
                     size="icon-sm"
                     className="text-red-500 hover:bg-red-50"
-                    onClick={() => handleDelete(group.id)}
+                    onClick={() =>
+                      setGroupToDelete({ id: group.id, name: group.name })
+                    }
                     disabled={deleteGroup.isPending}
                     aria-label="حذف گروه"
                   >
@@ -147,6 +152,19 @@ export function GroupsDrawer({ open, onOpenChange }: GroupsDrawerProps) {
           </div>
         </div>
       </DrawerContent>
+
+      <ConfirmDialog
+        open={!!groupToDelete}
+        onOpenChange={open => {
+          if (!open) setGroupToDelete(null);
+        }}
+        title="حذف گروه"
+        description={`آیا از حذف گروه «${groupToDelete?.name ?? ''}» اطمینان دارید؟ این عمل قابل بازگشت نیست.`}
+        confirmLabel="حذف گروه"
+        pendingLabel="در حال حذف..."
+        onConfirm={handleDelete}
+        isPending={deleteGroup.isPending}
+      />
     </Drawer>
   );
 }

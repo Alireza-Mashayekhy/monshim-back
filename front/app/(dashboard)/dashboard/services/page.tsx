@@ -6,6 +6,7 @@ import { useState } from 'react';
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import { ServiceDrawer } from '@/components/dashboard/services/services-drawer';
 import AppCard from '@/components/shared/app-card';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,14 +19,14 @@ import {
 export default function ServicesPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingService, setEditingService] = useState<any>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<any>(null);
 
   const { data: services, isLoading, error } = useMyServices();
   const deleteMutation = useDeleteService();
 
-  const handleDelete = (serviceId: string) => {
-    if (window.confirm('آیا از حذف این خدمت اطمینان دارید؟')) {
-      deleteMutation.mutate(serviceId);
-    }
+  const handleDelete = async () => {
+    if (!serviceToDelete) return;
+    await deleteMutation.mutateAsync(serviceToDelete.id);
   };
 
   const openDrawer = (service?: any) => {
@@ -139,7 +140,7 @@ export default function ServicesPage() {
                   variant="ghost"
                   size="icon"
                   className="text-red-500 hover:bg-red-50"
-                  onClick={() => handleDelete(service.id)}
+                  onClick={() => setServiceToDelete(service)}
                   disabled={
                     deleteMutation.isPending &&
                     deleteMutation.variables === service.id
@@ -162,6 +163,19 @@ export default function ServicesPage() {
         open={isDrawerOpen}
         onOpenChange={setIsDrawerOpen}
         editingService={editingService}
+      />
+
+      <ConfirmDialog
+        open={!!serviceToDelete}
+        onOpenChange={open => {
+          if (!open) setServiceToDelete(null);
+        }}
+        title="حذف خدمت"
+        description={`آیا از حذف خدمت «${serviceToDelete?.name ?? ''}» اطمینان دارید؟ این عمل قابل بازگشت نیست.`}
+        confirmLabel="حذف خدمت"
+        pendingLabel="در حال حذف..."
+        onConfirm={handleDelete}
+        isPending={deleteMutation.isPending}
       />
     </DashboardShell>
   );
