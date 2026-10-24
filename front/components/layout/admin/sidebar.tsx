@@ -5,12 +5,14 @@ import {
   Banknote,
   Check,
   Headphones,
+  LogOut,
   MessageSquareText,
   Settings,
   User,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 import { Separator } from '@/components/ui/separator';
 import {
@@ -25,8 +27,10 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { cn, toPersianDigits } from '@/lib/utils';
 import { usePendingWithdrawalsCount } from '@/services/features/admin-withdrawals/hooks';
+import { useLogout } from '@/services/features/auth/hooks';
 
 const items = [
   {
@@ -69,8 +73,27 @@ const items = [
 export default function AdminSidebar() {
   const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const router = useRouter();
   const { data: pendingWithdrawals = 0 } = usePendingWithdrawalsCount();
   const showPendingBadge = state !== 'collapsed' || isMobile;
+
+  const logoutMutation = useLogout();
+
+  const handleLogout = async () => {
+    if (logoutMutation.isPending) return;
+
+    if (isMobile) setOpenMobile(false);
+
+    try {
+      await logoutMutation.mutateAsync();
+      router.replace('/login');
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        getApiErrorMessage(error, 'خروج انجام نشد. دوباره تلاش کنید.'),
+      );
+    }
+  };
 
   return (
     <Sidebar
@@ -137,7 +160,24 @@ export default function AdminSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter />
+      <SidebarFooter className="p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              type="button"
+              onClick={handleLogout}
+              disabled={logoutMutation.isPending}
+              tooltip="خروج از حساب"
+              className="flex items-center gap-2 rounded-sm border border-red-200 px-2 py-1 text-red-600 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-60"
+            >
+              <LogOut />
+              <span>
+                {logoutMutation.isPending ? 'در حال خروج...' : 'خروج از حساب'}
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   );
 }
