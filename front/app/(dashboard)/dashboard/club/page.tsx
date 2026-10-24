@@ -9,6 +9,7 @@ import { GroupsDrawer } from '@/components/dashboard/club/groups-drawer';
 import { ManualBookingDrawer } from '@/components/dashboard/club/manual-booking-drawer';
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import AppCard from '@/components/shared/app-card';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,9 @@ export default function ClubPage() {
   const [bookingCustomer, setBookingCustomer] = useState<ClubCustomer | null>(
     null,
   );
+  const [customerToDelete, setCustomerToDelete] = useState<ClubCustomer | null>(
+    null,
+  );
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -71,15 +75,10 @@ export default function ClubPage() {
     setCustomerDrawerOpen(true);
   };
 
-  const handleDelete = async (customer: ClubCustomer) => {
-    const { fullName } = customer;
-    if (!window.confirm(`آیا از حذف «${fullName}» اطمینان دارید؟`)) return;
-
-    try {
-      await removeCustomer.mutateAsync(customer.id);
-    } catch {
-      // خطا در هوک نمایش داده می‌شود
-    }
+  const handleDelete = async () => {
+    if (!customerToDelete) return;
+    // خطا در هوک نمایش داده می‌شود؛ ConfirmDialog روی خطا باز می‌ماند
+    await removeCustomer.mutateAsync(customerToDelete.id);
   };
 
   const total = data?.pagination?.total ?? 0;
@@ -178,7 +177,7 @@ export default function ClubPage() {
           onPageChange={setPage}
           onEdit={openEditDrawer}
           onBook={setBookingCustomer}
-          onDelete={handleDelete}
+          onDelete={setCustomerToDelete}
           filtered={!!debouncedSearch.trim() || groupId !== ALL_GROUPS}
         />
       </FadeIn>
@@ -200,6 +199,19 @@ export default function ClubPage() {
           if (!open) setBookingCustomer(null);
         }}
         customer={bookingCustomer}
+      />
+
+      <ConfirmDialog
+        open={!!customerToDelete}
+        onOpenChange={open => {
+          if (!open) setCustomerToDelete(null);
+        }}
+        title="حذف مشتری"
+        description={`آیا از حذف «${customerToDelete?.fullName ?? ''}» اطمینان دارید؟ این عمل قابل بازگشت نیست.`}
+        confirmLabel="حذف مشتری"
+        pendingLabel="در حال حذف..."
+        onConfirm={handleDelete}
+        isPending={removeCustomer.isPending}
       />
     </DashboardShell>
   );
