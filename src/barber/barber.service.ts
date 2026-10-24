@@ -563,6 +563,83 @@ export class BarberService {
     return this.findOne(profile.userId);
   }
 
+  /**
+   * جزئیات پروفایل آرایشگر برای صفحهٔ «تایید آرایشگر» در پنل ادمین.
+   *
+   * لیست «آرایشگرهای در انتظار تایید» (`findAll` با notApproved) شناسهٔ
+   * کاربر (User.id) را برمی‌گرداند، اما `findOneByProfileId` انتظار uuid
+   * پروفایل را دارد؛ بنابراین `GET /admin/barber/21` همیشه ۴۰۴ می‌داد.
+   *
+   * این متد شناسهٔ عددی (User.id) را می‌پذیرد و برای سازگاری، uuid پروفایل
+   * را هم پشتیبانی می‌کند. خروجی عمداً فقط فیلدهای لازم برای بررسی و تایید
+   * را دارد و هیچ دادهٔ حساسی (رمز عبور، توکن و...) را برنمی‌گرداند.
+   */
+  async findApprovalDetail(id: string) {
+    const numericId = Number(id);
+    const profile = await this.profileRepository.findOne({
+      where:
+        Number.isInteger(numericId) && numericId > 0
+          ? { userId: numericId }
+          : { id },
+      relations: { city: true, province: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+    }
+
+    const user = await this.userRepo.findOne({
+      where: { id: profile.userId },
+      relations: { services: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('کاربر یافت نشد');
+    }
+
+    if (!user.roles?.includes(Role.Barber)) {
+      throw new NotFoundException('آرایشگر یافت نشد');
+    }
+
+    return {
+      id: user.id,
+      barberProfileId: profile.id,
+      fullName: user.fullName,
+      phone: user.phone ?? null,
+      email: user.email ?? null,
+      nationalCode: user.nationalCode ?? null,
+      birthDate: user.birthDate ?? null,
+      isActive: user.isActive,
+      salonName: profile.salonName,
+      activityType: profile.activityType,
+      province: profile.province ?? null,
+      provinceId: profile.provinceId ?? null,
+      city: profile.city ?? null,
+      cityId: profile.cityId ?? null,
+      address: profile.address,
+      bio: profile.bio ?? null,
+      profileImage: profile.profileImage ?? null,
+      portfolioImages: profile.portfolioImages ?? [],
+      workStartTime: profile.workStartTime ?? null,
+      workEndTime: profile.workEndTime ?? null,
+      isApproved: profile.isApproved,
+      rejectionReason: profile.rejectionReason ?? null,
+      rating: Number(profile.rating || 0),
+      reviewCount: Number(profile.reviewCount || 0),
+      createdAt: profile.createdAt,
+      services: (user.services ?? [])
+        .filter(service => service.isActive)
+        .map(service => ({
+          id: service.id,
+          name: service.name,
+          price: Number(service.price),
+          depositPrice:
+            service.depositPrice == null ? null : Number(service.depositPrice),
+          durationMinutes: service.durationMinutes,
+        })),
+    };
+  }
+
   // متد update اصلاح‌شده برای پشتیبانی از فیلدهای جدید
   async update(userId: number, dto: UpdateBarberDto): Promise<BarberProfile> {
     const user = await this.userRepo.findOne({
