@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
  */
 export default function PublicBarberNotFound() {
   return (
-    <div className="custom-container flex min-h-[60vh] flex-col items-center justify-center gap-4 py-16 text-center">
+    <div className="custom-container flex min-h-screen flex-col items-center justify-center gap-4 py-16 text-center">
       <div className="flex size-16 items-center justify-center rounded-3xl bg-primary-2 text-primary">
         <Scissors size={28} />
       </div>
