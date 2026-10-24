@@ -62,7 +62,7 @@ const STATUS_STYLES: Record<
 const QUICK_ACTIONS = [
   { title: 'نوبت‌ها', href: '/dashboard/appointments', icon: CalendarDays },
   { title: 'خدمات', href: '/dashboard/services', icon: Scissors },
-  { title: 'ساعت کاری', href: '/dashboard/work-hours', icon: Clock },
+  { title: 'ساعات رزرو', href: '/dashboard/work-hours', icon: Clock },
   { title: 'امور مالی', href: '/dashboard/financial', icon: Wallet },
   { title: 'اشتراک', href: '/dashboard/subscription', icon: Gem },
   { title: 'باشگاه مشتریان', href: '/dashboard/club', icon: Users },
@@ -277,7 +277,7 @@ export default function DashboardPage() {
               />
               <InfoRow
                 icon={<Clock size={15} />}
-                label="ساعت کاری"
+                label="ساعات رزرو"
                 value={
                   profile?.workStartTime || profile?.workEndTime
                     ? toPersianNumber(
@@ -285,7 +285,13 @@ export default function DashboardPage() {
                           profile?.workEndTime || '--:--'
                         }`,
                       )
-                    : 'نامشخص'
+                    : profile?.slotIntervalMinutes
+                      ? `بازه ${
+                          profile.slotIntervalMinutes === 60
+                            ? '۱ ساعته'
+                            : `${toPersianNumber(profile.slotIntervalMinutes)} دقیقه‌ای`
+                        }`
+                      : 'نامشخص'
                 }
                 ltr={!!(profile?.workStartTime || profile?.workEndTime)}
               />

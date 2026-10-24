@@ -11,6 +11,7 @@ import {
   CreateBarberReviewDto,
   MyBarberReviewInfo,
   MyReferralsInfo,
+  SlotIntervalMinutes,
   UpdateBarberPortfolio,
   UpdateBarberProfile,
   WorkHours,
@@ -95,7 +96,10 @@ export const getWorkHours = async () => {
   return data;
 };
 
-export const updateWorkHours = async (dto: { hours: WorkHours[] }) => {
+export const updateWorkHours = async (dto: {
+  hours: WorkHours[];
+  slotIntervalMinutes?: SlotIntervalMinutes;
+}) => {
   const { data } = await api.post<ApiListResponse<WorkHours>>(
     endpoints.barber.updateWorkHours,
     dto,

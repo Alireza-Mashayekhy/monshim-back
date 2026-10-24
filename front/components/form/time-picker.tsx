@@ -20,15 +20,21 @@ interface TimePickerProps {
   className?: string;
   disabled?: boolean;
   includeEndOfDay?: boolean;
+  stepMinutes?: 15 | 30;
 }
 
-const HALF_HOUR_TIMES = Array.from({ length: 48 }, (_, index) => {
-  const hour = String(Math.floor(index / 2)).padStart(2, '0');
-  const minute = index % 2 === 0 ? '00' : '30';
+function buildPresetTimes(stepMinutes: 15 | 30): string[] {
+  const count = (24 * 60) / stepMinutes;
+  return Array.from({ length: count }, (_, index) => {
+    const totalMinutes = index * stepMinutes;
+    const hour = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+    const minute = String(totalMinutes % 60).padStart(2, '0');
+    return `${hour}:${minute}`;
+  });
+}
 
-  return `${hour}:${minute}`;
-});
-const HALF_HOUR_TIME_SET = new Set(HALF_HOUR_TIMES);
+const QUARTER_HOUR_TIMES = buildPresetTimes(15);
+const HALF_HOUR_TIMES = buildPresetTimes(30);
 
 function toEnglishDigits(value: string) {
   return value.replace(/[۰-۹٠-٩]/g, digit => {
@@ -66,11 +72,13 @@ export function TimePicker({
   className,
   disabled,
   includeEndOfDay = false,
+  stepMinutes = 30,
 }: TimePickerProps) {
   const id = useId();
+  const presetTimes = stepMinutes === 15 ? QUARTER_HOUR_TIMES : HALF_HOUR_TIMES;
   const normalizedValue = normalizeTime(value);
   const isPresetValue =
-    HALF_HOUR_TIME_SET.has(normalizedValue) ||
+    presetTimes.includes(normalizedValue) ||
     (includeEndOfDay && normalizedValue === '24:00');
   const hasLegacyValue = Boolean(normalizedValue) && !isPresetValue;
 
@@ -101,7 +109,7 @@ export function TimePicker({
           <Clock className="size-4 shrink-0 text-gray-400" />
         </SelectTrigger>
         <SelectContent className="z-[60]">
-          {HALF_HOUR_TIMES.map(time => (
+          {presetTimes.map(time => (
             <SelectItem key={time} value={time}>
               <span dir="ltr" className="tabular-nums">
                 {toFa(time)}

@@ -24,6 +24,8 @@ export interface Service {
   durationMinutes: number;
 }
 
+export type SlotIntervalMinutes = 15 | 30 | 45 | 60;
+
 export interface Barber {
   id: number;
   name?: string;
@@ -36,6 +38,7 @@ export interface Barber {
   bio: string | null;
   rating: number;
   reviewCount: number;
+  slotIntervalMinutes?: SlotIntervalMinutes;
   services: Service[];
   portfolio: string[];
   city: Pick<CityResponse, 'id' | 'name' | 'slug' | 'provinceId'> | null;
@@ -75,6 +78,7 @@ export interface BarberProfile {
   portfolioImages?: string[];
   workStartTime?: string | null;
   workEndTime?: string | null;
+  slotIntervalMinutes?: SlotIntervalMinutes;
   isApproved: boolean;
   rejectionReason?: string | null;
   createdAt: string;
@@ -91,6 +95,7 @@ export interface UpdateBarberProfile {
   bio?: string | null;
   workStartTime?: string | null;
   workEndTime?: string | null;
+  slotIntervalMinutes?: SlotIntervalMinutes;
   profileImage?: string | null;
   isApproved?: boolean;
   rejectionReason?: string | null;

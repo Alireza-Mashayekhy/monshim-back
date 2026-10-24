@@ -86,6 +86,13 @@ export class BarberProfile {
   })
   workEndTime: string | null;
 
+  @Column({
+    name: 'slot_interval_minutes',
+    type: 'int',
+    default: 30,
+  })
+  slotIntervalMinutes: number;
+
   @Column({ default: false })
   isApproved: boolean;
 

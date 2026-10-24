@@ -27,7 +27,7 @@ export const dashboardRoutes = [
     icon: Scissors,
   },
   {
-    title: 'ساعت کاری',
+    title: 'ساعات رزرو',
     href: '/dashboard/work-hours',
     icon: Clock,
   },

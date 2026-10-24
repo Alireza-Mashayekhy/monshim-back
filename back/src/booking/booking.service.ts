@@ -58,7 +58,11 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 import { UpdateBookingTimeDto } from './dto/update-booking-time.dto';
 import { Booking, BookingStatus } from './entities/booking.entity';
 import { SlotHold } from './entities/slot-hold.entity';
-import { BusyInterval, hasOverlap } from './slot-intervals';
+import {
+  BusyInterval,
+  hasOverlap,
+  normalizeSlotIntervalMinutes,
+} from './slot-intervals';
 
 const CONFIRMATION_SMS_COST = 2;
 const REMINDER_SMS_COST = 2;
@@ -2151,7 +2155,7 @@ export class BookingsService {
 
     const freeSlots: string[] = [];
 
-    const step = 15;
+    const step = normalizeSlotIntervalMinutes(barber.slotIntervalMinutes);
 
     for (const workHour of workHours) {
       const start = toMinutes(workHour.startTime);
@@ -2186,7 +2190,10 @@ export class BookingsService {
           const minutes = (currentStart % 60).toString().padStart(2, '0');
           const slot = `${hours}:${minutes}`;
 
-          if (!isBookingSlotInPast(date, slot, bookingClock)) {
+          if (
+            !isBookingSlotInPast(date, slot, bookingClock) &&
+            !freeSlots.includes(slot)
+          ) {
             freeSlots.push(slot);
           }
         }

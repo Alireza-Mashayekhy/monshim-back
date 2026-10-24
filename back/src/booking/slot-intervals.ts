@@ -1,10 +1,34 @@
 /**
- * ابزارهای خالصِ بازهٔ زمانی نوبت.
+ * ابزارهای خالصِ بازهٔ زمانی نوبت و گام زمانی اسلات‌های قابل رزرو.
  *
  * عمداً بدون وابستگی به Nest/TypeORM است تا هم مستقیم تست شود و هم همهٔ
  * نقاط بررسی تداخل (تقویم، رزرو آنلاین، ثبت دستی، تایید) از یک قاعدهٔ
  * واحد استفاده کنند.
  */
+
+export const ALLOWED_SLOT_INTERVAL_MINUTES = [15, 30, 45, 60] as const;
+export type SlotIntervalMinutes =
+  (typeof ALLOWED_SLOT_INTERVAL_MINUTES)[number];
+export const DEFAULT_SLOT_INTERVAL_MINUTES: SlotIntervalMinutes = 30;
+
+export function isAllowedSlotIntervalMinutes(
+  value: unknown,
+): value is SlotIntervalMinutes {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    (ALLOWED_SLOT_INTERVAL_MINUTES as readonly number[]).includes(value)
+  );
+}
+
+export function normalizeSlotIntervalMinutes(
+  value: unknown,
+): SlotIntervalMinutes {
+  const numeric = typeof value === 'string' ? Number(value) : value;
+  return isAllowedSlotIntervalMinutes(numeric)
+    ? numeric
+    : DEFAULT_SLOT_INTERVAL_MINUTES;
+}
 
 export interface BusyInterval {
   /** دقیقه از نیمه‌شب */
