@@ -26,6 +26,7 @@ import {
 } from './api';
 import {
   Barber,
+  BarberProfile,
   BarberResponse,
   BarberReview,
   CreateBarberReviewDto,
@@ -154,23 +155,55 @@ export const useUpdateBarberProfile = () => {
 
 export const useUpdateSlotInterval = () => {
   const queryClient = useQueryClient();
+  const profileQueryKey = ['my-barber-profile'];
+
   return useMutation({
     mutationFn: (slotIntervalMinutes: SlotIntervalMinutes) =>
       updateBarberProfile({ slotIntervalMinutes }),
+    // به‌روزرسانی خوش‌بینانه: بلافاصله بعد از کلیک، مقدار کشِ پروفایل عوض
+    // می‌شود تا برچسب «فعال: ...» و تیک گزینه بدون انتظار برای refetch
+    // تغییر کنند؛ اگر درخواست خطا داد، مقدار قبلی برگردانده می‌شود.
+    onMutate: async slotIntervalMinutes => {
+      await queryClient.cancelQueries({ queryKey: profileQueryKey });
+
+      const previousProfile =
+        queryClient.getQueryData<ApiSingleResponse<BarberProfile>>(
+          profileQueryKey,
+        );
+
+      queryClient.setQueryData<ApiSingleResponse<BarberProfile>>(
+        profileQueryKey,
+        old =>
+          old
+            ? {
+                ...old,
+                data: { ...old.data, slotIntervalMinutes },
+              }
+            : old,
+      );
+
+      return { previousProfile };
+    },
+    onError: (error: any, _variables, context) => {
+      if (context?.previousProfile) {
+        queryClient.setQueryData(profileQueryKey, context.previousProfile);
+      }
+      toast.error(
+        error.response?.data?.message || 'خطا در ذخیره فاصله زمانی نوبت‌ها',
+      );
+    },
     onSuccess: (_data, slotIntervalMinutes) => {
-      queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
-      queryClient.invalidateQueries({ queryKey: ['barber'] });
-      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
       const label =
         slotIntervalMinutes === 60
           ? '۱ ساعت'
           : `${slotIntervalMinutes.toLocaleString('fa-IR')} دقیقه`;
       toast.success(`فاصله زمانی نوبت‌ها روی ${label} تنظیم شد.`);
     },
-    onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || 'خطا در ذخیره فاصله زمانی نوبت‌ها',
-      );
+    onSettled: () => {
+      // همگام‌سازی نهایی با سرور بعد از موفقیت یا برگرداندن خطا.
+      queryClient.invalidateQueries({ queryKey: profileQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['barber'] });
+      queryClient.invalidateQueries({ queryKey: ['available-slots'] });
     },
   });
 };

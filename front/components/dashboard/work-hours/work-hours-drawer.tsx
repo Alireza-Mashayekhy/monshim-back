@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Timer, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toFa } from '@/lib/jalali';
-import { cn } from '@/lib/utils';
 import {
   useMyBarberProfile,
   useUpdateWorkHours,
@@ -38,13 +37,6 @@ const DAYS = [
   'چهارشنبه',
   'پنج‌شنبه',
   'جمعه',
-];
-
-const INTERVAL_CHOICES: { value: SlotIntervalMinutes; label: string }[] = [
-  { value: 15, label: '۱۵ دقیقه' },
-  { value: 30, label: '۳۰ دقیقه' },
-  { value: 45, label: '۴۵ دقیقه' },
-  { value: 60, label: '۱ ساعت' },
 ];
 
 type HoursByDay = Record<number, { startTime: string; endTime: string }[]>;
@@ -89,9 +81,6 @@ function WorkHoursDrawerForm({
 
   const [hoursByDay, setHoursByDay] = useState<HoursByDay>(() =>
     buildHoursByDay(initialHours),
-  );
-  const [slotInterval, setSlotInterval] = useState<SlotIntervalMinutes>(
-    () => initialInterval,
   );
 
   const addSlot = (day: number) => {
@@ -145,12 +134,10 @@ function WorkHoursDrawerForm({
       return;
     }
 
-    const payload: {
-      hours: WorkHours[];
-      slotIntervalMinutes: SlotIntervalMinutes;
-    } = {
+    // فاصله زمانی نوبت‌ها فقط از کارت اصلی صفحه تنظیم می‌شود و این دراور
+    // صرفاً بازه‌های حضور روزانه را ذخیره می‌کند.
+    const payload: { hours: WorkHours[] } = {
       hours: parsedHours.filter((slot): slot is WorkHours => slot !== null),
-      slotIntervalMinutes: slotInterval,
     };
     updateMutation.mutate(payload, {
       onSuccess,
@@ -158,38 +145,10 @@ function WorkHoursDrawerForm({
   };
 
   const pickerStep: 15 | 30 =
-    slotInterval === 15 || slotInterval === 45 ? 15 : 30;
+    initialInterval === 15 || initialInterval === 45 ? 15 : 30;
 
   return (
     <div className="space-y-4 px-4 pb-4">
-      {/* انتخاب فاصله زمانی نوبت‌ها */}
-      <div className="space-y-2.5 rounded-2xl border border-primary/15 bg-primary-3 p-3.5">
-        <div className="flex items-center gap-2 text-xs font-bold text-gray-800">
-          <Timer size={15} className="text-primary" />
-          <span>فاصله زمانی ساعت‌های قابل رزرو</span>
-        </div>
-        <div className="grid grid-cols-4 gap-1.5">
-          {INTERVAL_CHOICES.map(item => {
-            const active = slotInterval === item.value;
-            return (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => setSlotInterval(item.value)}
-                className={cn(
-                  'rounded-xl border px-2 py-2 text-center text-xs font-bold transition-all',
-                  active
-                    ? 'border-primary bg-primary text-white shadow-xs'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40',
-                )}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {DAYS.map((day, idx) => (
         <div key={idx} className="space-y-3">
           <div className="flex items-center justify-between">
@@ -256,9 +215,9 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
   const initialInterval = normalizeInterval(
     profileData?.data?.slotIntervalMinutes,
   );
-  const formKey = `${initialInterval}-${(workHours?.data ?? [])
+  const formKey = (workHours?.data ?? [])
     .map(h => `${h.dayOfWeek}:${h.startTime}-${h.endTime}`)
-    .join('|')}`;
+    .join('|');
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -268,8 +227,7 @@ export function WorkHoursDrawer({ open, onOpenChange }: WorkHoursDrawerProps) {
             تنظیم ساعات و بازه‌های رزرو
           </DrawerTitle>
           <DrawerDescription className="text-center text-sm">
-            فاصله زمانی نوبت‌ها و بازه‌های حضور روزانه سالن را مشخص کنید (از
-            ۰۰:۰۰ تا ۲۴:۰۰).
+            بازه‌های حضور روزانه سالن را مشخص کنید (از ۰۰:۰۰ تا ۲۴:۰۰).
           </DrawerDescription>
         </DrawerHeader>
 
