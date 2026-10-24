@@ -1,7 +1,7 @@
 import { MapPin, Scissors } from 'lucide-react';
-import { memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { memo } from 'react';
 
 import { formatFaNumber } from '@/lib/utils';
 import { BarberResponse } from '@/services/features/barber/types';
@@ -11,10 +11,7 @@ interface BarberCardProps {
   variant?: 'horizontal' | 'vertical';
 }
 
-function BarberCard({
-  barber,
-  variant = 'horizontal',
-}: BarberCardProps) {
+function BarberCard({ barber, variant = 'horizontal' }: BarberCardProps) {
   const imgUrl = barber?.profileImage
     ? barber.profileImage.startsWith('http')
       ? barber.profileImage
@@ -35,13 +32,13 @@ function BarberCard({
         href={`/panel/barber/${barber.id}`}
         className="group bg-white rounded-xl border border-[#14B8A6]/25 p-2 sm:p-2.5 shadow-2xs hover:shadow-md transition-all flex flex-col active:scale-98"
       >
-        <div className="relative aspect-4/3 rounded-lg overflow-hidden bg-[#E6F9F6] flex items-center justify-center">
+        <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#E6F9F6] flex items-center justify-center">
           {imgUrl ? (
             <Image
               fill
               src={imgUrl}
               alt={barber.salonName || 'آرایشگاه'}
-              sizes="(max-width: 640px) 50vw, 200px"
+              sizes="(max-width: 640px) 50vw, 220px"
               className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
@@ -71,22 +68,22 @@ function BarberCard({
   return (
     <Link
       href={`/panel/barber/${barber.id}`}
-      className="group bg-white rounded-xl border border-[#14B8A6]/20 p-2 sm:p-3.5 shadow-2xs hover:shadow-md hover:border-[#0F766E]/40 transition-all flex gap-3 sm:gap-4 active:scale-[0.99]"
+      className="group bg-white rounded-xl border border-[#14B8A6]/20 p-2.5 sm:p-3.5 shadow-2xs hover:shadow-md hover:border-[#0F766E]/40 transition-all flex items-center gap-3 sm:gap-4 active:scale-[0.99]"
     >
-      <div className="relative w-28 sm:w-32 rounded-lg overflow-hidden shrink-0 bg-[#E6F9F6] border border-gray-100 flex items-center justify-center">
+      <div className="relative size-24 sm:size-28 aspect-square rounded-lg overflow-hidden shrink-0 bg-[#E6F9F6] border border-gray-100 flex items-center justify-center">
         {imgUrl ? (
           <Image
             fill
             src={imgUrl}
             alt={barber.salonName || 'آرایشگاه'}
-            sizes="(max-width: 640px) 120px, 140px"
+            sizes="(max-width: 640px) 96px, 112px"
             className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <Scissors size={28} className="text-[#0F766E]/50" />
         )}
       </div>
-      <div className="flex-1 flex flex-col justify-between self-stretch py-2 text-right min-w-0">
+      <div className="flex-1 flex flex-col justify-between self-stretch py-1.5 text-right min-w-0">
         <div className="space-y-1">
           <h3 className="text-sm sm:text-base font-black text-gray-900 tracking-tight truncate group-hover:text-[#0F766E] transition-colors">
             {barber.salonName}
@@ -130,7 +127,7 @@ export const BarberCardSkeleton = ({
   if (variant === 'vertical') {
     return (
       <div className="animate-pulse bg-white rounded-2xl border border-gray-100 p-3 shadow-2xs w-full space-y-2">
-        <div className="aspect-4/3 bg-gray-200 rounded-xl" />
+        <div className="aspect-square w-full bg-gray-200 rounded-xl" />
         <div className="h-4 bg-gray-200 rounded w-3/4" />
         <div className="h-3 bg-gray-100 rounded w-1/2" />
       </div>
@@ -138,14 +135,13 @@ export const BarberCardSkeleton = ({
   }
 
   return (
-    <div className="animate-pulse bg-white rounded-3xl border border-[#14B8A6]/15 p-3 sm:p-3.5 shadow-2xs w-full flex items-center justify-between gap-3">
+    <div className="animate-pulse bg-white rounded-xl border border-[#14B8A6]/15 p-2.5 sm:p-3.5 shadow-2xs w-full flex items-center gap-3 sm:gap-4">
+      <div className="size-24 sm:size-28 aspect-square bg-gray-200 rounded-lg shrink-0" />
       <div className="flex-1 space-y-2.5 py-1">
         <div className="h-4 bg-gray-200 rounded-md w-2/3" />
         <div className="h-3 bg-gray-100 rounded-md w-1/2" />
-        <div className="h-3 bg-gray-100 rounded-md w-1/3 pt-1" />
         <div className="h-4 bg-teal-100/60 rounded-md w-24 pt-2" />
       </div>
-      <div className="w-28 sm:w-32 h-24 sm:h-28 bg-gray-200 rounded-2xl shrink-0" />
     </div>
   );
 };

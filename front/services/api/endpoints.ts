@@ -144,11 +144,14 @@ export const endpoints = {
     status: (trackId: number | string) => `/payment/status/${trackId}`,
   },
 
-  /** صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[id]`) */
+  /** صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[slug]`) */
   publicPage: {
-    /** فقط آرایشگرهایی که صفحه‌شان فعال است — مبنای sitemap */
+    /** فقط آرایشگرهایی که صفحه‌شان فعال است و اسلاگ ثبت کرده‌اند — مبنای sitemap */
     directory: '/public-page/directory',
-    barber: (id: number | string) => `/public-page/barber/${id}`,
+    barber: (identifier: number | string) =>
+      `/public-page/barber/${encodeURIComponent(String(identifier))}`,
     me: '/public-page/me',
+    checkSlug: '/public-page/slug/check',
+    updateSlug: '/public-page/me/slug',
   },
 };

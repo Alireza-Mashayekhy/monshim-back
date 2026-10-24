@@ -2,7 +2,7 @@ import { CalendarCheck, Clock, MapPin, Scissors, Star } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 
 import JsonLd from '@/components/marketing/json-ld';
 import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
@@ -12,6 +12,10 @@ import ShareButton from '@/components/public-barber/share-button';
 import { Button } from '@/components/ui/button';
 import { publicImageUrl } from '@/lib/images';
 import { absolutePublicImageUrl, fetchPublicApi } from '@/lib/public-api';
+import {
+  normalizePublicPageSlug,
+  validatePublicPageSlug,
+} from '@/lib/public-page-slug';
 import { buildPageMetadata } from '@/lib/seo';
 import { siteConfig } from '@/lib/site-config';
 import type { ApiListResponse } from '@/services/api/types';
@@ -19,22 +23,15 @@ import type { BarberReview } from '@/services/features/barber/types';
 import type { PublicBarberProfile } from '@/services/features/public-page/types';
 
 /**
- * صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[id]`).
+ * صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[slug]`).
  *
- * این صفحه فقط وقتی نمایش داده می‌شود که آرایشگر یکی از این دو شرط را داشته
- * باشد: پکیج صفحهٔ عمومی را خریده باشد، یا ۳۰۰ نوبتِ پرداخت‌شده (بیعانه یا
- * پرداخت کامل آنلاین) داشته باشد. در غیر این صورت بک‌اند ۴۰۴ می‌دهد و اینجا
- * `notFound()` اجرا می‌شود؛ یعنی نه با URL دستی باز می‌شود و نه در sitemap
- * می‌آید.
+ * این صفحه فقط وقتی نمایش داده می‌شود که صفحهٔ اختصاصی آرایشگر فعال شده باشد
+ * (خرید پکیج یا ۳۰۰ رزرو موفقِ پرداخت‌شده در درگاه) و آرایشگر اسلاگ یکتای خود
+ * را ثبت کرده باشد. اگر کاربر صفحه را با شناسهٔ عددی باز کند، به‌صورت دائمی به
+ * آدرس اسلاگ ریدایرکت می‌شود تا هیچ‌گاه آیدی در URL نمایش داده نشود.
  *
  * نسخهٔ داخل پنلِ همین آرایشگاه (رزرو نوبت) مسیر مستقل خودش را دارد:
  * `/panel/barber/[id]`.
- */
-/**
- * کشِ این مسیر عمداً کوتاه است: اگر صفحه‌ای در زمان غیرفعال‌بودن بازدید و ۴۰۴
- * کش شود، نباید ساعت‌ها بعد از فعال‌سازی هم ۴۰۴ بماند (sitemap بلافاصله آن را
- * منتشر می‌کند). علاوه بر این، بعد از خرید موفق پکیج، کشِ مسیر از طریق
- * `revalidateMyPublicBarberPage` همان لحظه پاک می‌شود.
  */
 export const revalidate = 300;
 
@@ -44,15 +41,28 @@ type BarberPageProps = {
 
 const REVIEWS_LIMIT = 10;
 
-function barberPath(id: number) {
-  return `/barber/${id}`;
+function barberPath(slug: string) {
+  return `/barber/${encodeURIComponent(slug)}`;
 }
 
-async function getPublicBarber(id: string) {
-  const numericId = Number(id);
-  if (!Number.isInteger(numericId) || numericId < 1) return null;
+async function getPublicBarber(rawIdentifier: string) {
+  const identifier = rawIdentifier.trim();
+  if (!identifier || identifier.length > 80) return null;
+
+  if (/^\d+$/.test(identifier)) {
+    const numericId = Number(identifier);
+    if (!Number.isSafeInteger(numericId) || numericId < 1) return null;
+    return fetchPublicApi<PublicBarberProfile>(
+      `/public-page/barber/${numericId}`,
+    );
+  }
+
+  const normalized = normalizePublicPageSlug(identifier);
+  const validation = validatePublicPageSlug(normalized);
+  if (!validation.valid) return null;
+
   return fetchPublicApi<PublicBarberProfile>(
-    `/public-page/barber/${numericId}`,
+    `/public-page/barber/${encodeURIComponent(validation.slug)}`,
   );
 }
 
@@ -91,18 +101,13 @@ export async function generateMetadata({
 }: BarberPageProps): Promise<Metadata> {
   const { id } = await params;
   const barber = await getPublicBarber(id);
-  const numericId = Number(id);
-  const canonicalPath =
-    Number.isInteger(numericId) && numericId > 0
-      ? barberPath(numericId)
-      : `/barber/${encodeURIComponent(id)}`;
 
-  if (!barber) {
-    // صفحه‌ای که فعال نیست نباید ایندکس شود (و اصلاً ۴۰۴ می‌دهد).
+  if (!barber || !barber.slug) {
+    // صفحه‌ای که فعال نیست یا اسلاگ ندارد نباید ایندکس شود (و ۴۰۴ می‌دهد).
     return buildPageMetadata({
       title: 'پروفایل آرایشگاه',
       description: 'پروفایل عمومی آرایشگاه در منشیم.',
-      path: canonicalPath,
+      path: `/barber/${encodeURIComponent(id)}`,
       noIndex: true,
     });
   }
@@ -111,7 +116,7 @@ export async function generateMetadata({
   return buildPageMetadata({
     title: location ? `${barber.salonName} در ${location}` : barber.salonName,
     description: profileDescription(barber),
-    path: barberPath(barber.id),
+    path: barberPath(barber.slug),
     imageUrl: absolutePublicImageUrl(barber.profileImage),
   });
 }
@@ -119,11 +124,16 @@ export async function generateMetadata({
 export default async function PublicBarberPage({ params }: BarberPageProps) {
   const { id } = await params;
   const barber = await getPublicBarber(id);
-  if (!barber) notFound();
+  if (!barber || !barber.slug) notFound();
+
+  // اگر آدرس با آیدی عددی یا حروف بزرگ باز شده باشد، همیشه به اسلاگ ریدایرکت شود
+  if (id !== barber.slug) {
+    permanentRedirect(barberPath(barber.slug));
+  }
 
   const reviews = await getPublicReviews(barber.id);
 
-  const profileUrl = `${siteConfig.url}${barberPath(barber.id)}`;
+  const profileUrl = `${siteConfig.url}${barberPath(barber.slug)}`;
   const bookingUrl = `/panel/barber/${barber.id}`;
   const heroImage = publicImageUrl(barber.profileImage);
   const location = locationLabel(barber);
@@ -222,36 +232,50 @@ export default async function PublicBarberPage({ params }: BarberPageProps) {
         <Breadcrumbs
           items={[
             { href: '/', label: siteConfig.name },
-            { href: barberPath(barber.id), label: barber.salonName },
+            { href: barberPath(barber.slug), label: barber.salonName },
           ]}
         />
 
         <article className="overflow-hidden rounded-3xl border border-primary/15 bg-white shadow-sm">
-          <div className="relative h-56 w-full bg-primary-2 sm:h-72">
-            <Image
-              src={heroImage ?? '/placeholder.webp'}
-              alt={`تصویر سالن ${barber.salonName}`}
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
-          </div>
+          <header className="p-5 sm:p-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="relative size-24 shrink-0 aspect-square overflow-hidden rounded-2xl border border-primary/15 bg-primary-2 sm:size-32">
+                  <Image
+                    src={heroImage ?? '/placeholder.webp'}
+                    alt={`لوگوی سالن ${barber.salonName}`}
+                    fill
+                    priority
+                    sizes="(max-width: 640px) 96px, 128px"
+                    className="object-cover"
+                  />
+                </div>
 
-          <header className="space-y-3 p-5 sm:p-7">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-2">
-                <h1 className="text-2xl font-black text-gray-900 sm:text-3xl">
-                  {barber.salonName}
-                </h1>
-                {barber.activityType && (
-                  <p className="text-xs text-muted-foreground">
-                    {barber.activityType}
-                  </p>
-                )}
+                <div className="min-w-0 space-y-2">
+                  <h1 className="text-2xl font-black text-gray-900 sm:text-3xl">
+                    {barber.salonName}
+                  </h1>
+                  {barber.activityType && (
+                    <p className="text-xs text-muted-foreground">
+                      {barber.activityType}
+                    </p>
+                  )}
+                  {barber.address && (
+                    <p className="flex items-start gap-1.5 text-sm text-gray-600">
+                      <MapPin
+                        size={16}
+                        className="mt-0.5 shrink-0 text-primary"
+                      />
+                      <span>
+                        {barber.address}
+                        {location ? ` • ${location}` : ''}
+                      </span>
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-start">
                 <div className="flex items-center gap-1 rounded-xl border border-primary/20 bg-primary-2 px-3 py-2">
                   <Star size={16} className="fill-yellow-400 text-yellow-400" />
                   <span className="text-sm font-bold text-gray-800">
@@ -265,16 +289,6 @@ export default async function PublicBarberPage({ params }: BarberPageProps) {
                 </div>
                 <ShareButton url={profileUrl} title={barber.salonName} />
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-600">
-              {barber.address && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={16} className="text-primary" />
-                  {barber.address}
-                  {location ? ` • ${location}` : ''}
-                </span>
-              )}
             </div>
           </header>
 

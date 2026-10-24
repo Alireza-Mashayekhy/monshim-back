@@ -1,9 +1,9 @@
--- «صفحهٔ عمومی آرایشگاه» — آدرس عمومی و سئوشدهٔ هر آرایشگاه: /barber/[id]
+-- «صفحهٔ عمومی آرایشگاه» — آدرس عمومی و سئوشدهٔ هر آرایشگاه: /barber/[slug]
 --
 -- فعال‌سازی این صفحه دو شرط دارد:
 --   1. خرید پکیج ۵۹۹٫۰۰۰ تومانی (یک‌باره، مادام‌العمر)؛
---   2. یا رسیدن به ۳۰۰ نوبتِ پرداخت‌شده (بیعانهٔ پرداخت‌شده یا پرداخت کامل
---      هنگام رزرو آنلاین) — به‌صورت تجمعی و بدون محدودیت زمانی.
+--   2. یا رسیدن به ۳۰۰ رزرو موفقِ پرداخت‌شده در درگاه (بدون لغو یا بازپرداخت) —
+--      به‌صورت تجمعی و بدون محدودیت زمانی.
 --
 -- این فایل فقط برای محیط production لازم است؛ در بقیهٔ محیط‌ها
 -- `synchronize` خود TypeORM ستون‌ها و جدول را می‌سازد.
@@ -40,3 +40,8 @@ CREATE TABLE IF NOT EXISTS barber_public_page_purchases (
   CONSTRAINT fk_barber_public_page_purchase_profile
     FOREIGN KEY (barber_profile_id) REFERENCES barber_profiles (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ۳. اسلاگ یکتای آدرس صفحهٔ عمومی آرایشگاه (/barber/[slug])
+ALTER TABLE barber_profile
+  ADD COLUMN slug VARCHAR(80) NULL,
+  ADD UNIQUE KEY uq_barber_profile_slug (slug);

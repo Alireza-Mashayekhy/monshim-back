@@ -4,17 +4,20 @@ import { jwtVerify } from 'jose';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
+import { validatePublicPageSlug } from '@/lib/public-page-slug';
 import { isBarber, normalizeRoles } from '@/lib/roles';
 
 /**
- * پس از خرید موفق پکیج، صفحهٔ عمومی آرایشگر باید بلافاصله در دسترس باشد؛
- * در غیر این صورت تا پایان زمان `revalidate` همان مسیر، کاربر ۴۰۴ می‌بیند.
+ * پس از خرید موفق پکیج یا ثبت/تغییر اسلاگ، صفحهٔ عمومی آرایشگر باید بلافاصله
+ * در دسترس باشد؛ در غیر این صورت تا پایان زمان `revalidate` مسیر، کاربر ۴۰۴
+ * یا نسخهٔ قبلی را می‌بیند.
  *
- * این Server Action فقط مسیرِ صفحهٔ عمومیِ **خودِ آرایشگرِ لاگین‌کرده** را
- * revalidate می‌کند (شناسه از توکن گرفته می‌شود، نه از ورودی کاربر) تا کسی
- * نتواند کشِ صفحهٔ سالنِ دیگری را پاک کند یا به‌صورت ناشناس درخواست بزند.
+ * این Server Action فقط برای آرایشگرِ لاگین‌کرده اجرا می‌شود و اسلاگ‌های ورودی
+ * قبل از `revalidatePath` اعتبارسنجی می‌شوند تا مسیر دلخواه پاک نشود.
  */
-export async function revalidateMyPublicBarberPage() {
+export async function revalidateMyPublicBarberPage(
+  slugs?: Array<string | null | undefined>,
+) {
   const token = (await cookies()).get('access_token')?.value;
   const secret = process.env.JWT_ACCESS_SECRET;
   if (!token || !secret) return;
@@ -31,6 +34,17 @@ export async function revalidateMyPublicBarberPage() {
     if (!isBarber({ roles })) return;
 
     revalidatePath(`/barber/${userId}`);
+    revalidatePath('/sitemap.xml');
+
+    if (Array.isArray(slugs)) {
+      for (const candidate of slugs) {
+        if (!candidate) continue;
+        const checked = validatePublicPageSlug(candidate);
+        if (checked.valid) {
+          revalidatePath(`/barber/${checked.slug}`);
+        }
+      }
+    }
   } catch {
     // توکن نامعتبر/منقضی: کاری انجام نمی‌دهیم؛ کش بعد از revalidate خودکار
     // به‌روز می‌شود.

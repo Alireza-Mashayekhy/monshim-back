@@ -242,7 +242,7 @@ export default function Home() {
             {barbersLoading
               ? // بارگذاری اسکلتون
                 Array.from({ length: 2 }).map((_, i) => (
-                  <BarberCardSkeleton key={i} />
+                  <BarberCardSkeleton key={i} variant="vertical" />
                 ))
               : barbersData?.data &&
                 barbersData.data.length > 0 &&

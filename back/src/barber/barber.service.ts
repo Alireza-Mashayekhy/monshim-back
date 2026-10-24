@@ -317,6 +317,7 @@ export class BarberService {
     const profile = user.barberProfile;
     return {
       id: user.id,
+      slug: profile.slug ?? null,
       salonName: profile.salonName,
       activityType: profile.activityType,
       profileImage: profile.profileImage,

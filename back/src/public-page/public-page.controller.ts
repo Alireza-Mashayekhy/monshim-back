@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
-  NotFoundException,
   Param,
+  Patch,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -12,17 +14,19 @@ import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 
+import { UpdatePublicPageSlugDto } from './dto/update-public-page-slug.dto';
 import { PublicPageService } from './public-page.service';
 
 /**
- * «صفحهٔ عمومی آرایشگاه» — پروفایل سئوشده با آدرس `/barber/[id]` در فرانت.
+ * «صفحهٔ عمومی آرایشگاه» — پروفایل سئوشده با آدرس `/barber/[slug]` در فرانت.
  *
- * این کنترلر مستقل است تا منطقِ فعال‌سازی (خرید پکیج یا حد نصاب نوبت‌های
- * پرداخت‌شده) با بقیهٔ مسیرهای آرایشگر قاطی نشود:
- *   • `GET /public-page/directory` → فقط آرایشگرهایی که صفحه‌شان فعال است
- *     (مبنای sitemap)
- *   • `GET /public-page/barber/:id` → پروفایل عمومی؛ در غیر این صورت ۴۰۴
- *   • `GET /public-page/me`         → وضعیت صفحهٔ عمومیِ آرایشگرِ جاری
+ * این کنترلر مستقل است تا منطقِ فعال‌سازی (خرید پکیج یا حد نصاب رزروهای موفق
+ * پرداخت‌شده در درگاه) با بقیهٔ مسیرهای آرایشگر قاطی نشود:
+ *   • `GET /public-page/directory`         → آرایشگرهای فعالِ دارای اسلاگ (مبنای sitemap)
+ *   • `GET /public-page/barber/:identifier` → پروفایل عمومی بر اساس اسلاگ؛ در غیر این صورت ۴۰۴
+ *   • `GET /public-page/me`                → وضعیت صفحهٔ عمومیِ آرایشگرِ جاری
+ *   • `GET /public-page/slug/check`        → بررسی معتبر و غیرتکراری بودن اسلاگ
+ *   • `PATCH /public-page/me/slug`         → ثبت یا تغییر اسلاگ صفحهٔ عمومی
  */
 @ApiTags('PublicPage')
 @Controller('public-page')
@@ -34,13 +38,9 @@ export class PublicPageController {
     return this.publicPageService.getActiveDirectory();
   }
 
-  @Get('barber/:id')
-  getPublicBarberPage(@Param('id') id: string) {
-    const numericId = Number(id);
-    if (!Number.isInteger(numericId) || numericId < 1) {
-      throw new NotFoundException('آرایشگاه یافت نشد');
-    }
-    return this.publicPageService.getPublicBarberPage(numericId);
+  @Get('barber/:identifier')
+  getPublicBarberPage(@Param('identifier') identifier: string) {
+    return this.publicPageService.getPublicBarberPage(identifier);
   }
 
   @UseGuards(AuthGuard, RolesGuard)
@@ -48,5 +48,19 @@ export class PublicPageController {
   @Get('me')
   getMyStatus(@Req() req: any) {
     return this.publicPageService.getStatusByUserId(req.user.id);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.Barber, Role.Admin)
+  @Get('slug/check')
+  checkSlugAvailability(@Req() req: any, @Query('slug') slug = '') {
+    return this.publicPageService.checkSlugAvailability(req.user.id, slug);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.Barber, Role.Admin)
+  @Patch('me/slug')
+  updateMySlug(@Req() req: any, @Body() dto: UpdatePublicPageSlugDto) {
+    return this.publicPageService.updateSlugByUserId(req.user.id, dto.slug);
   }
 }

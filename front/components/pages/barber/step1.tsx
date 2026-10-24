@@ -65,19 +65,10 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
   ];
 
   return (
-    <div className="relative min-h-screen pb-36 overflow-hidden">
-      {/* Hero Image */}
-      <div className="fixed top-0 h-[340px] w-full">
-        <Image
-          src={getImageUrl(barber.profileImage)}
-          fill
-          sizes="100vw"
-          className="object-cover"
-          alt={`لوگوی برند سالن ${barber.salonName}`}
-          priority
-        />
+    <div className="min-h-screen pb-36">
+      <div className="mx-auto max-w-3xl px-4 pt-3 sm:px-6">
         {/* Top action buttons */}
-        <div className="absolute top-4 left-0 right-0 px-5 flex justify-between items-center z-20">
+        <div className="mb-4 flex items-center justify-between">
           <BackButton />
           <Button
             onClick={() => setFavorited(v => !v)}
@@ -94,36 +85,52 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
             />
           </Button>
         </div>
-      </div>
 
-      {/* Curved white sheet */}
-      <div className="relative mt-[320px] bg-primary-3 rounded-t-[32px] px-5 pt-6 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.15)]">
-        {/* Header row: badge + shop name */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-start justify-between mb-2">
-            <h1 className="text-3xl font-black text-gray-900 leading-tight">
-              {barber.salonName}
-            </h1>
+        <div className="rounded-3xl border border-primary/15 bg-primary-3 px-5 py-6 shadow-sm sm:p-7">
+          {/* Salon Header with Square Logo */}
+          <div className="flex items-center gap-4 sm:gap-5">
+            <div className="relative size-24 shrink-0 aspect-square overflow-hidden rounded-2xl border border-primary/15 bg-[#E6F9F6] shadow-xs sm:size-32">
+              <Image
+                src={getImageUrl(barber.profileImage)}
+                fill
+                sizes="(max-width: 640px) 96px, 128px"
+                className="object-cover"
+                alt={`لوگوی برند سالن ${barber.salonName}`}
+                priority
+              />
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <h1 className="text-xl font-black leading-tight text-gray-900 sm:text-3xl">
+                  {barber.salonName}
+                </h1>
+                <div className="flex items-center gap-1.5 rounded-xl border border-primary/20 bg-white px-2.5 py-1.5 text-xs sm:text-sm">
+                  <Star
+                    size={16}
+                    className="fill-yellow-400 text-yellow-400"
+                  />
+                  <span className="font-bold text-gray-800">
+                    {reviewCount > 0
+                      ? toFa(ratingValue.toFixed(1))
+                      : 'بدون امتیاز'}
+                  </span>
+                </div>
+              </div>
+
+              {(barber.address || barber.city?.name) && (
+                <div className="flex items-start gap-1.5 text-xs leading-6 text-gray-500 sm:text-sm">
+                  <MapPin size={16} className="mt-1 shrink-0 text-primary" />
+                  <span>
+                    {barber.address}
+                    {barber.city?.name ? ` • ${barber.city?.name}` : ''}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-          {/* Rating */}
-          <div className="flex items-center justify-end gap-2 text-gray-600">
-            <Star size={18} className="fill-yellow-400 text-yellow-400" />
-            <span className="font-bold text-gray-800">
-              {reviewCount > 0 ? toFa(ratingValue.toFixed(1)) : 'بدون امتیاز'}
-            </span>
-          </div>
-        </div>
 
-        {/* Location */}
-        <div className="flex items-center gap-2 mt-3 text-gray-500 text-sm">
-          <MapPin size={16} className="text-primary" />
-          <span>
-            {barber.address}
-            {barber.city?.name ? ` • ${barber.city?.name}` : ''}
-          </span>
-        </div>
-
-        {/* Tabs */}
+          {/* Tabs */}
         <div
           role="tablist"
           aria-label="اطلاعات آرایشگاه"
@@ -233,6 +240,7 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
               initialReviews={initialReviews}
             />
           </section>
+        </div>
         </div>
       </div>
     </div>
