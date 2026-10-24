@@ -82,9 +82,14 @@ export default function FinancialPage() {
       </FadeIn>
 
       <FadeIn delay={0.1}>
-        <h3 className="font-bold text-gray-800 text-sm mb-3">
-          تراکنش‌های اخیر
-        </h3>
+        <div className="mb-3 space-y-1">
+          <h3 className="font-bold text-gray-800 text-sm">تراکنش‌های اخیر</h3>
+          <p className="text-[11px] leading-5 text-gray-400">
+            فقط درآمدهایی که با پرداخت موفق در درگاه ثبت شده‌اند به همراه
+            تسویه‌ها و شارژ کیف پول نمایش داده می‌شوند؛ نوبت‌های دستی یا
+            پرداخت‌نشده و تراکنش‌های ناموفق در این لیست نمی‌آیند.
+          </p>
+        </div>
         <div className="space-y-3">
           {transactionsLoading ? (
             <>

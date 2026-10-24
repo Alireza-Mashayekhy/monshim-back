@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  useBarber,
+  useBarberApprovalDetail,
   useReviewBarber,
 } from '@/services/features/barber/admin.hooks';
 
@@ -31,7 +31,7 @@ export function BarberReviewDialog({
 }: BarberReviewDialogProps) {
   const [rejectionReason, setRejectionReason] = useState('');
 
-  const { data, isLoading } = useBarber(barberId ?? '');
+  const { data, isLoading } = useBarberApprovalDetail(barberId ?? '');
 
   const reviewMutation = useReviewBarber();
 
