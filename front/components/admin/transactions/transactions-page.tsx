@@ -13,7 +13,6 @@ import {
   Search,
   Wallet,
   X,
-  XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
@@ -333,14 +332,14 @@ export default function AdminTransactionsPage() {
     {
       title: 'وارد حساب ما شده',
       amount: summary?.gatewayReceivedAmount ?? 0,
-      caption: 'مجموع پرداخت‌های موفق از درگاه',
+      caption: 'پرداخت‌های موفق درگاه، بدون موارد لغوشده یا بازپرداخت‌شده',
       icon: CreditCard,
       tone: 'teal' as const,
     },
     {
       title: 'برای آرایشگرهاست',
       amount: summary?.barberWalletCreditsAmount ?? 0,
-      caption: 'مبالغ واریزشده به کیف‌پول آرایشگران',
+      caption: 'درآمد رزروی که واقعاً در کیف‌پول آرایشگر مانده است',
       icon: ArrowDownLeft,
       tone: 'amber' as const,
     },
@@ -357,7 +356,7 @@ export default function AdminTransactionsPage() {
     {
       title: 'دریافتی موفق از درگاه',
       amount: summary?.gatewayReceivedAmount ?? 0,
-      caption: `${amountFormatter.format(summary?.successfulGatewayPaymentCount ?? 0)} پرداخت موفق`,
+      caption: `${amountFormatter.format(summary?.successfulGatewayPaymentCount ?? 0)} پرداخت موفق و برگشت‌نخورده`,
       icon: CreditCard,
       tone: 'teal' as const,
     },
@@ -394,7 +393,7 @@ export default function AdminTransactionsPage() {
     {
       title: 'دریافتی درگاه از رزروها',
       amount: summary?.bookingPaymentsAmount ?? 0,
-      caption: 'مبلغ پرداخت‌شده بابت رزروها، شامل کمیسیون',
+      caption: 'پرداخت رزروهای موفق و برگشت‌نخورده، شامل کمیسیون',
       icon: ArrowLeftRight,
       tone: 'blue' as const,
     },
@@ -408,7 +407,7 @@ export default function AdminTransactionsPage() {
     {
       title: 'واریزی درآمد به آرایشگران',
       amount: summary?.barberWalletCreditsAmount ?? 0,
-      caption: 'اعتبارهای ثبت‌شده بابت درآمد رزرو در کیف‌پول',
+      caption: 'فقط درآمد رزروهای پرداخت‌شده که لغو و برگشت نخورده‌اند',
       icon: ArrowDownLeft,
       tone: 'amber' as const,
     },
@@ -425,13 +424,6 @@ export default function AdminTransactionsPage() {
       caption: 'مبالغ ثبت‌شده به‌عنوان برداشت تکمیل‌شده',
       icon: ArrowUpRight,
       tone: 'amber' as const,
-    },
-    {
-      title: 'کسر از کیف پول آرایشگر',
-      amount: summary?.barberCancellationDebitsAmount ?? 0,
-      caption: `${amountFormatter.format(summary?.barberCancellationDebitCount ?? 0)} لغو با کسر مبلغ بازپرداخت‌شده به مشتری`,
-      icon: ArrowUpRight,
-      tone: 'violet' as const,
     },
   ];
 
@@ -661,12 +653,25 @@ export default function AdminTransactionsPage() {
                   <SummaryCard key={card.title} {...card} />
                 ))}
               </div>
-              <p className="rounded-xl bg-gray-50 p-3 text-[11px] leading-5 text-gray-500">
-                شاخص‌های خلاصه ممکن است هم‌پوشانی داشته باشند و نباید با هم جمع
-                شوند؛ مثلاً شارژ درگاه و ثبت کیف پول دو مرحله از یک جریان هستند.
-                کمیسیونِ بدون دادهٔ ثبت‌شده نیز نامشخص می‌ماند و صفر فرض
-                نمی‌شود.
-              </p>
+              <div className="space-y-2">
+                <p className="rounded-xl bg-gray-50 p-3 text-[11px] leading-5 text-gray-500">
+                  در این گزارش فقط پرداخت‌هایی می‌آید که با موفقیت از درگاه
+                  انجام شده و بعداً برگشت نخورده‌اند. رزروهای لغو‌شده یا
+                  پرداخت‌نشده، کسر بابت لغو رزرو و واریز درآمدِ بی‌پشتوانه در
+                  هیچ‌کدام از کارت‌ها و ردیف‌ها نمایش داده نمی‌شوند. شاخص‌های
+                  خلاصه هم ممکن است هم‌پوشانی داشته باشند و نباید با هم جمع
+                  شوند؛ مثلاً شارژ درگاه و ثبت کیف پول دو مرحله از یک جریان
+                  هستند.
+                </p>
+                {!!summary?.pendingCustomerRefundCount && (
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-800">
+                    {amountFormatter.format(summary.pendingCustomerRefundCount)}{' '}
+                    بازپرداخت مشتری به مبلغ{' '}
+                    {formatToman(summary.pendingCustomerRefundsAmount)} هنوز
+                    دستی واریز نشده است؛ این مبلغ در کارت‌ها جمع زده نمی‌شود.
+                  </p>
+                )}
+              </div>
             </section>
 
             {isError && !data ? (
