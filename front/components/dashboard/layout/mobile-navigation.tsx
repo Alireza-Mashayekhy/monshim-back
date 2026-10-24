@@ -13,6 +13,14 @@ import { useAuthStore } from '@/store/auth.store';
 import BottomNavigation from './bottom-navigation';
 import { dashboardRoutes } from './routes';
 
+const otherRoutes = [
+  dashboardRoutes[2],
+  dashboardRoutes[3],
+  dashboardRoutes[4],
+  dashboardRoutes[6],
+  dashboardRoutes[8],
+];
+
 export default function MobileNavigation() {
   const [open, setOpen] = useState(false);
   const { user } = useAuthStore();
@@ -72,7 +80,7 @@ export default function MobileNavigation() {
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent>
           <div className="grid grid-cols-4 gap-5 px-5 py-10">
-            {dashboardRoutes.map(route => {
+            {otherRoutes.map(route => {
               return (
                 <MobileMenuItem
                   key={route.href}
@@ -113,7 +121,7 @@ function MobileMenuItem({
         <Icon size={24} />
       </div>
 
-      <span className="text-sm font-medium flex-1">{title}</span>
+      <span className="text-sm font-medium flex-1 text-center">{title}</span>
     </Link>
   );
 }

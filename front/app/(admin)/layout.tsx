@@ -7,6 +7,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import AuthProvider from '@/providers/auth.provider';
 import QueryProvider from '@/providers/query-provider';
 
@@ -32,23 +33,27 @@ export default function AdminLayout({
     <QueryProvider>
       <AuthProvider>
         <SessionHydration>
-          <SidebarProvider>
-            <AdminSidebar />
+          <TooltipProvider>
+            <SidebarProvider>
+              <AdminSidebar />
 
-            <SidebarInset className="min-w-0 bg-primary-3">
-              <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b bg-white/95 px-3 backdrop-blur-sm md:hidden">
-                <div className="flex items-center gap-2">
-                  <SidebarTrigger aria-label="باز کردن منو" />
-                  <span className="text-sm font-bold">پنل مدیریت</span>
+              <SidebarInset className="min-w-0 bg-primary-3">
+                <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b bg-white/95 px-3 backdrop-blur-sm md:hidden">
+                  <div className="flex items-center gap-2">
+                    <SidebarTrigger aria-label="باز کردن منو" />
+                    <span className="text-sm font-bold">پنل مدیریت</span>
+                  </div>
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    Monshim
+                  </span>
+                </header>
+
+                <div className="min-w-0 flex-1 p-3 sm:p-4 md:p-5">
+                  {children}
                 </div>
-                <span className="text-sm font-semibold text-muted-foreground">
-                  Monshim
-                </span>
-              </header>
-
-              <div className="min-w-0 flex-1 p-3 sm:p-4 md:p-5">{children}</div>
-            </SidebarInset>
-          </SidebarProvider>
+              </SidebarInset>
+            </SidebarProvider>
+          </TooltipProvider>
         </SessionHydration>
       </AuthProvider>
     </QueryProvider>
