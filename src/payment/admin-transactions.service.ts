@@ -21,6 +21,41 @@ import {
   PaymentStatus,
 } from './entities/payment.entity';
 
+/**
+ * ============================================================================
+ * گزارش مالی ادمین (‎/admin/wallet‎)
+ * ============================================================================
+ *
+ * قاعدهٔ واحدِ این گزارش:
+ *
+ *   «فقط پولی که واقعاً از درگاه پرداخت وارد شده و نزد ما مانده است.»
+ *
+ * از این قاعده سه نتیجهٔ عملی گرفته می‌شود:
+ *
+ *  ۱) از سمت درگاه فقط پرداخت‌هایی می‌آیند که `status = PAID` هستند
+ *     (تلاش‌های ناموفق، نیمه‌کاره و لغوشدهٔ درگاه هرگز وارد گزارش نمی‌شوند).
+ *
+ *  ۲) پرداخت‌هایی که بعداً برگشت خورده‌اند (رزرو لغو/رد شده و پول به مشتری
+ *     برمی‌گردد) هم کنار گذاشته می‌شوند؛ چون نه درآمد ما هستند و نه پول
+ *     آرایشگر. تشخیص «برگشت‌خورده» با دو نشانهٔ قابل اتکا انجام می‌شود:
+ *       • یک تراکنش REFUND با `referenceId = payment.id` ثبت شده باشد
+ *         (همان رکوردی که در صف بازپرداخت مشتری قرار می‌گیرد)
+ *       • یا در `payment.metadata` پرچم `refundQueued: true` باشد
+ *
+ *  ۳) در دفتر کیف پول:
+ *       • تراکنش‌های FAILED نمایش داده نمی‌شوند.
+ *       • «کسر کیف پول آرایشگر بابت لغو رزرو» به‌طور کامل حذف می‌شود؛ چون
+ *         فقط قرینهٔ یک واریزِ باطل‌شده است و نمایش آن، هم کارت‌ها را به هم
+ *         می‌ریزد و هم باعث می‌شود ادمین فکر کند پول واقعی جابه‌جا شده است.
+ *       • واریز «درآمد رزرو نوبت» فقط وقتی می‌ماند که به یک پرداخت موفقِ
+ *         برگشت‌نخوردهٔ رزرو وصل باشد. رزرو دستی، رزرو پرداخت‌نشده و رزروی
+ *         که پرداختش برگشت خورده، هیچ درآمدی برای آرایشگر ایجاد نمی‌کند.
+ *
+ * رکورد «بازپرداخت مشتری» (REFUND در انتظار واریز دستی) عمداً حفظ می‌شود،
+ * چون یک تعهد واقعی است که ادمین باید آن را به‌صورت دستی واریز و تسویه کند؛
+ * اما در هیچ‌کدام از کارت‌های خلاصه جمع زده نمی‌شود.
+ */
+
 type TransactionSource = 'gateway' | 'wallet';
 
 type TransactionUser = {
@@ -55,26 +90,28 @@ export interface AdminTransactionRow {
 
 export interface AdminTransactionSummary {
   matchedCount: number;
+  /** مجموع پرداخت‌های موفقِ برگشت‌نخوردهٔ درگاه */
   gatewayReceivedAmount: number;
   successfulGatewayPaymentCount: number;
+  /** پرداخت رزروهای موفق و برگشت‌نخورده (شامل کمیسیون) */
   bookingPaymentsAmount: number;
+  /** کمیسیون قطعی همان رزروها */
   bookingCommissionAmount: number;
   bookingCommissionUnknownCount: number;
   subscriptionRevenueAmount: number;
   publicPageRevenueAmount: number;
   publicPageCount: number;
   walletTopUpAmount: number;
+  /** کمیسیون + اشتراک + صفحه اختصاصی */
   netRevenueAmount: number;
+  /** درآمد رزروی که واقعاً در کیف پول آرایشگر مانده است */
   barberWalletCreditsAmount: number;
   pendingWithdrawalsAmount: number;
   pendingWithdrawalCount: number;
   completedWithdrawalsAmount: number;
-  barberCancellationDebitsAmount: number;
-  barberCancellationDebitCount: number;
-  pendingAmount: number;
-  unsuccessfulAmount: number;
-  unsuccessfulCount: number;
-  pendingCount: number;
+  /** بازپرداخت‌های مشتری که هنوز دستی واریز نشده‌اند (جمع زده نمی‌شود) */
+  pendingCustomerRefundsAmount: number;
+  pendingCustomerRefundCount: number;
 }
 
 type PaymentSummaryRow = {
@@ -89,7 +126,7 @@ type WalletSummaryRow = {
   type: TransactionType;
   status: TransactionStatus;
   description: string | null;
-  bookingPaymentId: string | null;
+  referenceId: string | null;
 };
 
 type PaymentMetadata = Record<string, unknown> & {
@@ -98,8 +135,15 @@ type PaymentMetadata = Record<string, unknown> & {
   commissionAmount?: number | string | null;
   totalPrice?: number | string | null;
   price?: number | string | null;
+  refundQueued?: boolean | string | null;
   items?: Array<{ price?: number | string | null }>;
 };
+
+/** نشانهٔ متنیِ پرداختِ برگشت‌خورده در ستون JSON متادیتا */
+const REFUNDED_METADATA_PATTERN = '%"refundQueued":true%';
+
+/** شرح تراکنش واریز درآمد رزرو به کیف پول آرایشگر */
+const BOOKING_CREDIT_DESCRIPTION_PATTERN = 'درآمد رزرو نوبت%';
 
 @Injectable()
 export class AdminTransactionsService {
@@ -263,6 +307,43 @@ export class AdminTransactionsService {
     return this.walletService.rejectWithdrawal(id, reason);
   }
 
+  // ==================== ساخت کوئری‌ها ====================
+
+  /**
+   * شناسهٔ پرداخت‌هایی که برگشت خورده‌اند.
+   *
+   * هر جا برای یک پرداخت، رکورد بازپرداختِ مشتری (REFUND) ساخته می‌شود؛
+   * یعنی لغو رزرو قطعی شده و پول باید برگردد. این زیرکوئری عمداً
+   * غیرهم‌بسته (non-correlated) است تا MySQL یک‌بار آن را بسازد، نه یک‌بار
+   * برای هر ردیف پرداخت.
+   */
+  private refundedPaymentIdsSubquery() {
+    return `(
+      SELECT refund_tx.referenceId FROM transactions refund_tx
+      WHERE refund_tx.type = :refundTxType
+        AND refund_tx.referenceId IS NOT NULL
+    )`;
+  }
+
+  /**
+   * شرط «این پرداخت برگشت نخورده است».
+   *
+   * دو نشانه بررسی می‌شود تا هم داده‌های قدیمی (که فقط رکورد بازپرداخت
+   * دارند) پوشش داده شوند و هم داده‌های تازه‌ای که پرچم متادیتا می‌گیرند.
+   *
+   * @param paymentIdExpression عبارت SQL برای شناسهٔ پرداخت (payment.id یا bookingPayment.id)
+   * @param metadataExpression ستون JSON متادیتای همان پرداخت
+   */
+  private notRefundedCondition(
+    paymentIdExpression: string,
+    metadataExpression: string,
+  ) {
+    return `(
+      COALESCE(${metadataExpression}, '') NOT LIKE :refundedMetadataPattern
+      AND ${paymentIdExpression} NOT IN ${this.refundedPaymentIdsSubquery()}
+    )`;
+  }
+
   private createPaymentQuery(query: AdminTransactionQueryDto) {
     const qb = this.paymentRepo
       .createQueryBuilder('payment')
@@ -271,10 +352,16 @@ export class AdminTransactionsService {
       .orderBy('payment.createdAt', 'DESC')
       .addOrderBy('payment.id', 'DESC');
 
-    // در این گزارش مالی، فقط مبالغی که واقعاً از درگاه پرداخت وارد حساب شده‌اند (PAID) ثبت می‌شوند.
-    // تلاش‌های ناموفق، انصرافی یا ناتمام درگاه کلاً حذف می‌شوند.
+    // ۱) فقط پرداخت موفق درگاه؛ تلاش‌های ناموفق/نیمه‌کاره/لغوشده هرگز نمی‌آیند.
     qb.andWhere('payment.status = :paidStatus', {
       paidStatus: PaymentStatus.PAID,
+    });
+
+    // ۲) پرداخت‌های برگشت‌خورده (رزرو لغو/ردشده) هم نمی‌آیند؛ پولی که برگشته
+    //    نه دریافتیِ ماست و نه درآمد آرایشگر.
+    qb.andWhere(this.notRefundedCondition('payment.id', 'payment.metadata'), {
+      refundedMetadataPattern: REFUNDED_METADATA_PATTERN,
+      refundTxType: TransactionType.REFUND,
     });
 
     if (query.type) {
@@ -290,9 +377,8 @@ export class AdminTransactionsService {
     }
 
     if (query.status) {
-      if (query.status === 'PAID') {
-        // پرداخت با paidStatus فیلتر شده است
-      } else {
+      // تنها وضعیت مجاز برای منبع درگاه، پرداخت موفق است.
+      if (query.status !== 'PAID') {
         qb.andWhere('1 = 0');
       }
     }
@@ -324,8 +410,8 @@ export class AdminTransactionsService {
       .leftJoinAndSelect('transaction.wallet', 'wallet')
       .leftJoinAndSelect('wallet.user', 'user')
       .leftJoinAndSelect('user.barberProfile', 'barberProfile')
-      // اعتبارِ واریزیِ درآمد رزرو فقط وقتی معتبر است که به یک پرداخت موفق
-      // رزرو در درگاه ارجاع بدهد؛ رزرو دستی/پرداخت‌نشده نباید درآمد تلقی شود.
+      // واریز درآمد رزرو فقط وقتی معتبر است که به پرداختِ موفقِ همان رزرو
+      // وصل باشد؛ رزرو دستی یا پرداخت‌نشده هیچ پولی وارد سیستم نکرده است.
       .leftJoin(
         Payment,
         'bookingPayment',
@@ -338,17 +424,33 @@ export class AdminTransactionsService {
       .orderBy('transaction.createdAt', 'DESC')
       .addOrderBy('transaction.id', 'DESC');
 
-    // تراکنش‌های ناموفق کیف پول کلاً حذف می‌شوند
+    // ۱) تراکنش‌های ناموفق کیف پول کلاً حذف می‌شوند.
     qb.andWhere('transaction.status != :failedStatus', {
       failedStatus: TransactionStatus.FAILED,
     });
-    // واریزی درآمد رزرو باید به Payment موفق درگاه متصل باشد. وضعیت رزرو
-    // یا ثبت دستی آن به‌تنهایی به معنی دریافت وجه نیست.
+
+    // ۲) کسر کیف پول آرایشگر بابت لغو رزرو هرگز نمایش داده نمی‌شود.
+    //    این رکورد فقط قرینهٔ واریزی است که خودش هم در گزارش نمی‌آید؛
+    //    نگه‌داشتنش باعث می‌شد ادمین فکر کند پولی از آرایشگر کسر شده است.
     qb.andWhere(
-      "(transaction.type != :bookingCreditType OR COALESCE(transaction.description, '') NOT LIKE :bookingCreditDescription OR bookingPayment.id IS NOT NULL)",
+      '(transaction.description IS NULL OR transaction.description NOT LIKE :cancellationDebitPrefix)',
+      { cancellationDebitPrefix: `${BARBER_CANCELLATION_DEBIT_PREFIX}%` },
+    );
+
+    // ۳) واریز درآمد رزرو باید هم به پرداخت موفق وصل باشد و هم آن پرداخت
+    //    برگشت نخورده باشد.
+    qb.andWhere(
+      `(
+        COALESCE(transaction.description, '') NOT LIKE :bookingCreditPattern
+        OR (
+          bookingPayment.id IS NOT NULL
+          AND ${this.notRefundedCondition('bookingPayment.id', 'bookingPayment.metadata')}
+        )
+      )`,
       {
-        bookingCreditType: TransactionType.DEPOSIT,
-        bookingCreditDescription: 'درآمد رزرو نوبت%',
+        bookingCreditPattern: BOOKING_CREDIT_DESCRIPTION_PATTERN,
+        refundedMetadataPattern: REFUNDED_METADATA_PATTERN,
+        refundTxType: TransactionType.REFUND,
       },
     );
 
@@ -434,6 +536,8 @@ export class AdminTransactionsService {
     }
   }
 
+  // ==================== دادهٔ خلاصه ====================
+
   private async getPaymentSummaryRows(query: SelectQueryBuilder<Payment>) {
     return query
       .clone()
@@ -451,9 +555,11 @@ export class AdminTransactionsService {
       .addSelect('transaction.type', 'type')
       .addSelect('transaction.status', 'status')
       .addSelect('transaction.description', 'description')
-      .addSelect('bookingPayment.id', 'bookingPaymentId')
+      .addSelect('transaction.referenceId', 'referenceId')
       .getRawMany<WalletSummaryRow>();
   }
+
+  // ==================== نگاشت ردیف‌ها ====================
 
   private mapPayment(payment: Payment): AdminTransactionRow {
     const amount = this.toAmount(payment.amount);
@@ -463,7 +569,6 @@ export class AdminTransactionsService {
       amount,
       metadata,
     );
-    const isPaid = payment.status === PaymentStatus.PAID;
 
     return {
       id: payment.id,
@@ -472,11 +577,8 @@ export class AdminTransactionsService {
       type: payment.purpose,
       status: payment.status,
       amount,
-      commissionAmount: isPaid ? breakdown.commissionAmount : 0,
-      estimatedCommissionAmount:
-        payment.status === PaymentStatus.PENDING
-          ? breakdown.commissionAmount
-          : 0,
+      commissionAmount: breakdown.commissionAmount,
+      estimatedCommissionAmount: 0,
       serviceAmount: breakdown.serviceAmount,
       barberAmount: breakdown.barberAmount,
       description: payment.description,
@@ -542,6 +644,8 @@ export class AdminTransactionsService {
     };
   }
 
+  // ==================== جمع‌بندی کارت‌ها ====================
+
   private summarize(
     payments: PaymentSummaryRow[],
     walletEntries: WalletSummaryRow[],
@@ -563,76 +667,92 @@ export class AdminTransactionsService {
       pendingWithdrawalsAmount: 0,
       pendingWithdrawalCount: 0,
       completedWithdrawalsAmount: 0,
-      barberCancellationDebitsAmount: 0,
-      barberCancellationDebitCount: 0,
-      pendingAmount: 0,
-      unsuccessfulAmount: 0,
-      unsuccessfulCount: 0,
-      pendingCount: 0,
+      pendingCustomerRefundsAmount: 0,
+      pendingCustomerRefundCount: 0,
     };
 
     for (const payment of payments) {
       const amount = this.toAmount(payment.amount);
-      if (payment.status === PaymentStatus.PAID) {
-        summary.gatewayReceivedAmount += amount;
-        summary.successfulGatewayPaymentCount += 1;
+      const metadata = this.parseMetadata(payment.metadata);
 
-        if (payment.purpose === PaymentPurpose.BOOKING) {
-          const metadata = this.parseMetadata(payment.metadata);
-          if (metadata?.refundQueued === true) {
-            continue;
-          }
+      // ردیف‌های این آرایه از قبل «PAID و برگشت‌نخورده» فیلتر شده‌اند؛ این
+      // دو بررسی برای اطمینان در برابر دادهٔ ناسازگار یا کهنه است.
+      if (payment.status !== PaymentStatus.PAID) continue;
+      if (metadata?.refundQueued === true) continue;
 
-          summary.bookingPaymentsAmount += amount;
-          const commissionAmount = this.getBookingBreakdown(
-            payment.purpose,
-            amount,
-            metadata,
-          ).commissionAmount;
-          if (commissionAmount === null) {
-            summary.bookingCommissionUnknownCount += 1;
-          } else {
-            summary.bookingCommissionAmount += commissionAmount;
-          }
-        } else if (payment.purpose === PaymentPurpose.SUBSCRIPTION) {
-          summary.subscriptionRevenueAmount += amount;
-        } else if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
-          summary.publicPageRevenueAmount += amount;
-          summary.publicPageCount += 1;
-        } else if (payment.purpose === PaymentPurpose.WALLET) {
-          summary.walletTopUpAmount += amount;
+      summary.gatewayReceivedAmount += amount;
+      summary.successfulGatewayPaymentCount += 1;
+
+      if (payment.purpose === PaymentPurpose.BOOKING) {
+        summary.bookingPaymentsAmount += amount;
+
+        const commissionAmount = this.getBookingBreakdown(
+          payment.purpose,
+          amount,
+          metadata,
+        ).commissionAmount;
+        if (commissionAmount === null) {
+          summary.bookingCommissionUnknownCount += 1;
+        } else {
+          summary.bookingCommissionAmount += commissionAmount;
         }
+      } else if (payment.purpose === PaymentPurpose.SUBSCRIPTION) {
+        summary.subscriptionRevenueAmount += amount;
+      } else if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
+        summary.publicPageRevenueAmount += amount;
+        summary.publicPageCount += 1;
+      } else if (payment.purpose === PaymentPurpose.WALLET) {
+        summary.walletTopUpAmount += amount;
       }
     }
 
     for (const transaction of walletEntries) {
       const amount = this.toAmount(transaction.amount);
+      const description = transaction.description ?? '';
+
+      // کسر بابت لغو رزرو: قرینهٔ واریزی باطل‌شده؛ نه در کارت‌ها و نه در
+      // دفتر تراکنش‌ها معنا ندارد و هرگز جمع زده نمی‌شود.
+      if (
+        transaction.type === TransactionType.WITHDRAWAL &&
+        description.startsWith(BARBER_CANCELLATION_DEBIT_PREFIX)
+      ) {
+        continue;
+      }
+
+      if (transaction.type === TransactionType.REFUND) {
+        // تعهد بازپرداخت به مشتری؛ فقط برای نمایش بار معلق شمرده می‌شود.
+        if (transaction.status === TransactionStatus.PENDING) {
+          summary.pendingCustomerRefundsAmount += amount;
+          summary.pendingCustomerRefundCount += 1;
+        }
+
+        continue;
+      }
+
       if (transaction.status === TransactionStatus.PENDING) {
-        summary.pendingCount += 1;
-        summary.pendingAmount += amount;
         if (transaction.type === TransactionType.WITHDRAWAL) {
           summary.pendingWithdrawalsAmount += amount;
           summary.pendingWithdrawalCount += 1;
         }
-      } else if (
-        transaction.status === TransactionStatus.COMPLETED &&
-        transaction.type === TransactionType.WITHDRAWAL
-      ) {
-        if (
-          transaction.description?.startsWith(BARBER_CANCELLATION_DEBIT_PREFIX)
-        ) {
-          summary.barberCancellationDebitsAmount += amount;
-          summary.barberCancellationDebitCount += 1;
-        } else {
-          summary.completedWithdrawalsAmount += amount;
-        }
+
+        continue;
       }
 
       if (
         transaction.status === TransactionStatus.COMPLETED &&
+        transaction.type === TransactionType.WITHDRAWAL
+      ) {
+        summary.completedWithdrawalsAmount += amount;
+        continue;
+      }
+
+      // درآمد رزرو فقط وقتی درآمد آرایشگر است که به پرداختِ موفق و
+      // برگشت‌نخورده وصل باشد (کوئری از قبل همین را تضمین کرده است).
+      if (
+        transaction.status === TransactionStatus.COMPLETED &&
         transaction.type === TransactionType.DEPOSIT &&
-        transaction.description?.startsWith('درآمد رزرو نوبت') &&
-        transaction.bookingPaymentId
+        description.startsWith('درآمد رزرو نوبت') &&
+        transaction.referenceId
       ) {
         summary.barberWalletCreditsAmount += amount;
       }
@@ -655,15 +775,15 @@ export class AdminTransactionsService {
       'barberWalletCreditsAmount',
       'pendingWithdrawalsAmount',
       'completedWithdrawalsAmount',
-      'barberCancellationDebitsAmount',
-      'pendingAmount',
-      'unsuccessfulAmount',
+      'pendingCustomerRefundsAmount',
     ] as const) {
       summary[key] = this.roundAmount(summary[key]);
     }
 
     return summary;
   }
+
+  // ==================== تفکیک سهم رزرو ====================
 
   private getBookingBreakdown(
     purpose: PaymentPurpose,
