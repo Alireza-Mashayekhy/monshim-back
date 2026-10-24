@@ -11,6 +11,10 @@ import {
   PaymentPurpose,
   PaymentStatus,
 } from 'src/payment/entities/payment.entity';
+import {
+  NOT_REFUNDED_PARAMS,
+  notRefundedCondition,
+} from 'src/payment/payment-ledger';
 import { User } from 'src/users/entities/user.entity';
 import { BankCard } from 'src/wallet/entities/bank-card.entity';
 import {
@@ -296,6 +300,16 @@ export class BaleReportService {
     return lines.join('\n');
   }
 
+  /**
+   * پرداخت‌های موفقِ درگاه در بازهٔ گزارش.
+   *
+   * دقیقاً همان قاعدهٔ «خلاصه مالی» پنل ادمین اعمال می‌شود تا اعداد ربات با
+   * پنل یکی باشد:
+   *   • فقط `status = PAID`
+   *   • پرداخت‌های برگشت‌خورده (لغو/رد رزرو) کنار گذاشته می‌شوند؛ چه با
+   *     رکورد REFUND با `referenceId = payment.id` شناسایی شوند، چه با پرچم
+   *     `refundQueued` در متادیتا.
+   */
   private async fetchPaidPaymentsInRange(
     startUtc: Date,
     endExclusiveUtc: Date,
@@ -309,6 +323,10 @@ export class BaleReportService {
       .andWhere(
         'COALESCE(payment.paidAt, payment.createdAt) >= :startUtc AND COALESCE(payment.paidAt, payment.createdAt) < :endExclusiveUtc',
         { startUtc, endExclusiveUtc },
+      )
+      .andWhere(
+        notRefundedCondition('payment.id', 'payment.metadata'),
+        NOT_REFUNDED_PARAMS,
       )
       .getRawMany<RawPaymentRow>();
   }
@@ -510,11 +528,9 @@ export class BaleReportService {
       const amount = this.toAmount(row.amount);
       const meta = this.parseMetadata(row.metadata);
 
-      // پرداختی که به دلیل تداخل هم‌زمان ساعت، بلافاصله در صف بازپرداخت رفته درآمد قطعی نیست
-      if (
-        row.purpose === PaymentPurpose.BOOKING &&
-        meta?.refundQueued === true
-      ) {
+      // پرداختی که برگشت خورده (لغو/رد رزرو) درآمد قطعی نیست. کوئری این
+      // موارد را از قبل حذف می‌کند؛ این بررسی برای دادهٔ ناسازگار یا کهنه است.
+      if (meta?.refundQueued === true) {
         continue;
       }
 

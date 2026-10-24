@@ -1,5 +1,6 @@
 import { BookingStatus } from 'src/booking/entities/booking.entity';
 import { PaymentPurpose } from 'src/payment/entities/payment.entity';
+import { TransactionType } from 'src/wallet/entities/transaction.entity';
 
 import { BaleReportService } from './bale-report.service';
 
@@ -190,5 +191,38 @@ describe('BaleReportService', () => {
     expect(text).toContain('گزارش ماهانه');
     expect(text).toContain('۷۵۵,۰۰۰ تومان');
     expect(text).toContain('۷۵۰,۰۰۰ تومان');
+  });
+
+  it('پرداخت‌های برگشت‌خورده (دارای رکورد REFUND) را از اعداد گزارش حذف می‌کند', async () => {
+    const paymentQb = createMockQueryBuilder({ rawMany: [] });
+    const genericQb = createMockQueryBuilder({ rawOne: {}, count: 0 });
+
+    const service = new BaleReportService(
+      { createQueryBuilder: jest.fn(() => paymentQb) } as any,
+      { createQueryBuilder: jest.fn(() => genericQb) } as any,
+      { createQueryBuilder: jest.fn(() => genericQb) } as any,
+      {} as any,
+      { createQueryBuilder: jest.fn(() => genericQb) } as any,
+      { createQueryBuilder: jest.fn(() => genericQb) } as any,
+    );
+
+    await service.collectReportData(
+      'daily',
+      new Date('2026-10-23T12:00:00.000Z'),
+    );
+
+    // همان قاعدهٔ «خلاصه مالی» پنل ادمین: هم پرچم متادیتا و هم رکورد REFUND
+    const refundFilterCall = paymentQb.andWhere.mock.calls.find(
+      ([sql]: [string]) => typeof sql === 'string' && sql.includes('refund_tx'),
+    );
+    expect(refundFilterCall).toBeTruthy();
+    expect(refundFilterCall[0]).toContain('payment.id NOT IN (');
+    expect(refundFilterCall[0]).toContain('SELECT refund_tx.referenceId');
+    expect(refundFilterCall[1]).toEqual(
+      expect.objectContaining({
+        refundTxType: TransactionType.REFUND,
+        refundedMetadataPattern: '%"refundQueued":true%',
+      }),
+    );
   });
 });

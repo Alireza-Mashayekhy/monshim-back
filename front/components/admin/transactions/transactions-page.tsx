@@ -66,7 +66,6 @@ import {
 import type {
   AdminTransaction,
   AdminTransactionFilters,
-  AdminTransactionSource,
   AdminTransactionStatus,
   AdminTransactionType,
 } from '@/services/features/admin-transactions/types';
@@ -221,9 +220,6 @@ function SummaryCard({
 export default function AdminTransactionsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [source, setSource] = useState<
-    AdminTransactionSource | typeof ALL_FILTERS
-  >(ALL_FILTERS);
   const [type, setType] = useState<AdminTransactionType | typeof ALL_FILTERS>(
     ALL_FILTERS,
   );
@@ -246,14 +242,13 @@ export default function AdminTransactionsPage() {
     Omit<AdminTransactionFilters, 'page' | 'limit'>
   >(
     () => ({
-      ...(source !== ALL_FILTERS ? { source } : {}),
       ...(type !== ALL_FILTERS ? { type } : {}),
       ...(status !== ALL_FILTERS ? { status } : {}),
       ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
       ...(from ? { from } : {}),
       ...(to ? { to } : {}),
     }),
-    [source, type, status, debouncedSearch, from, to],
+    [type, status, debouncedSearch, from, to],
   );
   const filters = useMemo<AdminTransactionFilters>(
     () => ({ ...activeFilters, page, limit: PAGE_SIZE }),
@@ -265,14 +260,13 @@ export default function AdminTransactionsPage() {
     Omit<AdminTransactionFilters, 'page' | 'limit'>
   >(
     () => ({
-      ...(source !== ALL_FILTERS ? { source } : {}),
       ...(type !== ALL_FILTERS ? { type } : {}),
       ...(status !== ALL_FILTERS ? { status } : {}),
       ...(search.trim() ? { search: search.trim() } : {}),
       ...(from ? { from } : {}),
       ...(to ? { to } : {}),
     }),
-    [source, type, status, search, from, to],
+    [type, status, search, from, to],
   );
 
   const { data, isLoading, isFetching, isError, error, refetch } =
@@ -289,7 +283,6 @@ export default function AdminTransactionsPage() {
 
   const resetFilters = () => {
     setSearch('');
-    setSource(ALL_FILTERS);
     setType(ALL_FILTERS);
     setStatus(ALL_FILTERS);
     setFrom('');
@@ -297,12 +290,6 @@ export default function AdminTransactionsPage() {
     setPage(1);
   };
 
-  const updateSource = (value: string) => {
-    setSource(
-      value === ALL_FILTERS ? ALL_FILTERS : (value as AdminTransactionSource),
-    );
-    setPage(1);
-  };
   const updateType = (value: string) => {
     setType(
       value === ALL_FILTERS ? ALL_FILTERS : (value as AdminTransactionType),
@@ -524,7 +511,7 @@ export default function AdminTransactionsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
           <div className="relative md:col-span-2 xl:col-span-2">
             <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
@@ -538,17 +525,6 @@ export default function AdminTransactionsPage() {
             />
           </div>
 
-          <Select value={source} onValueChange={updateSource}>
-            <SelectTrigger className="w-full bg-white">
-              <SelectValue placeholder="همه منابع" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_FILTERS}>همه منابع</SelectItem>
-              <SelectItem value="gateway">درگاه پرداخت</SelectItem>
-              <SelectItem value="wallet">کیف پول</SelectItem>
-            </SelectContent>
-          </Select>
-
           <Select value={type} onValueChange={updateType}>
             <SelectTrigger className="w-full bg-white">
               <SelectValue placeholder="همه انواع" />
@@ -559,10 +535,6 @@ export default function AdminTransactionsPage() {
               <SelectItem value="SUBSCRIPTION">خرید اشتراک</SelectItem>
               <SelectItem value="PUBLIC_PAGE">خرید صفحه اختصاصی</SelectItem>
               <SelectItem value="WALLET">شارژ کیف پول</SelectItem>
-              <SelectItem value="DEPOSIT">واریز کیف پول</SelectItem>
-              <SelectItem value="WITHDRAWAL">برداشت کیف پول</SelectItem>
-              <SelectItem value="INCOME">درآمد کیف پول</SelectItem>
-              <SelectItem value="REFUND">بازگشت وجه</SelectItem>
             </SelectContent>
           </Select>
 
@@ -573,8 +545,6 @@ export default function AdminTransactionsPage() {
             <SelectContent>
               <SelectItem value={ALL_FILTERS}>همه وضعیت‌ها</SelectItem>
               <SelectItem value="PAID">موفق (درگاه)</SelectItem>
-              <SelectItem value="COMPLETED">انجام‌شده (کیف پول)</SelectItem>
-              <SelectItem value="PENDING">در انتظار (برداشت)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -600,7 +570,10 @@ export default function AdminTransactionsPage() {
           />
         </div>
         <div className="mt-3 flex flex-col gap-1 text-[11px] leading-5 text-gray-400 sm:flex-row sm:items-center sm:justify-between">
-          <span>خروجی Excel شامل همهٔ ردیف‌های مطابق فیلترهاست.</span>
+          <span>
+            خروجی Excel هم مثل جدول جزئیات، فقط پرداخت‌های موفق درگاه را شامل
+            می‌شود.
+          </span>
           {hasInvalidDateRange && (
             <span className="font-medium text-rose-600">
               تاریخ شروع نباید بعد از تاریخ پایان باشد.
@@ -634,8 +607,8 @@ export default function AdminTransactionsPage() {
               جزئیات تراکنش‌ها و گزارش مالی
             </DialogTitle>
             <DialogDescription>
-              همهٔ شاخص‌ها و تراکنش‌های مطابق فیلترهای انتخابی در این بخش نمایش
-              داده می‌شوند.
+              شاخص‌های مالی و پرداخت‌های موفق درگاه، مطابق فیلترهای انتخابی، در
+              این بخش نمایش داده می‌شوند.
             </DialogDescription>
           </DialogHeader>
 
@@ -656,12 +629,14 @@ export default function AdminTransactionsPage() {
               <div className="space-y-2">
                 <p className="rounded-xl bg-gray-50 p-3 text-[11px] leading-5 text-gray-500">
                   در این گزارش فقط پرداخت‌هایی می‌آید که با موفقیت از درگاه
-                  انجام شده و بعداً برگشت نخورده‌اند. رزروهای لغو‌شده یا
-                  پرداخت‌نشده، کسر بابت لغو رزرو و واریز درآمدِ بی‌پشتوانه در
-                  هیچ‌کدام از کارت‌ها و ردیف‌ها نمایش داده نمی‌شوند. شاخص‌های
-                  خلاصه هم ممکن است هم‌پوشانی داشته باشند و نباید با هم جمع
-                  شوند؛ مثلاً شارژ درگاه و ثبت کیف پول دو مرحله از یک جریان
-                  هستند.
+                  انجام شده و بعداً برگشت نخورده‌اند؛ دقیقاً همان قاعده‌ای که
+                  کارت‌های «خلاصه مالی» با آن جمع زده می‌شوند. رزروهای لغو‌شده
+                  یا پرداخت‌نشده، کسر بابت لغو رزرو و واریز درآمدِ بی‌پشتوانه در
+                  هیچ‌کدام از کارت‌ها و ردیف‌ها نمایش داده نمی‌شوند. درخواست‌های
+                  برداشت آرایشگران و بازپرداخت‌های مشتری در این جدول نمی‌آیند و
+                  در صفحهٔ «درخواست برداشت» بررسی می‌شوند. شاخص‌های خلاصه هم
+                  ممکن است هم‌پوشانی داشته باشند و نباید با هم جمع شوند؛ مثلاً
+                  شارژ درگاه و ثبت کیف پول دو مرحله از یک جریان هستند.
                 </p>
                 {!!summary?.pendingCustomerRefundCount && (
                   <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-5 text-amber-800">
@@ -695,7 +670,7 @@ export default function AdminTransactionsPage() {
                 <div className="flex flex-col gap-1 border-b border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                   <div>
                     <h2 className="font-bold text-gray-900">
-                      دفتر کامل تراکنش‌ها
+                      تراکنش‌های موفق درگاه
                     </h2>
                     <p className="mt-1 text-xs text-gray-500">
                       {amountFormatter.format(pagination?.total ?? 0)} تراکنش
