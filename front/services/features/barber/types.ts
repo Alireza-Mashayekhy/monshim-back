@@ -11,6 +11,7 @@ export interface BarberResponse {
   salonName: string;
   activityType?: string | null;
   minPrice?: number | null;
+  servicesCount?: number | null;
   rating?: number | null;
   reviewCount?: number | null;
 }

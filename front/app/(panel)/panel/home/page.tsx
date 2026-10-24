@@ -238,11 +238,11 @@ export default function Home() {
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {barbersLoading
               ? // بارگذاری اسکلتون
                 Array.from({ length: 2 }).map((_, i) => (
-                  <BarberCardSkeleton key={i} variant="vertical" />
+                  <BarberCardSkeleton key={i} variant="square" />
                 ))
               : barbersData?.data &&
                 barbersData.data.length > 0 &&
@@ -250,8 +250,8 @@ export default function Home() {
                 barbersData.data.slice(0, 4).map(barber => {
                   return (
                     <BarberCard
-                      variant="vertical"
-                      key={barber?.salonName}
+                      variant="square"
+                      key={barber.id ?? barber.salonName}
                       barber={barber}
                     />
                   );

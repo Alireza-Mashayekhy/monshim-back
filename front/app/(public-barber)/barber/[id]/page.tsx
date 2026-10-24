@@ -10,6 +10,7 @@ import PortfolioGallery from '@/components/public-barber/portfolio-gallery';
 import PublicReviews from '@/components/public-barber/public-reviews';
 import ShareButton from '@/components/public-barber/share-button';
 import { Button } from '@/components/ui/button';
+import { getActivityTypeLabel } from '@/constants/activity-types';
 import { publicImageUrl } from '@/lib/images';
 import { absolutePublicImageUrl, fetchPublicApi } from '@/lib/public-api';
 import {
@@ -238,26 +239,27 @@ export default async function PublicBarberPage({ params }: BarberPageProps) {
 
         <article className="overflow-hidden rounded-3xl border border-primary/15 bg-white shadow-sm">
           <header className="p-5 sm:p-7">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4 sm:gap-5">
-                <div className="relative size-24 shrink-0 aspect-square overflow-hidden rounded-2xl border border-primary/15 bg-primary-2 sm:size-32">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+                <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-[24px] border border-primary/15 bg-primary-2 shadow-xs sm:size-44 md:size-52">
                   <Image
                     src={heroImage ?? '/placeholder.webp'}
                     alt={`لوگوی سالن ${barber.salonName}`}
                     fill
                     priority
-                    sizes="(max-width: 640px) 96px, 128px"
+                    sizes="(max-width: 640px) 100vw, 208px"
                     className="object-cover"
                   />
                 </div>
 
-                <div className="min-w-0 space-y-2">
+                <div className="min-w-0 space-y-2.5">
                   <h1 className="text-2xl font-black text-gray-900 sm:text-3xl">
                     {barber.salonName}
                   </h1>
                   {barber.activityType && (
-                    <p className="text-xs text-muted-foreground">
-                      {barber.activityType}
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {getActivityTypeLabel(barber.activityType) ||
+                        barber.activityType}
                     </p>
                   )}
                   {barber.address && (

@@ -66,68 +66,66 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
 
   return (
     <div className="min-h-screen pb-36">
-      <div className="mx-auto max-w-3xl px-4 pt-3 sm:px-6">
-        {/* Top action buttons */}
-        <div className="mb-4 flex items-center justify-between">
-          <BackButton />
-          <Button
-            onClick={() => setFavorited(v => !v)}
-            aria-label="علاقه‌مندی"
-            size="icon"
-            variant="outline"
-            className="bg-white"
-          >
-            <Heart
-              size={20}
-              className={
-                favorited ? 'fill-red-500 text-red-500' : 'text-gray-700'
-              }
-            />
-          </Button>
+      <div className="mx-auto max-w-xl px-4 pt-3 sm:px-6 space-y-4">
+        {/* قاب مربعی ۱:۱ لوگوی سالن همراه با دکمه‌های شناور بالا */}
+        <div className="relative aspect-square w-full overflow-hidden rounded-[28px] border border-primary/15 bg-[#E6F9F6] shadow-md">
+          <Image
+            src={getImageUrl(barber.profileImage)}
+            fill
+            sizes="(max-width: 640px) 100vw, 520px"
+            className="object-cover"
+            alt={`لوگوی برند سالن ${barber.salonName}`}
+            priority
+          />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/25 to-transparent" />
+          <div className="absolute inset-x-4 top-4 z-20 flex items-center justify-between">
+            <BackButton />
+            <Button
+              onClick={() => setFavorited(v => !v)}
+              aria-label="علاقه‌مندی"
+              size="icon"
+              variant="outline"
+              className="rounded-full border-white/65 bg-white/88 backdrop-blur-md shadow-sm"
+            >
+              <Heart
+                size={20}
+                className={
+                  favorited ? 'fill-red-500 text-red-500' : 'text-gray-800'
+                }
+              />
+            </Button>
+          </div>
         </div>
 
-        <div className="rounded-3xl border border-primary/15 bg-primary-3 px-5 py-6 shadow-sm sm:p-7">
-          {/* Salon Header with Square Logo */}
-          <div className="flex items-center gap-4 sm:gap-5">
-            <div className="relative size-24 shrink-0 aspect-square overflow-hidden rounded-2xl border border-primary/15 bg-[#E6F9F6] shadow-xs sm:size-32">
-              <Image
-                src={getImageUrl(barber.profileImage)}
-                fill
-                sizes="(max-width: 640px) 96px, 128px"
-                className="object-cover"
-                alt={`لوگوی برند سالن ${barber.salonName}`}
-                priority
-              />
-            </div>
-
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <h1 className="text-xl font-black leading-tight text-gray-900 sm:text-3xl">
-                  {barber.salonName}
-                </h1>
-                <div className="flex items-center gap-1.5 rounded-xl border border-primary/20 bg-white px-2.5 py-1.5 text-xs sm:text-sm">
-                  <Star
-                    size={16}
-                    className="fill-yellow-400 text-yellow-400"
-                  />
-                  <span className="font-bold text-gray-800">
-                    {reviewCount > 0
-                      ? toFa(ratingValue.toFixed(1))
-                      : 'بدون امتیاز'}
-                  </span>
-                </div>
+        {/* مشخصات سالن و تب‌ها */}
+        <div className="rounded-[28px] border border-primary/15 bg-primary-3 px-5 py-6 shadow-sm sm:p-7">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <h1 className="text-2xl font-black leading-tight text-gray-900 sm:text-3xl">
+                {barber.salonName}
+              </h1>
+              <div className="flex items-center gap-1.5 rounded-xl border border-primary/20 bg-white px-3 py-1.5 text-xs sm:text-sm">
+                <Star
+                  size={16}
+                  className="fill-yellow-400 text-yellow-400"
+                />
+                <span className="font-bold text-gray-800">
+                  {reviewCount > 0
+                    ? toFa(ratingValue.toFixed(1))
+                    : 'بدون امتیاز'}
+                </span>
               </div>
-
-              {(barber.address || barber.city?.name) && (
-                <div className="flex items-start gap-1.5 text-xs leading-6 text-gray-500 sm:text-sm">
-                  <MapPin size={16} className="mt-1 shrink-0 text-primary" />
-                  <span>
-                    {barber.address}
-                    {barber.city?.name ? ` • ${barber.city?.name}` : ''}
-                  </span>
-                </div>
-              )}
             </div>
+
+            {(barber.address || barber.city?.name) && (
+              <div className="flex items-start gap-1.5 text-xs leading-6 text-gray-500 sm:text-sm">
+                <MapPin size={16} className="mt-1 shrink-0 text-primary" />
+                <span>
+                  {barber.address}
+                  {barber.city?.name ? ` • ${barber.city?.name}` : ''}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Tabs */}
