@@ -41,7 +41,8 @@ const schema = z.object({
   birthDate: z.string().optional().nullable(),
 });
 
-type FormData = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormOutput = z.output<typeof schema>;
 
 interface BasicInfoDrawerProps {
   open: boolean;
@@ -53,7 +54,7 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
   const { data: profile } = useMyBarberProfile();
   const updateMutation = useUpdateBarberProfile();
 
-  const methods = useForm<FormData>({
+  const methods = useForm<FormInput, any, FormOutput>({
     resolver: zodResolver(schema),
     defaultValues: {
       fullName: '',
@@ -74,7 +75,7 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
     }
   }, [profile?.data, reset, open]);
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = (data: FormOutput) => {
     const payload = {
       fullName: data.fullName,
       nationalCode: data.nationalCode
@@ -134,4 +135,3 @@ export function BasicInfoDrawer({ open, onOpenChange }: BasicInfoDrawerProps) {
     </Drawer>
   );
 }
-
