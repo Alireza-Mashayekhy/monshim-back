@@ -211,7 +211,10 @@ export async function exportAdminTransactions(
   const summaryRows: (string | number)[][] = [
     ['شاخص مالی', 'مقدار'],
     ['تعداد کل تراکنش‌های مطابق فیلتر', summary.matchedCount],
-    ['دریافتی موفق از درگاه (تومان)', summary.gatewayReceivedAmount],
+    [
+      'دریافتی موفق و برگشت‌نخوردهٔ درگاه (تومان)',
+      summary.gatewayReceivedAmount,
+    ],
     ['تعداد پرداخت موفق درگاه', summary.successfulGatewayPaymentCount],
     [
       'درآمد خالص سامانه (کمیسیون + اشتراک + صفحه اختصاصی) (تومان)',
@@ -228,23 +231,23 @@ export async function exportAdminTransactions(
     ['پرداخت رزرو از درگاه (تومان)', summary.bookingPaymentsAmount],
     ['شارژ کیف پول از درگاه (تومان)', summary.walletTopUpAmount],
     [
-      'واریزی درآمد رزرو به آرایشگران (تومان)',
+      'واریزی درآمد رزرو به آرایشگران (فقط رزروهای پرداخت‌شده و برگشت‌نخورده) (تومان)',
       summary.barberWalletCreditsAmount,
     ],
     ['برداشت‌های در انتظار (تومان)', summary.pendingWithdrawalsAmount],
     ['تعداد برداشت‌های در انتظار', summary.pendingWithdrawalCount],
     ['برداشت‌های انجام‌شده (تومان)', summary.completedWithdrawalsAmount],
     [
-      'کسر از کیف پول آرایشگر بابت لغو رزرو (تومان)',
-      summary.barberCancellationDebitsAmount,
+      'بازپرداخت‌های مشتری در انتظار واریز دستی (تومان)',
+      summary.pendingCustomerRefundsAmount,
     ],
     [
-      'تعداد لغوهای دارای کسر از کیف پول آرایشگر',
-      summary.barberCancellationDebitCount,
+      'تعداد بازپرداخت‌های مشتری در انتظار واریز',
+      summary.pendingCustomerRefundCount,
     ],
     [
       'یادداشت',
-      'در این گزارش فقط تراکنش‌های موفق و واقعی ثبت و محاسبه شده‌اند. درآمد خالص سامانه حاصل‌جمع کمیسیون رزروهای موفق، فروش اشتراک و فروش صفحه اختصاصی است.',
+      'در این گزارش فقط پرداخت‌های موفق درگاه که برگشت نخورده‌اند ثبت و محاسبه می‌شوند. رزروهای لغوشده/بازپرداخت‌شده، رزروهای پرداخت‌نشده، کسر بابت لغو رزرو و واریز درآمد رزروهای بی‌پشتوانه در محاسبات نمی‌آیند. درآمد خالص سامانه حاصل‌جمع کمیسیون رزروهای موفق، فروش اشتراک و فروش صفحه اختصاصی است.',
     ],
   ];
   const summarySheet = xlsx.utils.aoa_to_sheet(summaryRows);

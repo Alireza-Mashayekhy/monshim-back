@@ -52,8 +52,10 @@ export interface AdminTransactionExportData {
 
 export interface AdminTransactionSummary {
   matchedCount: number;
+  /** مجموع پرداخت‌های موفقِ برگشت‌نخوردهٔ درگاه */
   gatewayReceivedAmount: number;
   successfulGatewayPaymentCount: number;
+  /** پرداخت رزروهای موفق و برگشت‌نخورده (شامل کمیسیون) */
   bookingPaymentsAmount: number;
   bookingCommissionAmount: number;
   bookingCommissionUnknownCount: number;
@@ -62,16 +64,14 @@ export interface AdminTransactionSummary {
   publicPageCount: number;
   walletTopUpAmount: number;
   netRevenueAmount: number;
+  /** درآمد رزروی که واقعاً در کیف پول آرایشگر مانده است */
   barberWalletCreditsAmount: number;
   pendingWithdrawalsAmount: number;
   pendingWithdrawalCount: number;
   completedWithdrawalsAmount: number;
-  barberCancellationDebitsAmount: number;
-  barberCancellationDebitCount: number;
-  pendingAmount: number;
-  unsuccessfulAmount: number;
-  unsuccessfulCount: number;
-  pendingCount: number;
+  /** بازپرداخت‌های مشتری که هنوز دستی واریز نشده‌اند (در کارت‌ها جمع زده نمی‌شود) */
+  pendingCustomerRefundsAmount: number;
+  pendingCustomerRefundCount: number;
 }
 
 export interface AdminTransactionFilters {
