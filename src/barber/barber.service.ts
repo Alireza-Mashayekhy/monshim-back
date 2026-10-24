@@ -5,6 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import {
+  isAllowedSlotIntervalMinutes,
+  normalizeSlotIntervalMinutes,
+} from 'src/booking/slot-intervals';
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
 import {
@@ -327,6 +331,9 @@ export class BarberService {
       bio: profile.bio,
       rating: Number(profile.rating || 0),
       reviewCount: Number(profile.reviewCount || 0),
+      slotIntervalMinutes: normalizeSlotIntervalMinutes(
+        profile.slotIntervalMinutes,
+      ),
       portfolio: profile.portfolioImages ?? [],
       services: (user.services ?? []).map(service => ({
         id: service.id,
@@ -624,6 +631,9 @@ export class BarberService {
       portfolioImages: profile.portfolioImages ?? [],
       workStartTime: profile.workStartTime ?? null,
       workEndTime: profile.workEndTime ?? null,
+      slotIntervalMinutes: normalizeSlotIntervalMinutes(
+        profile.slotIntervalMinutes,
+      ),
       isApproved: profile.isApproved,
       rejectionReason: profile.rejectionReason ?? null,
       rating: Number(profile.rating || 0),
@@ -695,6 +705,14 @@ export class BarberService {
     if (dto.workStartTime !== undefined)
       updateData.workStartTime = dto.workStartTime;
     if (dto.workEndTime !== undefined) updateData.workEndTime = dto.workEndTime;
+    if (dto.slotIntervalMinutes !== undefined) {
+      if (!isAllowedSlotIntervalMinutes(dto.slotIntervalMinutes)) {
+        throw new BadRequestException(
+          'بازه زمانی رزرو باید یکی از مقادیر ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد',
+        );
+      }
+      updateData.slotIntervalMinutes = dto.slotIntervalMinutes;
+    }
     if (dto.profileImage !== undefined)
       updateData.profileImage = dto.profileImage;
     // وضعیت تایید فقط از مسیر ادمین (reviewBarber) تغییر می‌کند.

@@ -1,5 +1,6 @@
 // src/barber/dto/update-barber.dto.ts
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
+import { ALLOWED_SLOT_INTERVAL_MINUTES } from 'src/booking/slot-intervals';
 
 export class UpdateBarberDto {
   @IsOptional()
@@ -41,6 +42,13 @@ export class UpdateBarberDto {
   @IsOptional()
   @IsString()
   workEndTime?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @IsIn([...ALLOWED_SLOT_INTERVAL_MINUTES], {
+    message: 'بازه زمانی رزرو باید یکی از مقادیر ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد',
+  })
+  slotIntervalMinutes?: number;
 
   @IsOptional()
   @IsString()
