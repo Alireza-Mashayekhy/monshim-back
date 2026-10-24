@@ -9,6 +9,7 @@ import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
 import RHFInput from '@/components/form/rhf-input';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Drawer,
@@ -90,6 +91,7 @@ function OwnerMismatchNotice() {
 
 export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
   const [view, setView] = useState<'list' | 'add'>('list');
+  const [cardToDelete, setCardToDelete] = useState<BankCard | null>(null);
 
   const { data: cards, isLoading: cardsLoading } = useBankCards();
   const { data: profile } = useMyBarberProfile();
@@ -150,12 +152,13 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
   const handleClose = () => {
     reset();
     setView('list');
+    setCardToDelete(null);
     onOpenChange(false);
   };
 
-  const handleDelete = (card: BankCard) => {
-    if (!window.confirm(`کارت ${card.bankName} حذف شود؟`)) return;
-    deleteCard.mutate(card.id);
+  const handleDelete = async () => {
+    if (!cardToDelete) return;
+    await deleteCard.mutateAsync(cardToDelete.id);
   };
 
   const cardList = cards?.data ?? [];
@@ -226,7 +229,7 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
 
                   <button
                     type="button"
-                    onClick={() => handleDelete(card)}
+                    onClick={() => setCardToDelete(card)}
                     disabled={deleteCard.isPending}
                     className="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50"
                     aria-label="حذف کارت"
@@ -303,6 +306,19 @@ export function CardDrawer({ open, onOpenChange }: CardDrawerProps) {
           </FormProvider>
         )}
       </DrawerContent>
+
+      <ConfirmDialog
+        open={!!cardToDelete}
+        onOpenChange={open => {
+          if (!open) setCardToDelete(null);
+        }}
+        title="حذف کارت بانکی"
+        description={`کارت ${cardToDelete?.bankName ?? ''} حذف شود؟ این عمل قابل بازگشت نیست.`}
+        confirmLabel="حذف کارت"
+        pendingLabel="در حال حذف..."
+        onConfirm={handleDelete}
+        isPending={deleteCard.isPending}
+      />
     </Drawer>
   );
 }
