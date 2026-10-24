@@ -3,6 +3,7 @@
 import { Store } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -79,7 +80,7 @@ export default function MobileNavigation() {
 
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent>
-          <div className="grid grid-cols-4 gap-5 px-5 py-10">
+          <div className="grid grid-cols-5 gap-2 px-2 py-10">
             {otherRoutes.map(route => {
               return (
                 <MobileMenuItem
@@ -111,17 +112,40 @@ function MobileMenuItem({
   icon: Icon,
   onClick,
 }: MobileMenuItemProps) {
+  const pathname = usePathname();
+
+  const active =
+    href === '/dashboard'
+      ? pathname === href
+      : pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <Link
       href={href}
       onClick={onClick}
-      className={cn('flex flex-col justify-center items-center gap-2')}
+      className="flex flex-col items-center justify-center gap-1"
     >
-      <div className="w-[70%] aspect-square rounded-lg flex items-center justify-center bg-primary text-white">
-        <Icon size={24} />
+      <div
+        className={cn(
+          'rounded-xl flex items-center justify-center transition-all',
+          active ? 'bg-primary/10' : 'bg-transparent',
+        )}
+      >
+        <Icon
+          size={20}
+          strokeWidth={active ? 2.4 : 2}
+          className={cn(active ? 'text-primary' : 'text-slate-400')}
+        />
       </div>
 
-      <span className="text-sm font-medium flex-1 text-center">{title}</span>
+      <span
+        className={cn(
+          'text-[10px] font-medium text-center',
+          active ? 'text-primary' : 'text-slate-400',
+        )}
+      >
+        {title}
+      </span>
     </Link>
   );
 }
