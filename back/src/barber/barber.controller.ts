@@ -18,11 +18,11 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { memoryStorage } from 'multer';
+import { isAllowedSlotIntervalMinutes } from 'src/booking/slot-intervals';
 import {
   IMAGE_MAX_SIZE_BYTES,
   MAX_BARBER_PORTFOLIO_IMAGES,
 } from 'src/common/constants/constants';
-import { isAllowedSlotIntervalMinutes } from 'src/booking/slot-intervals';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { QueryDto } from 'src/common/query';
 import { FilesService } from 'src/files/files.service';
