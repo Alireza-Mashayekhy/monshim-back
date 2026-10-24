@@ -24,6 +24,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from '@/components/ui/input-otp';
+import { useHydrated } from '@/hooks/use-hydrated';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   authKeys,
@@ -32,6 +33,7 @@ import {
   getAuthDestination,
   getRoleLandingPath,
 } from '@/lib/auth';
+import { createLazyFormResolver } from '@/lib/lazy-form-resolver';
 import { normalizePhone, onlyDigits } from '@/lib/phone';
 import { extractUser } from '@/lib/roles';
 import { useLogin, useSendOtp } from '@/services/features/auth/hooks';
@@ -39,6 +41,16 @@ import { useLogin, useSendOtp } from '@/services/features/auth/hooks';
 import type { PhoneFormValues } from './schemas/login-otp';
 
 const COUNTDOWN_SECONDS = 120;
+
+/**
+ * resolver و اسکیمای zod در chunkهای جدا و lazy هستند (~۳۱K gz) تا از باندل
+ * بحرانی صفحهٔ ورود حذف شوند. تفاوت با قبل: لود آن‌ها همین حالا و در
+ * پس‌زمینه شروع می‌شود (`preload`) نه لحظهٔ submit؛ روی موبایل/اینترنت کند
+ * اولین کلیک دیگر منتظر شبکه نمی‌ماند و اگر لود شکست بخورد دوباره تلاش می‌شود.
+ */
+const phoneFormResolver = createLazyFormResolver(() =>
+  import('./schemas/login-otp').then(module => module.phoneFormSchema),
+);
 
 export default function LoginOtpForm({
   callbackUrl,
@@ -57,17 +69,19 @@ export default function LoginOtpForm({
   const sendOtpMutation = useSendOtp();
   const loginMutation = useLogin();
 
+  // تا کامل‌شدن هیدریشن، فرم قفل است (توضیح در `FormProvider`).
+  const hydrated = useHydrated();
+
   const phoneMethods = useForm<PhoneFormValues>({
-    // Resolver (و zod) به‌صورت پویا بعد از mount لود می‌شود.
-    resolver: async (values, context, options) => {
-      const { zodResolver } = await import('@hookform/resolvers/zod');
-      const { phoneFormSchema } = await import('./schemas/login-otp');
-      return zodResolver(phoneFormSchema)(values, context, options);
-    },
+    resolver: phoneFormResolver.resolver,
     defaultValues: {
       phone: '',
     },
   });
+
+  useEffect(() => {
+    phoneFormResolver.preload();
+  }, []);
 
   const startCountdown = () => {
     setCountdown(COUNTDOWN_SECONDS);
@@ -172,6 +186,7 @@ export default function LoginOtpForm({
             methods={phoneMethods}
             onSubmit={onSendPhone}
             className="space-y-4"
+            lockUntilHydrated
           >
             <div className="space-y-1.5">
               <RHFPhoneInput
@@ -189,6 +204,7 @@ export default function LoginOtpForm({
             <Button
               type="submit"
               loading={sendOtpMutation.isPending}
+              disabled={!hydrated}
               size="lg"
               className="w-full mt-2 h-12 text-base font-bold shadow-md shadow-primary/20 gap-2 cursor-pointer"
             >

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -20,6 +20,7 @@ import FormProvider from '@/components/form/form-provider';
 import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
 import { Button } from '@/components/ui/button';
+import { useHydrated } from '@/hooks/use-hydrated';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   authKeys,
@@ -28,11 +29,21 @@ import {
   getAuthDestination,
   getRoleLandingPath,
 } from '@/lib/auth';
-import { normalizePhone, phoneSchema } from '@/lib/phone';
+import { createLazyFormResolver } from '@/lib/lazy-form-resolver';
+import { normalizePhone } from '@/lib/phone';
 import { extractUser } from '@/lib/roles';
 import { useLoginWithPassword } from '@/services/features/auth/hooks';
 
 import type { LoginFormValues } from './schemas/login';
+
+/**
+ * resolver و اسکیمای zod در chunkهای جدا و lazy هستند تا از باندل بحرانی
+ * صفحهٔ ورود حذف شوند؛ اما لود آن‌ها از همان لحظهٔ mount (نه لحظهٔ submit)
+ * شروع می‌شود تا اولین کلیک کاربر منتظر شبکه نماند.
+ */
+const loginFormResolver = createLazyFormResolver(() =>
+  import('./schemas/login').then(module => module.loginSchema),
+);
 
 export default function LoginPasswordForm({
   callbackUrl,
@@ -44,20 +55,20 @@ export default function LoginPasswordForm({
   const queryClient = useQueryClient();
   const loginMutation = useLoginWithPassword();
 
+  // تا کامل‌شدن هیدریشن، فرم قفل است (توضیح در `FormProvider`).
+  const hydrated = useHydrated();
+
   const methods = useForm<LoginFormValues>({
-    // Resolver (و به‌تبع آن zod + @hookform/resolvers/zod) در زمان mount
-    // لود می‌شود؛ این کار ~۳۱K gz را در چانک بحرانی صفحهٔ ورود حذف می‌کند
-    // (zod به‌تنهایی ~۱۰۸K raw و resolver ~۳۱K gz).
-    resolver: async (values, context, options) => {
-      const { zodResolver } = await import('@hookform/resolvers/zod');
-      const { loginSchema } = await import('./schemas/login');
-      return zodResolver(loginSchema)(values, context, options);
-    },
+    resolver: loginFormResolver.resolver,
     defaultValues: {
       phone: '',
       password: '',
     },
   });
+
+  useEffect(() => {
+    loginFormResolver.preload();
+  }, []);
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
@@ -82,7 +93,12 @@ export default function LoginPasswordForm({
 
   return (
     <div className="space-y-6">
-      <FormProvider methods={methods} onSubmit={onSubmit} className="space-y-4">
+      <FormProvider
+        methods={methods}
+        onSubmit={onSubmit}
+        className="space-y-4"
+        lockUntilHydrated
+      >
         <RHFPhoneInput
           name="phone"
           label="شماره موبایل"
@@ -123,6 +139,7 @@ export default function LoginPasswordForm({
         <Button
           type="submit"
           loading={loginMutation.isPending}
+          disabled={!hydrated}
           size="lg"
           className="w-full mt-4 h-12 text-base font-bold shadow-md shadow-primary/20 gap-2 cursor-pointer"
         >

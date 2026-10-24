@@ -11,6 +11,7 @@ import RHFInput from '@/components/form/rhf-input';
 import RHFPhoneInput from '@/components/form/rhf-phone-input';
 import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
+import { useHydrated } from '@/hooks/use-hydrated';
 import {
   isValidIranianNationalCode,
   normalizeNationalCode,
@@ -24,6 +25,8 @@ interface Step1Props {
 
 export default function BarbaerStep1({ onSubmit }: Step1Props) {
   const { fullName, phone, nationalCode, birthDate } = useBarberSignupStore();
+  // تا کامل‌شدن هیدریشن، فرم قفل است (توضیح در `FormProvider`).
+  const hydrated = useHydrated();
 
   const schema = z.object({
     fullName: z.string().trim().nonempty('نام و نام خانوادگی اجباری است.'),
@@ -61,7 +64,7 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
   };
 
   return (
-    <FormProvider methods={methods} onSubmit={onFormSubmit}>
+    <FormProvider methods={methods} onSubmit={onFormSubmit} lockUntilHydrated>
       <div className="space-y-5 animate-fade-in">
         <div className="space-y-4">
           <RHFInput
@@ -89,6 +92,7 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
             name="birthDate"
             label="تاریخ تولد"
             placeholder="انتخاب تاریخ تولد"
+            portal
           />
         </div>
 
@@ -97,6 +101,7 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
             <Button
               type="submit"
               loading={methods.formState.isSubmitting}
+              disabled={!hydrated}
               className="flex-1 h-12 text-base font-bold shadow-md shadow-primary/20 cursor-pointer"
             >
               مرحله بعد
@@ -107,4 +112,3 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
     </FormProvider>
   );
 }
-

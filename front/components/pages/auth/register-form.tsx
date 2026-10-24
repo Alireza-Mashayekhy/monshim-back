@@ -32,6 +32,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from '@/components/ui/input-otp';
+import { useHydrated } from '@/hooks/use-hydrated';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   buildAuthHref,
@@ -39,6 +40,7 @@ import {
   getAuthDestination,
 } from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
+import { createLazyFormResolver } from '@/lib/lazy-form-resolver';
 import { normalizePhone, onlyDigits } from '@/lib/phone';
 import { cn } from '@/lib/utils';
 import { useSendOtp, useSignUp } from '@/services/features/auth/hooks';
@@ -50,6 +52,17 @@ import {
 import type { RegisterFormValues } from './schemas/register';
 
 const COUNTDOWN_SECONDS = 120;
+
+/**
+ * resolver و اسکیمای zod در chunkهای جدا و lazy هستند (~۱۰۸K raw / ~۳۱K gz)
+ * تا از باندل بحرانی /register حذف شوند؛ اما لودشان از همان لحظهٔ mount شروع
+ * می‌شود تا لحظهٔ «دریافت کد تأیید» هیچ رفت‌وبرگشت شبکه‌ای در مسیر submit
+ * نباشد (قبلاً اولین کلیک باید منتظر دو dynamic import می‌ماند و اگر یکی از
+ * آن‌ها خطا می‌داد، دکمه بی‌هیچ واکنشی می‌ماند).
+ */
+const registerFormResolver = createLazyFormResolver(() =>
+  import('./schemas/register').then(module => module.registerSchema),
+);
 
 function RegisterFormContent({
   callbackUrl,
@@ -74,14 +87,11 @@ function RegisterFormContent({
   const sendOtpMutation = useSendOtp();
   const signUpMutation = useSignUp();
 
+  // تا کامل‌شدن هیدریشن، فرم قفل است (توضیح در `FormProvider`).
+  const hydrated = useHydrated();
+
   const methods = useForm<RegisterFormValues>({
-    // Resolver (و zod) به‌صورت پویا بعد از mount لود می‌شود؛ این کار
-    // ~۱۰۸K raw / ~۳۱K gz را از چانک بحرانی صفحهٔ /register حذف می‌کند.
-    resolver: async (values, context, options) => {
-      const { zodResolver } = await import('@hookform/resolvers/zod');
-      const { registerSchema } = await import('./schemas/register');
-      return zodResolver(registerSchema)(values, context, options);
-    },
+    resolver: registerFormResolver.resolver,
     defaultValues: {
       gender: 'male',
       firstName: '',
@@ -114,6 +124,10 @@ function RegisterFormContent({
     value: c.id.toString(),
     text: c.name,
   }));
+
+  useEffect(() => {
+    registerFormResolver.preload();
+  }, []);
 
   const previousProvince = useRef(selectedProvinceId);
   useEffect(() => {
@@ -245,6 +259,7 @@ function RegisterFormContent({
           methods={methods}
           onSubmit={onRegisterStep1}
           className="space-y-4"
+          lockUntilHydrated
         >
           {/* Gender selection */}
           <div className="space-y-2">
@@ -360,11 +375,17 @@ function RegisterFormContent({
 
           {/* Birth Date */}
           <div className="space-y-1">
+            {/*
+              `portal`: تقویم در `document.body` رندر می‌شود؛ قالب این صفحه
+              `overflow-x-hidden` دارد و روی نمایشگرهای باریک، تقویمِ
+              absolute داخل کارت بریده می‌شد و کاربر فکر می‌کرد باز نمی‌شود.
+            */}
             <PersianDatePickerLazy
               name="birthDate"
               label="تاریخ تولد"
               placeholder="انتخاب تاریخ تولد (روز / ماه / سال)"
               required
+              portal
             />
           </div>
 
@@ -424,6 +445,7 @@ function RegisterFormContent({
           <Button
             type="submit"
             loading={sendOtpMutation.isPending}
+            disabled={!hydrated}
             size="lg"
             className="w-full mt-4 h-12 text-base font-bold shadow-md shadow-primary/20 gap-2 cursor-pointer"
           >
