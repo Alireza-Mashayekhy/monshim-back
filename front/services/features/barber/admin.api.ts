@@ -32,6 +32,17 @@ export const getBarberById = async (id: string) => {
   return data;
 };
 
+/**
+ * جزئیات پروفایل برای دیالوگ «بررسی/تایید آرایشگر».
+ * لیست تایید آرایشگر شناسهٔ کاربر را برمی‌گرداند، بنابراین باید از مسیر
+ * اختصاصی approval استفاده شود (مسیر detail انتظار uuid پروفایل دارد).
+ */
+export const getBarberApprovalDetail = async (id: string) => {
+  const url = endpoints.barber.admin.approvalDetail(id);
+  const { data } = await api.get<ApiSingleResponse<BarberProfile>>(url);
+  return data;
+};
+
 export const updateBarber = async (dto: UpdateBarberProfile) => {
   const { data } = await api.patch<ApiSingleResponse<BarberProfile>>(
     endpoints.barber.admin.update,

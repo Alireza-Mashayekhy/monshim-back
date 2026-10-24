@@ -46,6 +46,7 @@ export const endpoints = {
     admin: {
       list: '/admin/barber',
       detail: (id: string) => `/admin/barber/${id}`,
+      approvalDetail: (id: string) => `/admin/barber/${id}/approval`,
       update: '/admin/barber',
       remove: '/admin/barber',
       review: (id: string) => `/admin/barber/${id}/review`,
@@ -72,9 +73,9 @@ export const endpoints = {
   services: {
     list: '/services/my-services',
     create: '/services',
-    detail: (id: number) => `/services/${id}`,
-    edit: (id: number) => `/services/${id}`,
-    delete: (id: number) => `/services/${id}`,
+    detail: (id: string) => `/services/${id}`,
+    edit: (id: string) => `/services/${id}`,
+    delete: (id: string) => `/services/${id}`,
   },
 
   subscription: {

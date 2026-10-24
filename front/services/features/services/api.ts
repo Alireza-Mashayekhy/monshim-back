@@ -12,14 +12,14 @@ export async function servicesList() {
   return data;
 }
 
-export const deleteService = async (id: number) => {
+export const deleteService = async (id: string) => {
   const { data } = await api.delete<ApiSingleResponse<Service>>(
     endpoints.services.delete(id),
   );
   return data;
 };
 
-export const editService = async (id: number, dto: UpdateServiceDto) => {
+export const editService = async (id: string, dto: UpdateServiceDto) => {
   const { data } = await api.patch<ApiSingleResponse<Service>>(
     endpoints.services.edit(id),
     dto,

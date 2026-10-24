@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import {
   barberReviewListAdmin,
   deleteBarber,
+  getBarberApprovalDetail,
   getBarberById,
   moderateBarberReview,
   notApprovedBarberList,
@@ -37,6 +38,19 @@ export const useBarber = (id: string) => {
   return useQuery({
     queryKey: ['adminBarber', id],
     queryFn: () => getBarberById(id),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+/**
+ * جزئیات آرایشگر برای صفحهٔ تایید؛ شناسهٔ ورودی User.id است
+ * (همان شناسه‌ای که لیست آرایشگرهای در انتظار تایید برمی‌گرداند).
+ */
+export const useBarberApprovalDetail = (id: string) => {
+  return useQuery({
+    queryKey: ['adminBarberApproval', id],
+    queryFn: () => getBarberApprovalDetail(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
@@ -86,6 +100,10 @@ export const useReviewBarber = () => {
 
       queryClient.invalidateQueries({
         queryKey: ['adminBarber', variables.id],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['adminBarberApproval', variables.id],
       });
 
       toast.success('وضعیت پروفایل با موفقیت تغییر کرد.');

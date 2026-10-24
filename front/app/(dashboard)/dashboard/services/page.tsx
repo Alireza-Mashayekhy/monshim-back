@@ -22,7 +22,7 @@ export default function ServicesPage() {
   const { data: services, isLoading, error } = useMyServices();
   const deleteMutation = useDeleteService();
 
-  const handleDelete = (serviceId: number) => {
+  const handleDelete = (serviceId: string) => {
     if (window.confirm('آیا از حذف این خدمت اطمینان دارید؟')) {
       deleteMutation.mutate(serviceId);
     }
@@ -139,10 +139,10 @@ export default function ServicesPage() {
                   variant="ghost"
                   size="icon"
                   className="text-red-500 hover:bg-red-50"
-                  onClick={() => handleDelete(Number(service.id))}
+                  onClick={() => handleDelete(service.id)}
                   disabled={
                     deleteMutation.isPending &&
-                    deleteMutation.variables === Number(service.id)
+                    deleteMutation.variables === service.id
                   }
                 >
                   <Trash2 size={16} />

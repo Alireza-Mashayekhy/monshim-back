@@ -414,4 +414,67 @@ describe('AdminTransactionsService', () => {
     expect(result.data.summary.netRevenueAmount).toBe(10_000);
     expect(result.data.summary.barberWalletCreditsAmount).toBe(110_000);
   });
+
+  it('جدول جزئیات و خروجی اکسل فقط ردیف‌های درگاه را برمی‌گردانند', async () => {
+    const paymentRow = {
+      id: 'pay-1',
+      amount: '110000',
+      purpose: PaymentPurpose.BOOKING,
+      status: PaymentStatus.PAID,
+      metadata: JSON.stringify({
+        depositAmount: 100000,
+        commissionAmount: 10000,
+      }),
+      description: 'پرداخت رزرو آنلاین',
+      user: null,
+      createdAt: new Date('2026-10-20T10:00:00.000Z'),
+      paidAt: new Date('2026-10-20T10:01:00.000Z'),
+      orderId: 'ORD-1',
+      trackId: 123,
+      refNumber: 'REF-1',
+      purposeId: 'booking-1',
+      cardNumber: null,
+    };
+    // ردیف‌های دفتر کیف پول دیگر نباید در جزئیات ظاهر شوند
+    const walletRow = {
+      id: 'tx-1',
+      amount: '200000',
+      type: TransactionType.WITHDRAWAL,
+      status: TransactionStatus.PENDING,
+      description: 'برداشت به کارت بانک ملت',
+      referenceId: null,
+      createdAt: new Date('2026-10-21T10:00:00.000Z'),
+      wallet: { user: null },
+    };
+
+    const { service } = createService({
+      payments: [paymentRow],
+      transactions: [walletRow],
+      paymentSummaries: [
+        {
+          amount: '110000',
+          purpose: PaymentPurpose.BOOKING,
+          status: PaymentStatus.PAID,
+          metadata: JSON.stringify({
+            depositAmount: 100000,
+            commissionAmount: 10000,
+          }),
+        },
+      ],
+      walletSummaries: [],
+    });
+
+    const listResult = await service.list({ page: 1, limit: 25 });
+
+    expect(listResult.data.transactions).toHaveLength(1);
+    expect(listResult.data.transactions[0].source).toBe('gateway');
+    expect(listResult.data.transactions[0].id).toBe('pay-1');
+    expect(listResult.pagination.total).toBe(1);
+    expect(listResult.data.summary.matchedCount).toBe(1);
+
+    const exportResult = await service.exportData({ page: 1, limit: 25 });
+
+    expect(exportResult.data.transactions).toHaveLength(1);
+    expect(exportResult.data.transactions[0].source).toBe('gateway');
+  });
 });
