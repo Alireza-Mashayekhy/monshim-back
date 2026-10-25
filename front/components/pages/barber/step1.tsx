@@ -65,9 +65,9 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
   ];
 
   return (
-    <div className="relative min-h-screen pb-5 overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden w-full max-w-200 mx-auto">
       {/* Hero Image */}
-      <div className="fixed top-0 aspect-square w-full">
+      <div className="fixed top-0 aspect-square w-full max-w-200 left-1/2 -translate-x-1/2 ">
         <Image
           src={getImageUrl(barber.profileImage)}
           fill
@@ -97,7 +97,7 @@ export const Step1Profile: React.FC<Step1ProfileProps> = ({
       </div>
 
       {/* Curved white sheet */}
-      <div className="relative mt-[calc(100vw-100px)] bg-primary-3 rounded-t-[32px] px-5 pt-6 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.15)]">
+      <div className="relative mt-[min(calc(100vw-100px),650px)] bg-primary-3 rounded-t-[32px] p-5 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.15)]">
         {/* Header row: badge + shop name */}
         <div className="flex justify-between items-center">
           <div className="flex items-start justify-between mb-2">
