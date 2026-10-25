@@ -80,7 +80,9 @@ export default function PublicPagePage() {
   const candidateSlug = localValidation.valid ? localValidation.slug : '';
   const debouncedSlug = useDebounce(candidateSlug, 350);
   const isSameAsCurrent = Boolean(
-    currentSlug && localValidation.valid && localValidation.slug === currentSlug,
+    currentSlug &&
+    localValidation.valid &&
+    localValidation.slug === currentSlug,
   );
   const shouldCheckRemote =
     showSlugForm &&
@@ -316,7 +318,9 @@ export default function PublicPagePage() {
                     {updateSlug.isPending ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : null}
-                    {currentSlug ? 'ذخیرهٔ اسلاگ جدید' : 'ثبت اسلاگ و ساخت لینک'}
+                    {currentSlug
+                      ? 'ذخیرهٔ اسلاگ جدید'
+                      : 'ثبت اسلاگ و ساخت لینک'}
                   </Button>
                   {currentSlug && (
                     <Button
@@ -387,33 +391,38 @@ export default function PublicPagePage() {
             </AppCard>
           )}
 
-          <AppCard>
-            <h2 className="text-base font-black text-gray-900">
-              فعال‌سازی رایگان با رزروهای موفق
-            </h2>
-            <p className="mt-2 text-sm leading-7 text-muted-foreground">
-              با رسیدن به {toPersianDigits(required)} رزرو موفق که پرداخت آن‌ها
-              در درگاه با موفقیت انجام شده و لغو یا برگشت نشده باشند (مشابه بخش
-              امور مالی)، صفحهٔ اختصاصی به‌صورت رایگان و برای همیشه فعال می‌شود.
-            </p>
+          {/* کارت فعال‌سازی رایگان فقط وقتی معنا دارد که صفحه با خرید پکیج فعال نشده باشد */}
+          {!(isActive && status?.reason === 'PACKAGE') && (
+            <AppCard>
+              <h2 className="text-base font-black text-gray-900">
+                فعال‌سازی رایگان با رزروهای موفق
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                با رسیدن به {toPersianDigits(required)} رزرو موفق که پرداخت
+                آن‌ها در درگاه با موفقیت انجام شده و لغو یا برگشت نشده باشند
+                (مشابه بخش امور مالی)، صفحهٔ اختصاصی به‌صورت رایگان و برای همیشه
+                فعال می‌شود.
+              </p>
 
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-bold text-gray-800">
-                  {toPersianDigits(paidBookings)} از {toPersianDigits(required)}
-                </span>
-                <span className="text-muted-foreground">
-                  {toPersianDigits(progress)}٪
-                </span>
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-gray-800">
+                    {toPersianDigits(paidBookings)} از{' '}
+                    {toPersianDigits(required)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {toPersianDigits(progress)}٪
+                  </span>
+                </div>
+                <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
-              <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className="h-full rounded-full bg-primary transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          </AppCard>
+            </AppCard>
+          )}
         </div>
       </FadeIn>
     </DashboardShell>
