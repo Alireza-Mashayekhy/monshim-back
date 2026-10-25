@@ -4,11 +4,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import Logo from '@/components/shared/logo';
-import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
@@ -38,14 +36,12 @@ export default function MarketingMobileMenu({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[19rem] p-0">
-        <SheetHeader className="border-b border-primary-100/60 px-5 py-4 text-right">
-          <SheetTitle className="flex items-center">
+      <SheetContent side="right" className="w-[19rem] p-0 gap-0">
+        <SheetHeader className="border-b border-primary-100/60 p-2.5 text-right">
+          <SheetTitle className="flex items-center gap-2">
             <Logo />
+            منشیم
           </SheetTitle>
-          <SheetDescription className="text-xs text-muted-foreground">
-            رزرو آنلاین آرایشگاه و مدیریت سالن
-          </SheetDescription>
         </SheetHeader>
 
         <nav aria-label="منوی موبایل" className="px-3 py-4">
@@ -74,14 +70,6 @@ export default function MarketingMobileMenu({
               </li>
             ))}
           </ul>
-
-          <div className="mt-5 grid gap-2 border-t border-primary-100/60 pt-5">
-            <Button asChild className="w-full">
-              <Link href="/login" onClick={() => onOpenChange(false)}>
-                ورود
-              </Link>
-            </Button>
-          </div>
         </nav>
       </SheetContent>
     </Sheet>

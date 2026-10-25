@@ -38,7 +38,19 @@ export default function MarketingHeader() {
         <div className="flex min-w-0 items-center gap-6 lg:gap-8">
           {/* لوگو خودش یک لینک به صفحه اصلی است؛ این wrapper نباید Link باشد
               وگرنه HTML نامعتبر (<a> داخل <a>) و خطای hydration می‌سازد. */}
-          <div className="shrink-0">
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            aria-label="باز کردن منوی منشیم"
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            onClick={() => setOpen(true)}
+          >
+            <Menu className="size-5" />
+          </Button>
+          <div className="shrink-0 hidden sm:block">
             <Logo label="منشیم | صفحه اصلی" />
           </div>
 
@@ -65,22 +77,16 @@ export default function MarketingHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <Button asChild size="sm" variant="outline" className="px-5">
+            <Link href="/barbaer-signup" title="ثبت نام به عنوان آرایشگر">
+              ثبت نام آرایشگر
+            </Link>
+          </Button>
+
           <Button asChild size="sm" className="px-5">
             <Link href="/login" title="ورود به حساب کاربری منشیم">
               ورود
             </Link>
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            aria-label="باز کردن منوی منشیم"
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            onClick={() => setOpen(true)}
-          >
-            <Menu className="size-5" />
           </Button>
 
           <MarketingMobileMenu open={open} onOpenChange={setOpen} />
