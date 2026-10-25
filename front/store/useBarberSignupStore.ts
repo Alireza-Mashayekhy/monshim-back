@@ -15,6 +15,7 @@ interface BarberSignupState {
   fullName: string;
   phone: string;
   nationalCode: string;
+  password: string;
   image: string | null; // base64
   shopName: string;
   cityId: string | null;
@@ -50,6 +51,7 @@ const initialState = {
   fullName: '',
   phone: '',
   nationalCode: '',
+  password: '',
   image: null, // اضافه شد
   shopName: '',
   cityId: null,

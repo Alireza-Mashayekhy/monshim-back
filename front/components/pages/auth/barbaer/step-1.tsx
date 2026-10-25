@@ -1,7 +1,8 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { IdCard, Smartphone, User } from 'lucide-react';
+import { Eye, EyeOff, IdCard, Lock, Smartphone, User } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 
@@ -25,22 +26,32 @@ interface Step1Props {
 }
 
 export default function BarbaerStep1({ onSubmit }: Step1Props) {
-  const { fullName, phone, nationalCode, birthDate } = useBarberSignupStore();
+  const { fullName, phone, nationalCode, birthDate, password } =
+    useBarberSignupStore();
   // تا کامل‌شدن هیدریشن، فرم قفل است (توضیح در `FormProvider`).
   const hydrated = useHydrated();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const schema = z.object({
-    fullName: z.string().trim().nonempty('نام و نام خانوادگی اجباری است.'),
-    phone: phoneSchema,
-    nationalCode: z
-      .string()
-      .transform(sanitizeNationalCodeInput)
-      .superRefine((val, ctx) => {
-        const error = getNationalCodeError(val);
-        if (error) ctx.addIssue({ code: 'custom', message: error });
-      }),
-    birthDate: z.string().optional(),
-  });
+  const schema = z
+    .object({
+      fullName: z.string().trim().nonempty('نام و نام خانوادگی اجباری است.'),
+      phone: phoneSchema,
+      nationalCode: z
+        .string()
+        .transform(sanitizeNationalCodeInput)
+        .superRefine((val, ctx) => {
+          const error = getNationalCodeError(val);
+          if (error) ctx.addIssue({ code: 'custom', message: error });
+        }),
+      birthDate: z.string().optional(),
+      password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد.'),
+      confirmPassword: z.string().min(1, 'تکرار رمز عبور اجباری است.'),
+    })
+    .refine(data => data.password === data.confirmPassword, {
+      message: 'تکرار رمز عبور با رمز عبور مطابقت ندارد.',
+      path: ['confirmPassword'],
+    });
 
   type Step1FormValues = z.infer<typeof schema>;
 
@@ -50,6 +61,8 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
       phone: phone || '',
       nationalCode: sanitizeNationalCodeInput(nationalCode),
       birthDate: birthDate || '',
+      password: password || '',
+      confirmPassword: password || '',
     },
     resolver: zodResolver(schema),
   });
@@ -60,6 +73,7 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
       phone: normalizePhone(data.phone),
       nationalCode: normalizeNationalCode(data.nationalCode),
       birthDate: data.birthDate || '',
+      password: data.password,
     });
   };
 
@@ -95,6 +109,56 @@ export default function BarbaerStep1({ onSubmit }: Step1Props) {
             label="تاریخ تولد"
             placeholder="انتخاب تاریخ تولد"
             portal
+          />
+          <RHFInput
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            label="رمز عبور"
+            placeholder="حداقل ۶ کاراکتر"
+            isRequired
+            dir="ltr"
+            className="text-left font-mono"
+            autoComplete="new-password"
+            startIcon={<Lock className="w-4 h-4" />}
+            endIcon={
+              <button
+                type="button"
+                onClick={() => setShowPassword(p => !p)}
+                className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
+                aria-label={showPassword ? 'مخفی کردن' : 'نمایش'}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            }
+          />
+          <RHFInput
+            name="confirmPassword"
+            type={showConfirmPassword ? 'text' : 'password'}
+            label="تکرار رمز عبور"
+            placeholder="تکرار رمز عبور"
+            isRequired
+            dir="ltr"
+            className="text-left font-mono"
+            autoComplete="new-password"
+            startIcon={<Lock className="w-4 h-4" />}
+            endIcon={
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(p => !p)}
+                className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
+                aria-label={showConfirmPassword ? 'مخفی کردن' : 'نمایش'}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            }
           />
         </div>
 

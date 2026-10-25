@@ -3,6 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import {
+  ArrowLeft,
   BellRing,
   CalendarClock,
   Check,
@@ -47,7 +48,10 @@ import { gregorianToJalali } from '@/lib/jalali';
 import { computeOrderPricing } from '@/lib/order-pricing';
 import { normalizePhone } from '@/lib/phone';
 import { cn, formatPrice, toPersianDigits } from '@/lib/utils';
-import { useMyBarberProfile } from '@/services/features/barber/hooks';
+import {
+  useMyBarberProfile,
+  useWorkHours,
+} from '@/services/features/barber/hooks';
 import { useAvailableSlots } from '@/services/features/booking/hooks';
 import { getClubCustomers } from '@/services/features/club/api';
 import {
@@ -262,6 +266,11 @@ export function ManualBookingDrawer({
     isFetching: slotsFetching,
   } = useAvailableSlots(barberId, isoDate, serviceIds);
   const slots = slotsResponse?.data?.slots ?? [];
+
+  // ساعات کاری آرایشگر؛ اگر هنوز هیچ بازه‌ای تعریف نشده، در بخش «ساعت شروع» راهنما نمایش می‌دهیم
+  const { data: workHoursData, isLoading: workHoursLoading } = useWorkHours();
+  const hasNoWorkHours =
+    !workHoursLoading && (workHoursData?.data?.length ?? 0) === 0;
 
   const hasSearchQuery = debouncedSearch.trim().length > 0;
 
@@ -809,7 +818,30 @@ export function ManualBookingDrawer({
                 ساعت شروع
               </span>
 
-              {serviceIds.length === 0 || !isoDate ? (
+              {hasNoWorkHours ? (
+                <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5">
+                  <Clock size={15} className="mt-0.5 shrink-0 text-amber-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-black leading-5 text-amber-800">
+                      هنوز ساعات کاری تنظیم نشده است
+                    </p>
+                    <p className="mt-1 text-[10px] font-medium leading-5 text-amber-700">
+                      ساعت‌های این بخش از روی روزهای کاری و بازهٔ ساعتی که شما
+                      تعریف کرده‌اید ساخته می‌شوند. برای نمایش ساعت‌های خالی،
+                      ابتدا در صفحهٔ «ساعات رزرو» روزها و بازه‌های کاری‌تان را
+                      مشخص کنید.
+                    </p>
+                    <Link
+                      href="/dashboard/work-hours"
+                      onClick={() => handleOpenChange(false)}
+                      className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-black text-amber-800 underline underline-offset-2"
+                    >
+                      رفتن به صفحهٔ «ساعات رزرو»
+                      <ArrowLeft size={12} />
+                    </Link>
+                  </div>
+                </div>
+              ) : serviceIds.length === 0 || !isoDate ? (
                 <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center text-[11px] text-gray-400">
                   برای نمایش ساعت‌های خالی، ابتدا خدمات و تاریخ را انتخاب کنید.
                 </p>
@@ -820,9 +852,20 @@ export function ManualBookingDrawer({
                   ))}
                 </div>
               ) : slots.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center text-[11px] text-gray-400">
-                  ساعت خالی متوالی برای مجموع زمان انتخابی در این روز وجود ندارد.
-                </p>
+                <div className="space-y-1.5 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 p-3 text-center">
+                  <p className="text-[11px] text-gray-400">
+                    ساعت خالی متوالی برای مجموع زمان انتخابی در این روز وجود
+                    ندارد.
+                  </p>
+                  <Link
+                    href="/dashboard/work-hours"
+                    onClick={() => handleOpenChange(false)}
+                    className="inline-flex items-center gap-0.5 text-[10px] font-black text-primary hover:underline"
+                  >
+                    تنظیم بازه‌ها در صفحهٔ «ساعات رزرو»
+                    <ArrowLeft size={11} />
+                  </Link>
+                </div>
               ) : (
                 <div className="grid grid-cols-4 gap-2">
                   {slots.map(slot => (
@@ -895,7 +938,8 @@ export function ManualBookingDrawer({
                 </p>
 
                 <p className="mt-0.5 text-[10px] font-medium text-gray-400">
-                  در حالت لینک بیعانه، مشتری ابتدا صفحهٔ صورت‌حساب خدمات و کمیسیون را می‌بیند و سپس وارد درگاه می‌شود.
+                  در حالت لینک بیعانه، مشتری ابتدا صفحهٔ صورت‌حساب خدمات و
+                  کمیسیون را می‌بیند و سپس وارد درگاه می‌شود.
                 </p>
               </div>
 
@@ -1010,8 +1054,9 @@ export function ManualBookingDrawer({
                     </div>
                   ) : (
                     <span className="text-[10px] font-bold text-gray-600">
-                      مبلغ پرداختی مشتری = جمع بیعانه‌ها (در نبود بیعانه، مبلغ کل
-                      خدمت) + {toPersianDigits(commissionPercent)}٪ بیشترین بیعانه
+                      مبلغ پرداختی مشتری = جمع بیعانه‌ها (در نبود بیعانه، مبلغ
+                      کل خدمت) + {toPersianDigits(commissionPercent)}٪ بیشترین
+                      بیعانه
                     </span>
                   )
                 ) : (
@@ -1039,8 +1084,8 @@ export function ManualBookingDrawer({
                       بیعانه و کمیسیون را می‌بیند و سپس وارد درگاه می‌شود.
                     </li>
                     <li>
-                      • تا {toPersianDigits(DEPOSIT_PAYMENT_TIMEOUT_HOURS)}{' '}
-                      ساعت پس از ارسال لینک، اگر پرداخت انجام نشود نوبت خودکار لغو
+                      • تا {toPersianDigits(DEPOSIT_PAYMENT_TIMEOUT_HOURS)} ساعت
+                      پس از ارسال لینک، اگر پرداخت انجام نشود نوبت خودکار لغو
                       می‌شود.
                     </li>
                   </>
@@ -1093,8 +1138,8 @@ export function ManualBookingDrawer({
 
               {smsEligible && !canSendSmsReminder && !effectiveDepositLink && (
                 <p className="pb-2 text-[10px] leading-5 text-amber-700">
-                  برای پیامک تأیید و یادآوری با هم، حداقل ۴ اعتبار لازم است؛
-                  در صورت تمایل می‌توانید گزینهٔ «لینک بیعانه» را انتخاب کنید تا
+                  برای پیامک تأیید و یادآوری با هم، حداقل ۴ اعتبار لازم است؛ در
+                  صورت تمایل می‌توانید گزینهٔ «لینک بیعانه» را انتخاب کنید تا
                   فقط ۲ اعتبار یادآوری کسر شود.
                 </p>
               )}

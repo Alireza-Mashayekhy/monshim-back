@@ -229,8 +229,10 @@ export default function BarbaerStep4({ onSubmit }: Step4Props) {
                     <option value="30">۳۰ دقیقه</option>
                     <option value="45">۴۵ دقیقه</option>
                     <option value="60">۱ ساعت</option>
-                    <option value="90">۱.۵ ساعت</option>
+                    <option value="90">۱ ساعت و ۳۰ دقیقه</option>
                     <option value="120">۲ ساعت</option>
+                    <option value="150">۲ ساعت و ۳۰ دقیقه</option>
+                    <option value="180">۳ ساعت</option>
                   </select>
                 </div>
               </div>

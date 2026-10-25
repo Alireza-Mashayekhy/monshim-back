@@ -40,12 +40,14 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 const durationOptions = [
-  { value: '15', label: '۱۵ دقیقه' },
-  { value: '30', label: '۳۰ دقیقه' },
-  { value: '45', label: '۴۵ دقیقه' },
-  { value: '60', label: '۱ ساعت' },
-  { value: '90', label: '۱.۵ ساعت' },
-  { value: '120', label: '۲ ساعت' },
+  { value: '15', text: '۱۵ دقیقه' },
+  { value: '30', text: '۳۰ دقیقه' },
+  { value: '45', text: '۴۵ دقیقه' },
+  { value: '60', text: '۱ ساعت' },
+  { value: '90', text: '۱ ساعت و ۳۰ دقیقه' },
+  { value: '120', text: '۲ ساعت' },
+  { value: '150', text: '۲ ساعت و ۳۰ دقیقه' },
+  { value: '180', text: '۳ ساعت' },
 ];
 
 export function ServiceDrawer({

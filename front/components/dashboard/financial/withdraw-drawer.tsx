@@ -32,6 +32,13 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+// نمایش شبا به‌شکل گروه‌بندی‌شده (IR XXXX XXXX ...) برای خوانایی در لیست انتخاب
+const formatSheba = (value: string) => {
+  const normalized = value.replace(/\s+/g, '').toUpperCase();
+  const digits = normalized.replace(/^IR/, '');
+  return `IR ${digits.replace(/(.{4})/g, '$1 ').trim()}`.trim();
+};
+
 interface WithdrawDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -143,7 +150,9 @@ export function WithdrawDrawer({
               items={
                 cards?.data?.map(c => ({
                   value: c.id,
-                  label: `${c.bankName} - ${c.cardNumber.slice(-4)}`,
+                  text: c.shebaNumber
+                    ? `${c.bankName} - ${formatSheba(c.shebaNumber)}`
+                    : `${c.bankName} - ${c.cardNumber.slice(-4)}`,
                 })) || []
               }
               placeholder="انتخاب کارت..."
