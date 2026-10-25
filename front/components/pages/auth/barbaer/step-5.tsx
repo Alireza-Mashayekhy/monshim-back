@@ -68,6 +68,7 @@ export default function BarbaerStep5({
     fullName,
     phone,
     nationalCode,
+    password,
     image,
     shopName,
     provinceId,
@@ -99,6 +100,10 @@ export default function BarbaerStep5({
     }
     if (nationalCode && !isValidIranianNationalCode(nationalCode)) {
       toast.error('کد ملی وارد شده در مرحله اول معتبر نیست.');
+      return false;
+    }
+    if (!password || password.length < 6) {
+      toast.error('رمز عبور را در مرحله اول وارد کنید (حداقل ۶ کاراکتر).');
       return false;
     }
     if (!activityType) {
@@ -191,6 +196,7 @@ export default function BarbaerStep5({
         activityType,
         bio: bio || '',
         code: otpCode,
+        password,
         birthDate: jalaliToIso(birthDate) || undefined,
         services: services.map(s => {
           const depositRaw = (s.depositPrice ?? '').trim();
