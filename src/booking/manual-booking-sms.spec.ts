@@ -52,12 +52,14 @@ describe('BookingsService.createManualByBarber (Deposit Link + SMS Reminder)', (
     const bookingRepo: any = {
       find: jest.fn().mockResolvedValue([]),
       create: jest.fn((input: any) => ({ ...input })),
-      save: jest.fn((rows: any[]) =>
+      save: jest.fn((rows: any) =>
         Promise.resolve(
-          rows.map((row, idx) => ({
-            ...row,
-            id: `booking-${idx + 1}`,
-          })),
+          Array.isArray(rows)
+            ? rows.map((row, idx) => ({
+                ...row,
+                id: `booking-${idx + 1}`,
+              }))
+            : { ...rows, id: 'booking-req-1' },
         ),
       ),
     };
@@ -66,6 +68,7 @@ describe('BookingsService.createManualByBarber (Deposit Link + SMS Reminder)', (
     };
     const serviceRepo: any = {
       find: jest.fn().mockResolvedValue(services),
+      findOne: jest.fn().mockResolvedValue(services[0]),
     };
     const workHoursRepo: any = {
       find: jest.fn().mockResolvedValue([
@@ -107,9 +110,13 @@ describe('BookingsService.createManualByBarber (Deposit Link + SMS Reminder)', (
     const bookingSmsService: any = {
       sendDepositLinkToCustomer: jest.fn().mockResolvedValue(undefined),
       sendBookingSuccessToCustomer: jest.fn().mockResolvedValue(undefined),
+      sendNewBookingToBarber: jest.fn().mockResolvedValue(undefined),
+      sendBookingRequestReceivedToCustomer: jest
+        .fn()
+        .mockResolvedValue(undefined),
     };
     const baleNotificationService: any = {
-      notifyBookingCreated: jest.fn().mockResolvedValue(undefined),
+      notifyBookingRequestCreated: jest.fn().mockResolvedValue(undefined),
       notifyManualBookingCreated: jest.fn().mockResolvedValue(undefined),
     };
 
@@ -135,12 +142,18 @@ describe('BookingsService.createManualByBarber (Deposit Link + SMS Reminder)', (
       bookingRepo,
       userSubscriptionService,
       bookingSmsService,
+      baleNotificationService,
     };
   }
 
   it('allows sendDepositLink=true together with sendSmsReminder=true when barber has >= 2 SMS credits', async () => {
-    const { service, bookingRepo, userSubscriptionService, bookingSmsService } =
-      createHarness(2);
+    const {
+      service,
+      bookingRepo,
+      userSubscriptionService,
+      bookingSmsService,
+      baleNotificationService,
+    } = createHarness(2);
 
     const saved = await service.createManualByBarber(100, {
       clubCustomerId: 'club-member-1',
@@ -160,6 +173,12 @@ describe('BookingsService.createManualByBarber (Deposit Link + SMS Reminder)', (
     expect(bookingSmsService.sendDepositLinkToCustomer).toHaveBeenCalledTimes(
       1,
     );
+    expect(
+      baleNotificationService.notifyManualBookingCreated,
+    ).not.toHaveBeenCalled();
+    expect(
+      baleNotificationService.notifyBookingRequestCreated,
+    ).not.toHaveBeenCalled();
     expect(bookingRepo.save).toHaveBeenCalledTimes(1);
     expect(saved.bookings).toHaveLength(2);
     expect(saved.bookings[0]).toMatchObject({
@@ -205,5 +224,25 @@ describe('BookingsService.createManualByBarber (Deposit Link + SMS Reminder)', (
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(userSubscriptionService.deductSms).not.toHaveBeenCalled();
+  });
+
+  it('does NOT send any Bale notification when a customer creates an unpaid booking request', async () => {
+    const { service, baleNotificationService } = createHarness(10);
+
+    const saved = await service.create(200, {
+      barberId: 100,
+      serviceId: 'service-1',
+      date,
+      time: '14:00',
+      note: 'تست عدم ارسال پیام بله در رزرو بدون پرداخت',
+    });
+
+    expect(saved.id).toBe('booking-req-1');
+    expect(
+      baleNotificationService.notifyBookingRequestCreated,
+    ).not.toHaveBeenCalled();
+    expect(
+      baleNotificationService.notifyManualBookingCreated,
+    ).not.toHaveBeenCalled();
   });
 });

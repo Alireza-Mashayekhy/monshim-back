@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { IRAN_PHONE_REGEX } from 'src/common/constants/constants';
+import { NormalizeDigits } from 'src/common/utils/digits.util';
 
 export class CreateClubCustomerDto {
   @ApiProperty({ example: 'علی رضایی' })
@@ -17,6 +18,7 @@ export class CreateClubCustomerDto {
   fullName: string;
 
   @ApiProperty({ example: '09123456789' })
+  @NormalizeDigits()
   @IsString()
   @Matches(IRAN_PHONE_REGEX, { message: 'شماره موبایل معتبر نیست' })
   phone: string;

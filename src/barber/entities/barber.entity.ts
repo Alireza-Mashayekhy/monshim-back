@@ -17,6 +17,46 @@ import {
 
 import { BarberReview } from './barber-review.entity';
 
+export type BarberPendingStatus = 'none' | 'pending' | 'rejected';
+
+export interface BarberPendingChanges {
+  fullName?: string;
+  salonName?: string;
+  provinceId?: number | null;
+  cityId?: number | null;
+  address?: string;
+  bio?: string | null;
+  profileImage?: string | null;
+  portfolioImages?: string[];
+  submittedAt?: string;
+}
+
+export const BARBER_MODERATED_FIELD_LABELS: Record<
+  Exclude<keyof BarberPendingChanges, 'submittedAt'>,
+  string
+> = {
+  fullName: 'نام و نام خانوادگی',
+  salonName: 'نام سالن',
+  provinceId: 'استان',
+  cityId: 'شهر',
+  address: 'آدرس',
+  bio: 'بیوگرافی',
+  profileImage: 'تصویر پروفایل',
+  portfolioImages: 'نمونه‌کارها',
+};
+
+export function getBarberChangedFieldLabels(
+  changes: Partial<BarberPendingChanges> | null | undefined,
+): string[] {
+  if (!changes) return [];
+  const orderedKeys = Object.keys(BARBER_MODERATED_FIELD_LABELS) as Array<
+    Exclude<keyof BarberPendingChanges, 'submittedAt'>
+  >;
+  return orderedKeys
+    .filter(key => changes[key] !== undefined)
+    .map(key => BARBER_MODERATED_FIELD_LABELS[key]);
+}
+
 @Entity()
 @Unique(['referralCode'])
 export class BarberProfile {
@@ -49,15 +89,17 @@ export class BarberProfile {
 
   @Column({
     name: 'province_id',
+    type: 'int',
     nullable: true,
   })
-  provinceId?: number;
+  provinceId?: number | null;
 
   @Column({
     name: 'city_id',
+    type: 'int',
     nullable: true,
   })
-  cityId?: number;
+  cityId?: number | null;
 
   @Column({ type: 'text' })
   address: string;
@@ -112,6 +154,28 @@ export class BarberProfile {
     nullable: true,
   })
   rejectionReason: string | null;
+
+  @Column({
+    name: 'pending_changes',
+    type: 'json',
+    nullable: true,
+  })
+  pendingChanges: BarberPendingChanges | null;
+
+  @Column({
+    name: 'pending_status',
+    type: 'varchar',
+    length: 20,
+    default: 'none',
+  })
+  pendingStatus: BarberPendingStatus;
+
+  @Column({
+    name: 'pending_rejection_reason',
+    type: 'text',
+    nullable: true,
+  })
+  pendingRejectionReason: string | null;
 
   @Column({
     type: 'timestamp',

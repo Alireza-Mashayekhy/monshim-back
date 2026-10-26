@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import {
+  normalizeNumericString,
+  toEnglishDigits,
+} from 'src/common/utils/digits.util';
 import { User } from 'src/users/entities/user.entity';
 import {
   Transaction,
@@ -366,18 +370,33 @@ export class AdminTransactionsService {
     }
 
     if (query.search?.trim()) {
-      const search = `%${query.search.trim()}%`;
+      const rawTrimmed = query.search.trim();
+      const normalizedTrimmed = toEnglishDigits(rawTrimmed);
+      const compactNumeric = normalizeNumericString(rawTrimmed);
+      const search = `%${normalizedTrimmed}%`;
+      const compactSearch = `%${compactNumeric || normalizedTrimmed}%`;
       qb.andWhere(
         new Brackets(searchQuery => {
           searchQuery
             .where('user.fullName LIKE :search', { search })
-            .orWhere('user.phone LIKE :search', { search })
+            .orWhere('user.phone LIKE :compactSearch', { compactSearch })
             .orWhere('payment.id LIKE :search', { search })
             .orWhere('payment.orderId LIKE :search', { search })
             .orWhere('payment.description LIKE :search', { search })
-            .orWhere('payment.refNumber LIKE :search', { search })
-            .orWhere('payment.cardNumber LIKE :search', { search })
-            .orWhere('CAST(payment.trackId AS CHAR) LIKE :search', { search });
+            .orWhere('payment.refNumber LIKE :compactSearch', { compactSearch })
+            .orWhere('payment.cardNumber LIKE :compactSearch', {
+              compactSearch,
+            })
+            .orWhere('CAST(payment.trackId AS CHAR) LIKE :compactSearch', {
+              compactSearch,
+            });
+
+          if (normalizedTrimmed !== rawTrimmed) {
+            const rawSearch = `%${rawTrimmed}%`;
+            searchQuery
+              .orWhere('user.fullName LIKE :rawSearch', { rawSearch })
+              .orWhere('payment.description LIKE :rawSearch', { rawSearch });
+          }
         }),
       );
     }
@@ -463,18 +482,31 @@ export class AdminTransactionsService {
     }
 
     if (query.search?.trim()) {
-      const search = `%${query.search.trim()}%`;
+      const rawTrimmed = query.search.trim();
+      const normalizedTrimmed = toEnglishDigits(rawTrimmed);
+      const compactNumeric = normalizeNumericString(rawTrimmed);
+      const search = `%${normalizedTrimmed}%`;
+      const compactSearch = `%${compactNumeric || normalizedTrimmed}%`;
       qb.andWhere(
         new Brackets(searchQuery => {
           searchQuery
             .where('user.fullName LIKE :search', { search })
-            .orWhere('user.phone LIKE :search', { search })
+            .orWhere('user.phone LIKE :compactSearch', { compactSearch })
             .orWhere('transaction.id LIKE :search', { search })
             .orWhere('transaction.description LIKE :search', { search })
             .orWhere('transaction.referenceId LIKE :search', { search })
-            .orWhere('CAST(transaction.amount AS CHAR) LIKE :search', {
-              search,
+            .orWhere('CAST(transaction.amount AS CHAR) LIKE :compactSearch', {
+              compactSearch,
             });
+
+          if (normalizedTrimmed !== rawTrimmed) {
+            const rawSearch = `%${rawTrimmed}%`;
+            searchQuery
+              .orWhere('user.fullName LIKE :rawSearch', { rawSearch })
+              .orWhere('transaction.description LIKE :rawSearch', {
+                rawSearch,
+              });
+          }
         }),
       );
     }

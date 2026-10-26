@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import { IsNumber, Min } from 'class-validator';
+import { NormalizeNumber } from 'src/common/utils/digits.util';
 
 export class ChargeWalletDto {
   @ApiProperty({ description: 'مبلغ به تومان' })
+  @NormalizeNumber()
   @IsNumber()
-  @Type(() => Number)
   @Min(1000)
   amount: number;
 }

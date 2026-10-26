@@ -7,6 +7,7 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import { NormalizeNumber } from 'src/common/utils/digits.util';
 
 // حداقل بیعانه: ۱۰۰ هزار تومان
 export const MIN_DEPOSIT_PRICE = 100_000;
@@ -18,17 +19,20 @@ export class CreateServiceDto {
   @IsNotEmpty()
   name: string;
 
+  @NormalizeNumber()
   @IsNumber()
   @Min(0)
   price: number;
 
   @IsOptional()
+  @NormalizeNumber()
   @IsNumber()
   @Min(MIN_DEPOSIT_PRICE, {
     message: 'حداقل مبلغ بیعانه ۱۰۰ هزار تومان است',
   })
   depositPrice?: number;
 
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   durationMinutes: number;

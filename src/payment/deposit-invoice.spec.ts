@@ -247,14 +247,18 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
     // Max item payable = 400,000 -> 10% commission = 40,000
     // Amount to pay in gateway = 740,000
     // Remaining in salon = 1,500,000 - 700,000 = 800,000
+    // ۷۰۰٬۰۰۰ تومان بیعانه آنلاین: ۵۰۰٬۰۰۰ × ۱۰٪ (۵۰٬۰۰۰) + ۲۰۰٬۰۰۰ × ۷٪ (۱۴٬۰۰۰) = ۶۴٬۰۰۰ تومان
     expect(invoice.pricing).toEqual({
       totalServicePrice: 1_500_000,
       depositAmount: 700_000,
       maxPayableAmount: 400_000,
-      commissionPercent: 10,
-      commissionAmount: 40_000,
+      commissionMode: 'tiered',
+      commissionPercent: 9.14,
+      commissionAmount: 64_000,
+      commissionMaxAmount: 200_000,
+      isCommissionCapped: false,
       remainingInSalon: 800_000,
-      amountToPay: 740_000,
+      amountToPay: 764_000,
     });
     expect(invoice.appointment.startTime).toBe('14:00');
     expect(invoice.appointment.endTime).toBe('15:30');
@@ -268,9 +272,9 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
 
     const initiated = await service.initiateDepositPaymentByToken(BASE_TOKEN);
 
-    expect(initiated.amount).toBe(740_000);
+    expect(initiated.amount).toBe(764_000);
     expect(initiated.depositAmount).toBe(700_000);
-    expect(initiated.commissionAmount).toBe(40_000);
+    expect(initiated.commissionAmount).toBe(64_000);
     expect(initiated.paymentUrl).toContain(String(initiated.trackId));
 
     const callbackUrl = await service.handleCallback({
@@ -324,7 +328,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
       1,
     );
 
-    // Barber wallet receives ONLY 700,000 Toman (40,000 Toman commission stays with platform)
+    // Barber wallet receives ONLY 700,000 Toman (64,000 Toman tiered commission stays with platform)
     expect(walletService.depositOnceWithManager).toHaveBeenCalledTimes(1);
     expect(walletService.depositOnceWithManager).toHaveBeenCalledWith(
       expect.anything(),
@@ -338,7 +342,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
     const paidInvoice = await service.getDepositInvoiceByToken(BASE_TOKEN);
     expect(paidInvoice.status).toBe('paid');
     expect(paidInvoice.receipt).toMatchObject({
-      amount: 740_000,
+      amount: 764_000,
       trackId: initiated.trackId,
     });
   });
@@ -370,7 +374,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
         barberUserId: 100,
         customerUserId: 200,
         amount: 700_000,
-        customerRefundAmount: 740_000,
+        customerRefundAmount: 764_000,
       }),
     );
     await new Promise<void>(resolve => setImmediate(resolve));

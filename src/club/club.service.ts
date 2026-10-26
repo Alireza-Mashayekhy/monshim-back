@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination } from 'src/common/query';
+import { toEnglishDigits } from 'src/common/utils/digits.util';
 import { User } from 'src/users/entities/user.entity';
 import { Repository } from 'typeorm';
 
@@ -136,10 +137,21 @@ export class ClubService {
     }
 
     if (query.search?.trim()) {
-      const search = query.search.trim();
-      qb.andWhere('( club.fullName LIKE :search OR club.phone LIKE :search )', {
-        search: `%${search}%`,
-      });
+      const rawSearch = query.search.trim();
+      const normalizedSearch = toEnglishDigits(rawSearch);
+      if (normalizedSearch !== rawSearch) {
+        qb.andWhere(
+          '( club.fullName LIKE :search OR club.fullName LIKE :rawSearch OR club.phone LIKE :search )',
+          { search: `%${normalizedSearch}%`, rawSearch: `%${rawSearch}%` },
+        );
+      } else {
+        qb.andWhere(
+          '( club.fullName LIKE :search OR club.phone LIKE :search )',
+          {
+            search: `%${normalizedSearch}%`,
+          },
+        );
+      }
     }
 
     const { skip, take } = getPagination(page, limit);

@@ -13,9 +13,9 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { QueryDto } from 'src/common/query';
 
 import { BarberService } from './barber.service';
+import { BarberQueryDto } from './dto/barber-query.dto';
 import { ReviewBarberDto } from './dto/review-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 
@@ -26,10 +26,10 @@ export class BarberAdminController {
   constructor(private readonly barberService: BarberService) {}
 
   @Get()
-  findAll(@Query() query: QueryDto, @Query('cityId') cityId?: number) {
+  findAll(@Query() query: BarberQueryDto, @Query('cityId') cityId?: number) {
     return this.barberService.findAll(
       query,
-      { cityId: cityId || undefined },
+      { cityId: cityId || query.cityId || undefined },
       true,
     );
   }
@@ -63,6 +63,6 @@ export class BarberAdminController {
 
   @Patch(':id/review')
   review(@Param('id') id: string, @Body() dto: ReviewBarberDto) {
-    return this.barberService.reviewBarber(Number(id), dto);
+    return this.barberService.reviewBarber(id, dto);
   }
 }

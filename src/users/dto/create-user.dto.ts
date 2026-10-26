@@ -10,6 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { IRAN_PHONE_REGEX } from 'src/common/constants/constants';
+import { NormalizeDigits, NormalizeNumber } from 'src/common/utils/digits.util';
 
 export class CreateUserDto {
   @ApiProperty()
@@ -18,6 +19,7 @@ export class CreateUserDto {
   fullName: string;
 
   @ApiProperty()
+  @NormalizeDigits()
   @IsString()
   @Matches(IRAN_PHONE_REGEX, { message: 'شماره موبایل معتبر نیست' })
   phone: string;
@@ -29,11 +31,13 @@ export class CreateUserDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @NormalizeDigits()
   @IsString()
   @Matches(/^\d{10}$/, { message: 'کد ملی باید ۱۰ رقم باشد' })
   nationalCode?: string;
 
   @ApiPropertyOptional()
+  @NormalizeDigits()
   @IsString()
   @MaxLength(4)
   @MinLength(4)
@@ -57,13 +61,13 @@ export class CreateUserDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @NormalizeNumber()
   @IsNumber()
-  @Type(() => Number)
   provinceId?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
+  @NormalizeNumber()
   @IsNumber()
-  @Type(() => Number)
   cityId?: number;
 }

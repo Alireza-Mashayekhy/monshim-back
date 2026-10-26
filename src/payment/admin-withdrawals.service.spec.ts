@@ -261,6 +261,46 @@ describe('AdminWithdrawalsService', () => {
     expect(findSpy).not.toHaveBeenCalled();
   });
 
+  it('normalizes Persian digits and separators in search queries for bank cards and transactions', async () => {
+    const executedQueries: Array<{ sql: string; parameters: unknown[] }> = [];
+    const dataSource = await createMysqlMetadataDataSource(
+      executedQueries,
+      sql => {
+        if (sql.includes('FROM `bank_cards`')) {
+          return [{ id: 'card-persian-1' }];
+        }
+        if (sql.includes('COUNT(')) {
+          return [{ cnt: '0' }];
+        }
+        return [];
+      },
+    );
+
+    const service = new AdminWithdrawalsService(
+      dataSource.getRepository(Transaction),
+      dataSource.getRepository(BankCard),
+      {} as never,
+    );
+
+    await service.list({
+      page: 1,
+      limit: 25,
+      search: '۶۰۳۷ ۹۹۱۸',
+    });
+
+    const cardQuery = executedQueries.find(q =>
+      q.sql.includes('FROM `bank_cards`'),
+    );
+    expect(cardQuery).toBeDefined();
+    expect(cardQuery?.parameters).toContain('%60379918%');
+
+    const txQuery = executedQueries.find(q =>
+      q.sql.includes('CAST(`transaction`.`amount` AS CHAR)'),
+    );
+    expect(txQuery).toBeDefined();
+    expect(txQuery?.parameters).toContain('%60379918%');
+  });
+
   it('rejects reversed date ranges with BadRequestException', async () => {
     const service = new AdminWithdrawalsService(
       {} as never,

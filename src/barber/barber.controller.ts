@@ -24,11 +24,15 @@ import {
   MAX_BARBER_PORTFOLIO_IMAGES,
 } from 'src/common/constants/constants';
 import { AuthGuard } from 'src/common/guards/auth.guard';
-import { QueryDto } from 'src/common/query';
+import {
+  normalizeNumberValue,
+  toEnglishDigits,
+} from 'src/common/utils/digits.util';
 import { FilesService } from 'src/files/files.service';
 import { Repository } from 'typeorm';
 
 import { BarberService } from './barber.service';
+import { BarberQueryDto } from './dto/barber-query.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 import { BarberProfile } from './entities/barber.entity';
 import { WorkHoursService } from './work-hours.service';
@@ -57,26 +61,34 @@ export class BarberController {
   @Get()
   findAll(
     @Req() req: any,
-    @Query() query: QueryDto,
-    @Query('cityId') cityId?: number,
-    @Query('provinceId') provinceId?: number,
-    @Query('minPrice') minPrice?: number,
-    @Query('maxPrice') maxPrice?: number,
-    @Query('minRating') minRating?: number,
+    @Query() query: BarberQueryDto,
+    @Query('cityId') cityId?: number | string,
+    @Query('provinceId') provinceId?: number | string,
+    @Query('minPrice') minPrice?: number | string,
+    @Query('maxPrice') maxPrice?: number | string,
+    @Query('minRating') minRating?: number | string,
   ) {
+    const parseOptNum = (val?: number | string): number | undefined => {
+      if (val === undefined || val === '') return undefined;
+      const parsed = normalizeNumberValue(val);
+      return typeof parsed === 'number' && Number.isFinite(parsed)
+        ? parsed
+        : undefined;
+    };
+
     return this.barberService.findAll(query, {
-      cityId: cityId || query.cityId || undefined,
-      provinceId: provinceId || undefined,
-      minPrice: minPrice !== undefined ? Number(minPrice) : undefined,
-      maxPrice: maxPrice !== undefined ? Number(maxPrice) : undefined,
-      minRating: minRating !== undefined ? Number(minRating) : undefined,
+      cityId: parseOptNum(cityId) ?? query.cityId ?? undefined,
+      provinceId: parseOptNum(provinceId) ?? query.provinceId ?? undefined,
+      minPrice: parseOptNum(minPrice) ?? query.minPrice ?? undefined,
+      maxPrice: parseOptNum(maxPrice) ?? query.maxPrice ?? undefined,
+      minRating: parseOptNum(minRating) ?? query.minRating ?? undefined,
       gender: req.user?.gender ?? null,
     });
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    const numericId = Number(id);
+    const numericId = Number(toEnglishDigits(id));
     if (!Number.isInteger(numericId) || numericId < 1) {
       throw new NotFoundException('آرایشگاه یافت نشد');
     }
@@ -119,9 +131,14 @@ export class BarberController {
     const imagePath = await this.filesService.saveFile(file, 'profiles');
 
     // به‌روزرسانی پروفایل کاربر
-    await this.barberService.update(user.id, { profileImage: imagePath });
+    const updatedProfile = await this.barberService.update(user.id, {
+      profileImage: imagePath,
+    });
 
-    return { imageUrl: imagePath };
+    return {
+      imageUrl: imagePath,
+      pendingStatus: updatedProfile.pendingStatus,
+    };
   }
 
   @Patch('profile/portfolio')
@@ -166,13 +183,15 @@ export class BarberController {
       throw new BadRequestException('فهرست عکس‌های حفظ‌شده نامعتبر است');
     }
 
-    const currentImages = profile.portfolioImages ?? [];
+    const liveImages = profile.portfolioImages ?? [];
+    const draftImages = profile.pendingChanges?.portfolioImages ?? [];
+    const allowedImages = new Set([...liveImages, ...draftImages]);
     const keptImages = existingImages as string[];
     const uploadedFiles = files ?? [];
 
     if (
       new Set(keptImages).size !== keptImages.length ||
-      keptImages.some(image => !currentImages.includes(image))
+      keptImages.some(image => !allowedImages.has(image))
     ) {
       throw new BadRequestException(
         'نمی‌توان عکس‌های متعلق به پروفایل دیگر را نگه داشت',
@@ -199,9 +218,6 @@ export class BarberController {
       const updatedProfile = await this.barberService.updatePortfolioImages(
         user.id,
         nextImages,
-      );
-      this.filesService.deleteFiles(
-        currentImages.filter(image => !nextImages.includes(image)),
       );
 
       return {

@@ -198,6 +198,7 @@ describe('PublicPageService', () => {
     });
 
     const status = await service.getStatusByUserId(42);
+    expect(status.packagePriceTomans).toBe(799_000);
     expect(status.paidBookingsCount).toBe(15);
     expect(status.isActive).toBe(false);
     expect(status.publicUrl).toBeNull();

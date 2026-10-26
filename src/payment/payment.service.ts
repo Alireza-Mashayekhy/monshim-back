@@ -44,10 +44,14 @@ import {
 } from 'typeorm';
 
 import {
-  COMMISSION_RATE,
   ComputedOrderPricing,
   computeOrderPricing,
+  DEFAULT_COMMISSION_MAX_AMOUNT,
+  DEFAULT_COMMISSION_PERCENT,
+  DEFAULT_COMMISSION_TIERS,
   extractBaseDepositToken,
+  normalizeCommissionTiers,
+  OrderPricingOptions,
 } from './deposit-amount';
 import { ChargeWalletDto } from './dto/charge-wallet.dto';
 import { InitiateBookingPaymentDto } from './dto/initiate-booking-payment.dto';
@@ -599,8 +603,8 @@ export class PaymentService {
       throw new BadRequestException('این زمان با رزروهای قطعی تداخل دارد');
     }
 
-    const commissionPercent = await this.getSiteCommissionPercent();
-    const pricing = computeOrderPricing(services, { commissionPercent });
+    const commissionConfig = await this.getSiteCommissionConfig();
+    const pricing = computeOrderPricing(services, commissionConfig);
     const totalPrice = pricing.totalServicePrice;
     const depositAmount = pricing.depositAmount;
     const commissionAmount = pricing.commissionAmount;
@@ -840,20 +844,45 @@ export class PaymentService {
     return { baseToken, bookings };
   }
 
-  private async getSiteCommissionPercent(): Promise<number> {
+  private async getSiteCommissionConfig(): Promise<OrderPricingOptions> {
     try {
       const settings = await this.settingsRepo.findOne({ where: { id: 1 } });
-      if (
-        settings?.commissionPercent != null &&
-        Number.isFinite(Number(settings.commissionPercent))
-      ) {
-        return Number(settings.commissionPercent);
+      if (settings) {
+        const commissionMode =
+          settings.commissionMode === 'flat' ? 'flat' : 'tiered';
+        const commissionTiers = normalizeCommissionTiers(
+          settings.commissionTiers,
+        );
+        const commissionMaxAmount =
+          settings.commissionMaxAmount === undefined
+            ? DEFAULT_COMMISSION_MAX_AMOUNT
+            : settings.commissionMaxAmount !== null &&
+                Number(settings.commissionMaxAmount) > 0
+              ? Math.round(Number(settings.commissionMaxAmount))
+              : null;
+        const commissionPercent =
+          settings.commissionPercent != null &&
+          Number.isFinite(Number(settings.commissionPercent))
+            ? Number(settings.commissionPercent)
+            : DEFAULT_COMMISSION_PERCENT;
+
+        return {
+          commissionMode,
+          commissionTiers,
+          commissionMaxAmount,
+          commissionPercent,
+        };
       }
     } catch {
-      // تنظیمات موجود نیست — از مقدار پیش‌فرض ۱۰٪ استفاده می‌شود
+      // تنظیمات موجود نیست — از پله‌های استاندارد و سقف ۲۰۰ هزار تومان استفاده می‌شود
     }
 
-    return Math.round(COMMISSION_RATE * 100);
+    return {
+      commissionMode: 'tiered',
+      commissionTiers: DEFAULT_COMMISSION_TIERS,
+      commissionMaxAmount: DEFAULT_COMMISSION_MAX_AMOUNT,
+      commissionPercent: DEFAULT_COMMISSION_PERCENT,
+    };
   }
 
   private maskCustomerPhone(phone?: string | null): string | null {
@@ -899,14 +928,14 @@ export class PaymentService {
 
     const primary = targetBookings[0];
     const barber = primary.barber;
-    const commissionPercent = await this.getSiteCommissionPercent();
+    const commissionConfig = await this.getSiteCommissionConfig();
 
     const pricing: ComputedOrderPricing = computeOrderPricing(
       targetBookings.map(booking => ({
         price: booking.price,
         depositPrice: booking.service?.depositPrice ?? null,
       })),
-      { commissionPercent },
+      commissionConfig,
     );
 
     const items = targetBookings.map((booking, index) => {
@@ -992,6 +1021,40 @@ export class PaymentService {
 
       const paidDate =
         paidPayment?.paidAt ?? paidBookings[0]?.depositPaidAt ?? new Date();
+      if (paidPayment) {
+        const paidTotal = Number(paidPayment.amount);
+        try {
+          const meta = paidPayment.metadata
+            ? JSON.parse(paidPayment.metadata)
+            : null;
+          const metaDeposit = Number(meta?.depositAmount);
+          const metaCommission = Number(meta?.commissionAmount);
+          if (
+            Number.isFinite(metaDeposit) &&
+            metaDeposit >= 0 &&
+            Number.isFinite(metaCommission) &&
+            metaCommission >= 0
+          ) {
+            pricing.depositAmount = Math.round(metaDeposit);
+            pricing.commissionAmount = Math.round(metaCommission);
+            pricing.amountToPay = Number.isFinite(paidTotal)
+              ? Math.round(paidTotal)
+              : pricing.depositAmount + pricing.commissionAmount;
+            pricing.commissionPercent =
+              pricing.depositAmount > 0
+                ? Math.round(
+                    (pricing.commissionAmount / pricing.depositAmount) * 10000,
+                  ) / 100
+                : 0;
+            pricing.isCommissionCapped =
+              pricing.commissionMaxAmount !== null &&
+              pricing.commissionAmount >= pricing.commissionMaxAmount;
+          }
+        } catch {
+          // متادیتای نامعتبر؛ مقادیر محاسبه‌شده حفظ می‌شود
+        }
+      }
+
       receipt = {
         paidAt: paidDate.toISOString(),
         amount: paidPayment ? Number(paidPayment.amount) : pricing.amountToPay,
@@ -1035,8 +1098,11 @@ export class PaymentService {
         totalServicePrice: pricing.totalServicePrice,
         depositAmount: pricing.depositAmount,
         maxPayableAmount: pricing.maxPayableAmount,
+        commissionMode: pricing.commissionMode,
         commissionPercent: pricing.commissionPercent,
         commissionAmount: pricing.commissionAmount,
+        commissionMaxAmount: pricing.commissionMaxAmount,
+        isCommissionCapped: pricing.isCommissionCapped,
         remainingInSalon: pricing.remainingInSalon,
         amountToPay: pricing.amountToPay,
       },
@@ -1074,13 +1140,13 @@ export class PaymentService {
       );
     }
 
-    const commissionPercent = await this.getSiteCommissionPercent();
+    const commissionConfig = await this.getSiteCommissionConfig();
     const pricing = computeOrderPricing(
       activeBookings.map(item => ({
         price: item.price,
         depositPrice: item.service?.depositPrice ?? null,
       })),
-      { commissionPercent },
+      commissionConfig,
     );
 
     if (pricing.amountToPay <= 0) {

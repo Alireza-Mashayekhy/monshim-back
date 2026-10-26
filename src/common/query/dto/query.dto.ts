@@ -1,14 +1,15 @@
-import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { NormalizeNumber } from 'src/common/utils/digits.util';
+
 export class QueryDto {
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   @Max(100)
@@ -23,7 +24,7 @@ export class QueryDto {
   sort?: string;
 
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   cityId?: number;
 }

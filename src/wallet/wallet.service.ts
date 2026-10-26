@@ -13,6 +13,7 @@ import { ZohalService } from 'src/common/services/zohal.service';
 import {
   getNationalCodeError,
   normalizeNationalCode,
+  toEnglishDigits,
 } from 'src/common/utils/national-code.util';
 import {
   Payment,
@@ -526,7 +527,7 @@ export class WalletService {
       };
     });
 
-    void this.baleNotificationService?.notifyWithdrawalRequested({
+    void this.baleNotificationService?.notifyWithdrawalRequested?.({
       userId,
       transaction: result.transaction,
       card,
@@ -669,11 +670,9 @@ export class WalletService {
   }
 
   async addCard(userId: number, dto: CreateCardDto): Promise<BankCard> {
-    const cleanCardNumber = String(dto.cardNumber ?? '')
+    const cleanCardNumber = toEnglishDigits(String(dto.cardNumber ?? ''))
       .trim()
-      .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-      .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-      .replace(/[\s\-]/g, '');
+      .replace(/[\s-]/g, '');
 
     // بررسی تکراری نبودن شماره کارت برای این کاربر
     const existing = await this.bankCardRepo.findOne({
@@ -683,11 +682,11 @@ export class WalletService {
       throw new BadRequestException('این شماره کارت قبلاً ثبت شده است');
     }
 
-    // نرمال‌سازی شبا به حروف بزرگ بدون فاصله
-    const cleanSheba = String(dto.shebaNumber ?? '')
+    // نرمال‌سازی شبا به حروف بزرگ و ارقام انگلیسی بدون فاصله
+    const cleanSheba = toEnglishDigits(String(dto.shebaNumber ?? ''))
       .trim()
       .toUpperCase()
-      .replace(/[\s\-]/g, '');
+      .replace(/[\s-]/g, '');
 
     const user = await this.userRepo.findOne({ where: { id: userId } });
     if (!user) {
@@ -708,7 +707,10 @@ export class WalletService {
       throw new BadRequestException(nationalCodeError);
     }
 
-    // اگر کاربر در پروفایل کد ملی نداشت، آن را در پروفایل ذخیره می‌کنیم
+    // بررسی یکتایی یا هم‌خوانی کد ملی قبل از تماس با زحل؛
+    // اما ذخیرهٔ کد ملی جدید روی پروفایل کاربر فقط پس از تایید موفق زحل انجام می‌شود
+    // تا در صورت خطای تایپی، کد ملی تاییدنشده روی حساب کاربر قفل نشود.
+    let shouldSaveUserNationalCode = false;
     if (!user.nationalCode) {
       const existingUserWithNc = await this.userRepo.findOne({
         where: { nationalCode },
@@ -718,8 +720,7 @@ export class WalletService {
           'این کد ملی قبلاً برای کاربر دیگری در سامانه ثبت شده است',
         );
       }
-      user.nationalCode = nationalCode;
-      await this.userRepo.save(user);
+      shouldSaveUserNationalCode = true;
     } else if (
       dto.nationalCode &&
       normalizeNationalCode(user.nationalCode) !== nationalCode
@@ -734,9 +735,14 @@ export class WalletService {
       card: cleanCardNumber,
       iban: cleanSheba,
       nationalCode,
-      userFullName: user.fullName,
+      userFullName: user.fullName || dto.ownerName,
       userPhone: user.phone,
     });
+
+    if (shouldSaveUserNationalCode) {
+      user.nationalCode = nationalCode;
+      await this.userRepo.save(user);
+    }
 
     // اگر کاربر کارتی ندارد، این کارت پیش‌فرض شود
     const count = await this.bankCardRepo.count({ where: { userId } });
