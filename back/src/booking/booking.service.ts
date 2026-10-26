@@ -16,6 +16,7 @@ import { ClubService } from 'src/club/club.service';
 import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { DEPOSIT_TOKEN_BYTES } from 'src/common/constants/constants';
 import { getPagination } from 'src/common/query';
+import { toEnglishDigits } from 'src/common/utils/digits.util';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { extractBaseDepositToken } from 'src/payment/deposit-amount';
 import {
@@ -100,7 +101,7 @@ export class BookingsService {
     private userSubscriptionService: UserSubscriptionService,
     private bookingSmsService: BookingSmsService,
     @Optional()
-    private readonly baleNotificationService?: BaleNotificationService,
+    private readonly _baleNotificationService?: BaleNotificationService,
   ) {}
 
   private assertBookingSlotIsNotPast(date: string, time: string): void {
@@ -304,7 +305,6 @@ export class BookingsService {
 
     // ✅ پیامک تأیید به مشتری + اطلاع رزرو جدید به آرایشگر (رایگان)
     this.sendBookingRequestSms(saved, barber, service);
-    void this.baleNotificationService?.notifyBookingRequestCreated(saved.id);
 
     return saved;
   }
@@ -458,10 +458,18 @@ export class BookingsService {
     }
 
     if (search) {
-      qb.andWhere(
-        '(customer.fullName LIKE :search OR customer.phone LIKE :search)',
-        { search: `%${search}%` },
-      );
+      const normalizedSearch = toEnglishDigits(search);
+      if (normalizedSearch !== search) {
+        qb.andWhere(
+          '(customer.fullName LIKE :search OR customer.fullName LIKE :rawSearch OR customer.phone LIKE :search)',
+          { search: `%${normalizedSearch}%`, rawSearch: `%${search}%` },
+        );
+      } else {
+        qb.andWhere(
+          '(customer.fullName LIKE :search OR customer.phone LIKE :search)',
+          { search: `%${normalizedSearch}%` },
+        );
+      }
     }
 
     const { skip, take } = getPagination(page, limit);
@@ -1399,14 +1407,6 @@ export class BookingsService {
     await this.clubService.addFromSuccessfulBooking({
       barberId: barber.id,
       customerId: member.customerId,
-    });
-
-    void this.baleNotificationService?.notifyManualBookingCreated({
-      bookings: savedBookings,
-      barber,
-      services: orderedServices,
-      customerId: member.customerId,
-      sendDepositLink: sendDeposit,
     });
 
     return {

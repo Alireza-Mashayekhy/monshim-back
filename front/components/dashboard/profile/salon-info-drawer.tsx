@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
@@ -45,10 +45,6 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
   const { data: profile } = useMyBarberProfile();
   const updateMutation = useUpdateBarberProfile();
 
-  const { data: provinces } = useProvinceList();
-  const selectedProvince = profile?.data?.provinceId;
-  const { data: cities } = useCityList(selectedProvince || null);
-
   const methods = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -60,7 +56,14 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
     },
   });
 
-  const { reset, watch, handleSubmit } = methods;
+  const { control, reset, setValue, handleSubmit } = methods;
+  const watchedProvinceId = useWatch({ control, name: 'provinceId' });
+
+  const { data: provinces } = useProvinceList();
+  const selectedProvince = watchedProvinceId
+    ? Number(watchedProvinceId)
+    : (profile?.data?.provinceId ?? null);
+  const { data: cities } = useCityList(selectedProvince || null);
 
   useEffect(() => {
     if (profile?.data) {
@@ -77,12 +80,13 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
   }, [profile?.data, reset, open]);
 
   const onSubmit = (data: FormData) => {
+    const trimmedBio = data.bio?.trim();
     const payload = {
-      salonName: data.salonName,
-      provinceId: data.provinceId ? parseInt(data.provinceId) : null,
-      cityId: data.cityId ? parseInt(data.cityId) : null,
-      address: data.address,
-      bio: data.bio,
+      salonName: data.salonName.trim(),
+      provinceId: data.provinceId ? parseInt(data.provinceId, 10) : null,
+      cityId: data.cityId ? parseInt(data.cityId, 10) : null,
+      address: data.address.trim(),
+      bio: trimmedBio ? trimmedBio : null,
     };
     updateMutation.mutate(payload, {
       onSuccess: () => onOpenChange(false),
@@ -122,6 +126,9 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
                 text: p.name,
               }))}
               placeholder="انتخاب استان..."
+              onValueChange={() => {
+                setValue('cityId', null, { shouldDirty: true });
+              }}
             />
             <RHFSelect
               name="cityId"
@@ -131,7 +138,7 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
                 text: c.name,
               }))}
               placeholder="انتخاب شهر..."
-              disabled={!watch('provinceId')}
+              disabled={!watchedProvinceId}
             />
           </div>
 

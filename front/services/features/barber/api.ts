@@ -71,7 +71,8 @@ export const uploadProfileImage = async (file: File): Promise<string> => {
       headers: { 'Content-Type': 'multipart/form-data' },
     },
   );
-  return data.imageUrl;
+  const payload = data?.data ?? data;
+  return payload?.imageUrl;
 };
 
 export const updateBarberPortfolio = async (

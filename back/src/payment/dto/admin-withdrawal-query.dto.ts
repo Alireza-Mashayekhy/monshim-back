@@ -1,4 +1,3 @@
-import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsIn,
@@ -9,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { NormalizeNumber } from 'src/common/utils/digits.util';
 
 export const ADMIN_WITHDRAWAL_STATUSES = [
   'PENDING',
@@ -20,13 +20,13 @@ export type AdminWithdrawalStatus = (typeof ADMIN_WITHDRAWAL_STATUSES)[number];
 
 export class AdminWithdrawalQueryDto {
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   page = 1;
 
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   @Max(100)

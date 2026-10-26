@@ -1,5 +1,6 @@
 // files/files.service.ts
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
@@ -13,7 +14,6 @@ import {
   IMAGE_WEBP_QUALITY,
   OUTPUT_IMAGE_EXTENSION,
 } from 'src/common/constants/constants';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class FilesService {
@@ -34,7 +34,7 @@ export class FilesService {
 
     const optimizedBuffer = await this.optimizeToWebp(file.buffer);
 
-    const filename = `${uuidv4()}${OUTPUT_IMAGE_EXTENSION}`;
+    const filename = `${randomUUID()}${OUTPUT_IMAGE_EXTENSION}`;
     const safeFolder = subFolder.replace(/[^a-zA-Z0-9_-]/g, '');
     const folderPath = path.join(this.uploadDir, safeFolder);
     await fs.promises.mkdir(folderPath, { recursive: true });

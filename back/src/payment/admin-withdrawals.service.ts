@@ -2,6 +2,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getPagination } from 'src/common/query';
+import {
+  normalizeNumericString,
+  toEnglishDigits,
+} from 'src/common/utils/digits.util';
 import { BankCard } from 'src/wallet/entities/bank-card.entity';
 import {
   Transaction,
@@ -164,19 +168,35 @@ export class AdminWithdrawalsService {
     }
 
     if (query.search?.trim()) {
-      const search = `%${query.search.trim()}%`;
+      const rawTrimmed = query.search.trim();
+      const normalizedTrimmed = toEnglishDigits(rawTrimmed);
+      const compactNumeric = normalizeNumericString(rawTrimmed);
+      const search = `%${normalizedTrimmed}%`;
+      const compactSearch = `%${compactNumeric || normalizedTrimmed}%`;
       qb.andWhere(
         new Brackets(searchQuery => {
           searchQuery
             .where('user.fullName LIKE :search', { search })
-            .orWhere('user.phone LIKE :search', { search })
+            .orWhere('user.phone LIKE :compactSearch', { compactSearch })
             .orWhere('barberProfile.salonName LIKE :search', { search })
             .orWhere('transaction.id LIKE :search', { search })
             .orWhere('transaction.description LIKE :search', { search })
             .orWhere('transaction.referenceId LIKE :search', { search })
-            .orWhere('CAST(transaction.amount AS CHAR) LIKE :search', {
-              search,
+            .orWhere('CAST(transaction.amount AS CHAR) LIKE :compactSearch', {
+              compactSearch,
             });
+
+          if (normalizedTrimmed !== rawTrimmed) {
+            const rawSearch = `%${rawTrimmed}%`;
+            searchQuery
+              .orWhere('user.fullName LIKE :rawSearch', { rawSearch })
+              .orWhere('barberProfile.salonName LIKE :rawSearch', {
+                rawSearch,
+              })
+              .orWhere('transaction.description LIKE :rawSearch', {
+                rawSearch,
+              });
+          }
 
           if (matchingCardIds.length > 0) {
             searchQuery.orWhere(
@@ -243,15 +263,27 @@ export class AdminWithdrawalsService {
       return [];
     }
 
-    const search = `%${trimmed}%`;
-    const rows = await this.bankCardRepo
+    const normalized = toEnglishDigits(trimmed);
+    const compact = normalizeNumericString(trimmed);
+    const search = `%${normalized}%`;
+    const compactSearch = `%${compact || normalized}%`;
+    const qb = this.bankCardRepo
       .createQueryBuilder('card')
       .select('card.id', 'id')
-      .where('card.cardNumber LIKE :search', { search })
-      .orWhere('card.shebaNumber LIKE :search', { search })
+      .where('card.cardNumber LIKE :compactSearch', { compactSearch })
+      .orWhere('card.shebaNumber LIKE :compactSearch', { compactSearch })
       .orWhere('card.ownerName LIKE :search', { search })
-      .orWhere('card.bankName LIKE :search', { search })
-      .getRawMany<{ id: string }>();
+      .orWhere('card.bankName LIKE :search', { search });
+
+    if (normalized !== trimmed) {
+      const rawSearch = `%${trimmed}%`;
+      qb.orWhere('card.ownerName LIKE :rawSearch', { rawSearch }).orWhere(
+        'card.bankName LIKE :rawSearch',
+        { rawSearch },
+      );
+    }
+
+    const rows = await qb.getRawMany<{ id: string }>();
 
     return rows.map(row => row.id).filter(Boolean);
   }

@@ -1,246 +1,371 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { getFullImageUrl } from '@/lib/utils';
 import {
   useBarberApprovalDetail,
   useReviewBarber,
 } from '@/services/features/barber/admin.hooks';
 
-interface BarberReviewDialogProps {
+interface Props {
   barberId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function BarberReviewDialog({
-  barberId,
-  open,
-  onOpenChange,
-}: BarberReviewDialogProps) {
-  const [rejectionReason, setRejectionReason] = useState('');
-
-  const { data, isLoading } = useBarberApprovalDetail(barberId ?? '');
-
+export function BarberReviewDialog({ barberId, open, onOpenChange }: Props) {
+  const { data, isLoading } = useBarberApprovalDetail(barberId || '');
   const reviewMutation = useReviewBarber();
 
+  const [rejectMode, setRejectMode] = useState(false);
+  const [reason, setReason] = useState('');
+
   const barber = data?.data;
+  const previous = barber?.currentApprovedProfile;
+  const isEditReview = Boolean(barber?.isEditReview);
 
-  useEffect(() => {
-    if (!open) {
-      setRejectionReason('');
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setRejectMode(false);
+      setReason('');
     }
-  }, [open]);
-
-  const handleApprove = () => {
-    if (!barberId) return;
-
-    reviewMutation.mutate(
-      {
-        id: barberId,
-        dto: {
-          isApproved: true,
-          rejectionReason: null,
-        },
-      },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-        },
-      },
-    );
+    onOpenChange(nextOpen);
   };
 
-  const handleReject = () => {
+  const handleApprove = async () => {
     if (!barberId) return;
 
-    const reason = rejectionReason.trim();
+    await reviewMutation.mutateAsync({
+      id: barberId,
+      dto: {
+        isApproved: true,
+      },
+    });
 
-    if (!reason) {
+    handleDialogOpenChange(false);
+  };
+
+  const handleReject = async () => {
+    if (!barberId) return;
+
+    if (!reason.trim()) {
+      toast.error('لطفاً دلیل رد کردن را وارد کنید');
       return;
     }
 
-    reviewMutation.mutate(
-      {
-        id: barberId,
-        dto: {
-          isApproved: false,
-          rejectionReason: reason,
-        },
+    await reviewMutation.mutateAsync({
+      id: barberId,
+      dto: {
+        isApproved: false,
+        rejectionReason: reason,
       },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-        },
-      },
-    );
+    });
+
+    handleDialogOpenChange(false);
   };
 
+  const avatarSrc = getFullImageUrl(barber?.profileImage);
+  const previousAvatarSrc = getFullImageUrl(previous?.profileImage);
+  const portfolioImages: string[] = barber?.portfolioImages ?? [];
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-2xl max-h-[90vh] overflow-y-auto"
-        dir="rtl"
-      >
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>بررسی پروفایل آرایشگر</DialogTitle>
-          <DialogDescription>
-            اطلاعات آرایشگر را بررسی و پروفایل را تایید یا رد کنید.
-          </DialogDescription>
+          <DialogTitle>
+            {isEditReview
+              ? 'بررسی تغییرات جدید پروفایل آرایشگر'
+              : 'بررسی اطلاعات آرایشگر'}
+          </DialogTitle>
         </DialogHeader>
 
-        {isLoading ? (
-          <div className="flex min-h-60 items-center justify-center">
-            <Loader2 className="animate-spin" />
-          </div>
-        ) : !barber ? (
-          <div className="py-10 text-center text-gray-500">
-            اطلاعات آرایشگر یافت نشد.
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Profile */}
-            <div className="flex items-center gap-4 rounded-xl border p-4">
-              <div className="h-20 w-20 overflow-hidden rounded-full bg-gray-100">
-                {barber.profileImage ? (
-                  <img
-                    src={barber?.profileImage}
-                    alt={barber.fullName}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-gray-400">
-                    بدون تصویر
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-bold text-lg">{barber.fullName}</h3>
-
-                <p className="text-sm text-gray-500">{barber.salonName}</p>
-              </div>
-            </div>
-
-            {/* Information */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <InfoItem label="نام و نام خانوادگی" value={barber.fullName} />
-
-              <InfoItem label="نام سالن" value={barber.salonName} />
-
-              <InfoItem label="استان" value={barber.province?.name || '-'} />
-
-              <InfoItem label="شهر" value={barber.city?.name || '-'} />
-
-              <InfoItem label="شماره تماس" value={barber?.phone || '-'} />
-
-              <div className="sm:col-span-2">
-                <InfoItem label="آدرس" value={barber?.address || '-'} />
-              </div>
-
-              <div className="sm:col-span-2">
-                <InfoItem label="درباره" value={barber?.bio || '-'} />
-              </div>
-
-              {barber.profileImage?.length && (
-                <div className="rounded-lg bg-gray-50 p-3 sm:col-span-2">
-                  <p className="mb-1 text-xs text-gray-500">نمونه کارها</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {barber.portfolioImages?.map(p => (
-                      <img
-                        key={p}
-                        src={process.env.NEXT_PUBLIC_IMAGE_URL + p}
-                        alt={barber.fullName}
-                        className="h-full w-full object-cover aspect-square"
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Current rejection reason */}
-            {barber?.rejectionReason && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-                <p className="mb-1 text-sm font-medium text-red-700">
-                  دلیل رد قبلی
-                </p>
-
-                <p className="text-sm text-red-600">{barber.rejectionReason}</p>
-              </div>
-            )}
-
-            {/* Reject reason */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">دلیل رد پروفایل</label>
-
-              <Textarea
-                value={rejectionReason}
-                onChange={e => setRejectionReason(e.target.value)}
-                placeholder="در صورت رد کردن پروفایل، دلیل رد را وارد کنید..."
-                rows={4}
-              />
-
-              <p className="text-xs text-gray-500">
-                در صورت تایید، این قسمت نادیده گرفته می‌شود.
-              </p>
-            </div>
+        {isLoading && (
+          <div className="py-10 text-center text-muted-foreground">
+            در حال دریافت اطلاعات...
           </div>
         )}
 
-        <DialogFooter className="gap-2 sm:justify-start">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={reviewMutation.isPending}
-          >
-            انصراف
-          </Button>
+        {barber && (
+          <div className="space-y-6 text-sm">
+            {isEditReview && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 space-y-1">
+                <p className="font-semibold">
+                  این آرایشگر از قبل تایید شده و در حال حاضر برای کاربران فعال است.
+                </p>
+                <p className="text-xs text-amber-800">
+                  اطلاعات زیر مقادیر جدید پیشنهادی آرایشگر است. در صورت عدم تایید،
+                  نسخهٔ تاییدشدهٔ قبلی همچنان بدون وقفه در سایت نمایش داده می‌شود.
+                </p>
+              </div>
+            )}
 
-          <Button
-            variant="destructive"
-            onClick={handleReject}
-            disabled={
-              reviewMutation.isPending ||
-              isLoading ||
-              !barber ||
-              !rejectionReason.trim()
-            }
-          >
-            {reviewMutation.isPending && <Loader2 className="animate-spin" />}
-            رد پروفایل
-          </Button>
+            {/* عکس پروفایل */}
+            <div className="flex flex-wrap items-center gap-4">
+              {avatarSrc ? (
+                <img
+                  src={avatarSrc}
+                  alt={barber.salonName}
+                  className="w-20 h-20 rounded-xl object-cover border"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-xl border bg-muted flex items-center justify-center text-xs text-muted-foreground">
+                  بدون تصویر
+                </div>
+              )}
 
-          <Button
-            onClick={handleApprove}
-            disabled={reviewMutation.isPending || isLoading || !barber}
-          >
-            {reviewMutation.isPending && <Loader2 className="animate-spin" />}
-            تأیید پروفایل
-          </Button>
+              <div>
+                <div className="font-semibold text-base">
+                  {barber.salonName}
+                </div>
+                <div className="text-muted-foreground">{barber.fullName}</div>
+                {previous && previous.profileImage !== barber.profileImage && (
+                  <div className="mt-1 flex items-center gap-2 text-xs text-amber-700">
+                    <span>تصویر پروفایل تغییر کرده است</span>
+                    {previousAvatarSrc && (
+                      <img
+                        src={previousAvatarSrc}
+                        alt="تصویر قبلی"
+                        className="w-8 h-8 rounded-md object-cover border"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* اطلاعات پایه */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InfoItem
+                label="نام آرایشگر"
+                value={barber.fullName}
+                previousValue={
+                  previous && previous.fullName !== barber.fullName
+                    ? previous.fullName
+                    : undefined
+                }
+              />
+
+              <InfoItem label="شماره تماس" value={barber.phone} />
+
+              <InfoItem
+                label="نام سالن"
+                value={barber.salonName}
+                previousValue={
+                  previous && previous.salonName !== barber.salonName
+                    ? previous.salonName
+                    : undefined
+                }
+              />
+
+              <InfoItem label="نوع فعالیت" value={barber.activityType} />
+
+              <InfoItem
+                label="استان"
+                value={barber.province?.name}
+                previousValue={
+                  previous &&
+                  (previous.provinceName ?? null) !==
+                    (barber.province?.name ?? null)
+                    ? (previous.provinceName ?? '—')
+                    : undefined
+                }
+              />
+
+              <InfoItem
+                label="شهر"
+                value={barber.city?.name}
+                previousValue={
+                  previous &&
+                  (previous.cityName ?? null) !== (barber.city?.name ?? null)
+                    ? (previous.cityName ?? '—')
+                    : undefined
+                }
+              />
+            </div>
+
+            {/* آدرس */}
+            <InfoBlock
+              label="آدرس"
+              value={barber.address}
+              previousValue={
+                previous && previous.address !== barber.address
+                  ? previous.address
+                  : undefined
+              }
+            />
+
+            {/* بیو */}
+            {(barber.bio || previous?.bio) && (
+              <InfoBlock
+                label="توضیحات"
+                value={barber.bio}
+                previousValue={
+                  previous && (previous.bio ?? '') !== (barber.bio ?? '')
+                    ? (previous.bio || '—')
+                    : undefined
+                }
+              />
+            )}
+
+            {/* ساعت کاری */}
+            <div className="grid grid-cols-2 gap-4">
+              <InfoItem label="شروع کار" value={barber.workStartTime} />
+
+              <InfoItem label="پایان کار" value={barber.workEndTime} />
+            </div>
+
+            {/* نمونه‌کارها */}
+            {(portfolioImages.length > 0 ||
+              (previous?.portfolioImages &&
+                previous.portfolioImages.length > 0)) && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium text-muted-foreground">
+                    نمونه‌کارها
+                  </div>
+                  {previous &&
+                    JSON.stringify(previous.portfolioImages) !==
+                      JSON.stringify(portfolioImages) && (
+                      <span className="text-xs text-amber-700">
+                        تغییر یافته (تعداد قبلی:{' '}
+                        {previous.portfolioImages.length} تصویر)
+                      </span>
+                    )}
+                </div>
+
+                {portfolioImages.length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {portfolioImages.map((img, i) => {
+                      const fullSrc = getFullImageUrl(img) ?? img;
+                      return (
+                        <img
+                          key={`${img}-${i}`}
+                          src={fullSrc}
+                          alt={`نمونه‌کار ${i + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border"
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-3 text-xs text-amber-700">
+                    تمامی نمونه‌کارهای قبلی در این ویرایش حذف شده‌اند.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* بخش وارد کردن دلیل رد */}
+            {rejectMode && (
+              <div className="space-y-2 pt-2">
+                <div className="font-medium">
+                  {isEditReview
+                    ? 'دلیل عدم تایید تغییرات جدید'
+                    : 'دلیل رد کردن پروفایل'}
+                </div>
+
+                <Textarea
+                  placeholder="توضیح دهید چرا این اطلاعات تایید نشده است..."
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 pt-4">
+          {!rejectMode ? (
+            <>
+              <Button
+                variant="destructive"
+                onClick={() => setRejectMode(true)}
+                disabled={reviewMutation.isPending}
+              >
+                {isEditReview ? 'رد تغییرات جدید' : 'رد پروفایل'}
+              </Button>
+
+              <Button
+                onClick={handleApprove}
+                disabled={reviewMutation.isPending}
+              >
+                {isEditReview ? 'تایید تغییرات جدید' : 'تایید پروفایل'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setRejectMode(false)}>
+                انصراف
+              </Button>
+
+              <Button
+                variant="destructive"
+                onClick={handleReject}
+                disabled={reviewMutation.isPending}
+              >
+                ثبت دلیل رد
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function InfoItem({ label, value }: { label: string; value: string }) {
+function InfoItem({
+  label,
+  value,
+  previousValue,
+}: {
+  label: string;
+  value?: string | null;
+  previousValue?: string;
+}) {
   return (
-    <div className="rounded-lg bg-gray-50 p-3">
-      <p className="mb-1 text-xs text-gray-500">{label}</p>
+    <div className="space-y-1">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="font-medium">{value || '—'}</div>
+      {previousValue !== undefined && (
+        <div className="text-xs text-amber-700">
+          قبلی (فعال در سایت): {previousValue}
+        </div>
+      )}
+    </div>
+  );
+}
 
-      <p className="text-sm font-medium text-gray-800">{value}</p>
+function InfoBlock({
+  label,
+  value,
+  previousValue,
+}: {
+  label: string;
+  value?: string | null;
+  previousValue?: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="bg-muted/40 rounded-lg p-3 leading-relaxed">
+        {value || '—'}
+      </div>
+      {previousValue !== undefined && (
+        <div className="text-xs text-amber-700">
+          قبلی (فعال در سایت): {previousValue}
+        </div>
+      )}
     </div>
   );
 }

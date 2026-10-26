@@ -1,6 +1,6 @@
 // src/wallet/dto/transaction-query.dto.ts
-import { Type } from 'class-transformer';
 import { IsEnum, IsNumber, IsOptional, Min } from 'class-validator';
+import { NormalizeNumber } from 'src/common/utils/digits.util';
 
 import {
   TransactionStatus,
@@ -17,13 +17,13 @@ export class TransactionQueryDto {
   status?: TransactionStatus;
 
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   limit?: number = 10;

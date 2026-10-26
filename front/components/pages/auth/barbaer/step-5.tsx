@@ -23,6 +23,7 @@ import { getActivityTypeLabel } from '@/constants/activity-types';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/api-error';
 import { type CallbackUrlValue, getAuthDestination } from '@/lib/auth';
 import { jalaliToIso } from '@/lib/date-utils';
+import { stripNumericSeparators, toEnglishDigits } from '@/lib/digits';
 import { getImageUploadError, MAX_PORTFOLIO_IMAGES } from '@/lib/image-upload';
 import { toFa } from '@/lib/jalali';
 import { isValidIranianNationalCode } from '@/lib/national-code';
@@ -114,13 +115,13 @@ export default function BarbaerStep5({
       !services.length ||
       services.length > 10 ||
       services.some(service => {
-        const price = Number(service.price.replace(/,/g, ''));
-        const duration = Number(service.duration);
-        const depositRaw = (service.depositPrice ?? '').trim();
+        const price = Number(stripNumericSeparators(service.price));
+        const duration = Number(stripNumericSeparators(service.duration));
+        const depositRaw = stripNumericSeparators(service.depositPrice ?? '');
 
         let depositOk = true;
         if (depositRaw) {
-          const deposit = Number(depositRaw.replace(/,/g, ''));
+          const deposit = Number(depositRaw);
           depositOk =
             Number.isFinite(deposit) &&
             deposit >= MIN_DEPOSIT &&
@@ -199,14 +200,12 @@ export default function BarbaerStep5({
         password,
         birthDate: jalaliToIso(birthDate) || undefined,
         services: services.map(s => {
-          const depositRaw = (s.depositPrice ?? '').trim();
-          const deposit = depositRaw
-            ? Number(depositRaw.replace(/,/g, ''))
-            : undefined;
+          const depositRaw = stripNumericSeparators(s.depositPrice ?? '');
+          const deposit = depositRaw ? Number(depositRaw) : undefined;
           return {
             name: s.name,
-            price: Number(s.price.replace(/,/g, '')),
-            durationMinutes: parseInt(s.duration, 10),
+            price: Number(stripNumericSeparators(s.price)),
+            durationMinutes: parseInt(stripNumericSeparators(s.duration), 10),
             ...(deposit ? { depositPrice: deposit } : {}),
           };
         }),
@@ -214,7 +213,9 @@ export default function BarbaerStep5({
 
       // اضافه کردن کد معرف (در صورت وجود)
       if (referralCode && referralCode.trim()) {
-        payload.referralCode = referralCode.trim();
+        payload.referralCode = toEnglishDigits(referralCode)
+          .trim()
+          .toUpperCase();
       }
       formData.append('data', JSON.stringify(payload));
 
@@ -442,7 +443,9 @@ export default function BarbaerStep5({
           className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:bg-white focus:border-primary-500 outline-none transition-colors dir-ltr text-center font-mono tracking-wider"
           value={referralCode}
           onChange={e =>
-            updateData({ referralCode: e.target.value.toUpperCase() })
+            updateData({
+              referralCode: toEnglishDigits(e.target.value).toUpperCase(),
+            })
           }
           maxLength={8}
         />

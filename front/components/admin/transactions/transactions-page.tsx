@@ -56,7 +56,7 @@ import {
 } from '@/components/ui/table';
 import { useDebounce } from '@/hooks/use-debounce';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { cn } from '@/lib/utils';
+import { cn, toEnglishDigits } from '@/lib/utils';
 import {
   useAdminTransactions,
   useApproveAdminWithdrawal,
@@ -978,7 +978,13 @@ export default function AdminTransactionsPage() {
             <Input
               id="withdrawal-note"
               value={withdrawalNote}
-              onChange={event => setWithdrawalNote(event.target.value)}
+              onChange={event =>
+                setWithdrawalNote(
+                  withdrawalAction?.action === 'approve'
+                    ? toEnglishDigits(event.target.value)
+                    : event.target.value,
+                )
+              }
               maxLength={128}
               className="bg-white"
               placeholder={

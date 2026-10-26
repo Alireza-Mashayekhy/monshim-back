@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { toEnglishDigits } from 'src/common/utils/digits.util';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { CreateTicketDto } from './dto/create-ticket.dto';
@@ -258,10 +259,22 @@ export class TicketService {
     if (query.priority) {
       qb.andWhere('ticket.priority = :priority', { priority: query.priority });
     }
-    if (query.search) {
-      qb.andWhere('ticket.subject LIKE :search', {
-        search: `%${query.search}%`,
-      });
+    if (query.search?.trim()) {
+      const rawSearch = query.search.trim();
+      const normalizedSearch = toEnglishDigits(rawSearch);
+      if (normalizedSearch !== rawSearch) {
+        qb.andWhere(
+          '(ticket.subject LIKE :search OR ticket.subject LIKE :rawSearch)',
+          {
+            search: `%${normalizedSearch}%`,
+            rawSearch: `%${rawSearch}%`,
+          },
+        );
+      } else {
+        qb.andWhere('ticket.subject LIKE :search', {
+          search: `%${normalizedSearch}%`,
+        });
+      }
     }
     return qb;
   }

@@ -10,6 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { NormalizeDigits, NormalizeNumber } from 'src/common/utils/digits.util';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
 export const ACTIVITY_TYPE_VALUES = ['women', 'men', 'both'] as const;
@@ -21,15 +22,18 @@ class ServiceInputDto {
   @IsNotEmpty()
   name: string;
 
+  @NormalizeNumber()
   @IsNumber()
   @IsNotEmpty()
   price: number;
 
   @IsOptional()
+  @NormalizeNumber()
   @IsNumber()
   @Min(MIN_DEPOSIT_PRICE, { message: 'حداقل مبلغ بیعانه ۱۰۰ هزار تومان است' })
   depositPrice?: number;
 
+  @NormalizeNumber()
   @IsNumber()
   @IsNotEmpty()
   durationMinutes: number;
@@ -69,6 +73,7 @@ export class RegisterBarberDto extends CreateUserDto {
   services?: ServiceInputDto[];
 
   @IsOptional()
+  @NormalizeDigits()
   @IsString()
   referralCode?: string; // کد معرف آرایشگر دعوت کننده
 }

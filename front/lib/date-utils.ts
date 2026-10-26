@@ -1,3 +1,4 @@
+import { toEnglishDigits } from '@/lib/digits';
 import { gregorianToJalali, jalaliToGregorian } from '@/lib/jalali';
 
 /**
@@ -36,7 +37,8 @@ const FA_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('fa-IR', {
 function parseIsoDateParts(
   isoDate: string,
 ): { year: number; month: number; day: number } | null {
-  const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/.exec(isoDate.trim());
+  const normalized = toEnglishDigits(isoDate).trim();
+  const match = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/.exec(normalized);
   if (match) {
     return {
       year: Number(match[1]),
@@ -45,7 +47,7 @@ function parseIsoDateParts(
     };
   }
 
-  const parsed = new Date(isoDate);
+  const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) return null;
 
   return {
@@ -85,7 +87,7 @@ export function jalaliToIso(
 ): string | null {
   if (!jalaliDate) return null;
 
-  const [year, month, day] = jalaliDate.split('/').map(Number);
+  const [year, month, day] = toEnglishDigits(jalaliDate).split('/').map(Number);
   if (!year || !month || !day) return null;
 
   try {

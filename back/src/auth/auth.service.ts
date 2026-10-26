@@ -5,11 +5,13 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Response } from 'express';
+import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { BarberService } from 'src/barber/barber.service';
 import {
   ACCESS_TOKEN_EXPIRES_IN,
@@ -23,11 +25,12 @@ import {
   setAuthCookies,
 } from 'src/common/utils/auth-cookie.util';
 import { isDuplicateEntryError } from 'src/common/utils/db-error.util';
-import { normalizeRoles } from 'src/common/utils/roles.util';
 import {
   isValidIranianNationalCode,
   normalizeNationalCode,
+  toEnglishDigits,
 } from 'src/common/utils/national-code.util';
+import { normalizeRoles } from 'src/common/utils/roles.util';
 import { OtpService } from 'src/otp/otp.service';
 import { ReferralService } from 'src/referral/referral.service';
 import { ServicesService } from 'src/services/services.service';
@@ -59,6 +62,8 @@ export class AuthService {
     private readonly servicesService: ServicesService,
     private readonly referralService: ReferralService,
     private readonly dataSource: DataSource,
+    @Optional()
+    private readonly baleNotificationService?: BaleNotificationService,
   ) {}
 
   async getProfile(userId: number) {
@@ -198,7 +203,7 @@ export class AuthService {
     if (dto.referralCode?.trim()) {
       const referrerProfile =
         await this.barberProfileService.findByReferralCode(
-          dto.referralCode.trim().toUpperCase(),
+          toEnglishDigits(dto.referralCode.trim()).toUpperCase(),
         );
 
       if (!referrerProfile) {
@@ -281,7 +286,10 @@ export class AuthService {
       throw error;
     }
 
-    // ۵. صدور توکن
+    // ۵. ارسال اعلان ثبت‌نام آرایشگر جدید به ربات بله (جهت بررسی و تایید ادمین)
+    void this.baleNotificationService?.notifyBarberRegistered?.(user.id);
+
+    // ۶. صدور توکن
     await this.issueTokens(user, response);
 
     return {

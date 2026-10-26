@@ -86,8 +86,11 @@ export interface DepositInvoiceResponse {
     totalServicePrice: number;
     depositAmount: number;
     maxPayableAmount: number;
+    commissionMode?: 'tiered' | 'flat';
     commissionPercent: number;
     commissionAmount: number;
+    commissionMaxAmount?: number | null;
+    isCommissionCapped?: boolean;
     remainingInSalon: number;
     amountToPay: number;
   };

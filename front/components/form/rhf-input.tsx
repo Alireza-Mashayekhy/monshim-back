@@ -1,6 +1,7 @@
 import { Controller, useFormContext } from 'react-hook-form';
 
 import { Input } from '@/components/ui/input';
+import { toEnglishDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 
 import { Field, FieldDescription, FieldError, FieldLabel } from '../ui/field';
@@ -37,6 +38,13 @@ export default function RHFInput({
   ...other
 }: RHFInputProps) {
   const { control } = useFormContext();
+  const isNumericInput =
+    other.inputMode === 'numeric' ||
+    other.inputMode === 'decimal' ||
+    other.inputMode === 'tel' ||
+    type === 'tel';
+  const effectiveSanitize =
+    sanitize ?? (isNumericInput ? toEnglishDigits : undefined);
 
   return (
     <Controller
@@ -44,8 +52,8 @@ export default function RHFInput({
       control={control}
       render={({ field, fieldState }) => {
         const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-          if (sanitize) {
-            const next = sanitize(event.target.value);
+          if (effectiveSanitize) {
+            const next = effectiveSanitize(event.target.value);
             if (next !== event.target.value) {
               // هم‌تراز کردن مقدار DOM با مقداری که به فرم می‌رود؛ وگرنه در
               // حالت کنترل‌شده ممکن است چیزی که کاربر می‌بیند با state یکی نباشد.

@@ -1,4 +1,3 @@
-import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsIn,
@@ -9,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { NormalizeNumber } from 'src/common/utils/digits.util';
 
 export const ADMIN_TRANSACTION_SOURCES = ['gateway', 'wallet'] as const;
 export const ADMIN_TRANSACTION_TYPES = [
@@ -31,13 +31,13 @@ export const ADMIN_TRANSACTION_STATUSES = [
 
 export class AdminTransactionQueryDto {
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   page = 1;
 
   @IsOptional()
-  @Type(() => Number)
+  @NormalizeNumber()
   @IsNumber()
   @Min(1)
   @Max(100)

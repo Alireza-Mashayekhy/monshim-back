@@ -1,123 +1,162 @@
 'use client';
 
-import { MoreHorizontalIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { BarberReviewDialog } from '@/components/admin/barbers/review-dialog';
-import CustomPagination from '@/components/shared/custom-pagination';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useDebounce } from '@/hooks/use-debounce';
 import { useBarberList } from '@/services/features/barber/admin.hooks';
 import { BarberResponse } from '@/services/features/barber/types';
 
-export default function Users() {
-  const [page, setPage] = useState(1);
+export default function AdminBarbersPage() {
   const [search, setSearch] = useState('');
-  const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
-  const debouncedSearch = useDebounce(search, 500);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { data } = useBarberList({
+  const { data, isLoading } = useBarberList({
+    search,
     page,
-    search: debouncedSearch,
+    limit: 10,
   });
 
+  const barbers: BarberResponse[] = data?.data || [];
+
+  const handleReviewClick = (id: string) => {
+    setReviewId(id);
+    setDialogOpen(true);
+  };
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-xl font-bold">تایید آرایشگر و ویرایش‌ها</h1>
+
         <Input
-          placeholder="جستجو"
+          placeholder="جستجو نام آرایشگر یا سالن..."
           value={search}
           onChange={e => {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="w-full bg-white sm:w-96"
+          className="sm:w-72"
         />
       </div>
-      <div className="bg-white rounded-sm overflow-hidden">
-        <Table dir="rtl">
+
+      {/* Table */}
+      <div className="border rounded-lg overflow-x-auto bg-white">
+        <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-10">آیدی</TableHead>
-              <TableHead>نام و نام خانوادگی</TableHead>
+              <TableHead>نام آرایشگر</TableHead>
               <TableHead>نام سالن</TableHead>
-              <TableHead>عملیات</TableHead>
+              <TableHead>شهر</TableHead>
+              <TableHead>نوع درخواست</TableHead>
+              <TableHead className="text-left">عملیات</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
-            {data?.data?.map((barber: BarberResponse) => (
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  در حال دریافت اطلاعات...
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!isLoading && barbers.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  موردی در انتظار بررسی وجود ندارد
+                </TableCell>
+              </TableRow>
+            )}
+
+            {barbers.map(barber => (
               <TableRow key={barber.id}>
-                <TableCell className="text-center">{barber.id}</TableCell>
-                <TableCell>{barber.fullName}</TableCell>
-                <TableCell>{barber.salonName}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8">
-                        <MoreHorizontalIcon />
-                        <span className="sr-only">Open menu</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setSelectedBarberId(String(barber.id));
-                          setReviewDialogOpen(true);
-                        }}
-                      >
-                        بررسی پروفایل
-                      </DropdownMenuItem>{' '}
-                      <DropdownMenuItem variant="destructive">
-                        حذف
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                <TableCell className="font-medium">
+                  {barber.fullName || '—'}
+                </TableCell>
+
+                <TableCell>{barber.salonName || '—'}</TableCell>
+
+                <TableCell>{barber.cityName || '—'}</TableCell>
+
+                <TableCell>
+                  {barber.isEditReview ? (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                      ویرایش پروفایل
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                      ثبت‌نام جدید
+                    </span>
+                  )}
+                </TableCell>
+
+                <TableCell className="text-left">
+                  <Button
+                    size="sm"
+                    onClick={() => handleReviewClick(String(barber.id))}
+                  >
+                    بررسی و تایید
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={6}>
-                <CustomPagination
-                  totalPages={data?.pagination?.totalPages ?? 1}
-                  currentPage={page}
-                  onPageChange={setPage}
-                />
-              </TableCell>
-            </TableRow>
-          </TableFooter>
         </Table>
-        <BarberReviewDialog
-          barberId={selectedBarberId}
-          open={reviewDialogOpen}
-          onOpenChange={open => {
-            setReviewDialogOpen(open);
-
-            if (!open) {
-              setSelectedBarberId(null);
-            }
-          }}
-        />
       </div>
+
+      {/* Pagination */}
+      {data?.pagination && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            صفحه {data.pagination.page} از {data.pagination.totalPages}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+            >
+              قبلی
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= data.pagination.totalPages}
+              onClick={() => setPage(p => p + 1)}
+            >
+              بعدی
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Review Dialog */}
+      <BarberReviewDialog
+        key={reviewId ?? 'closed'}
+        barberId={reviewId}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }

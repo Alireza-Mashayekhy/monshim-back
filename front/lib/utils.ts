@@ -7,6 +7,20 @@
 // داشت — این همان ساختار است).
 export { cn } from 'cn';
 
+import {
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+  stripNumericSeparators,
+  toEnglishDigits,
+} from '@/lib/digits';
+
+export {
+  sanitizeDecimalInput,
+  sanitizeIntegerInput,
+  stripNumericSeparators,
+  toEnglishDigits,
+};
+
 export type ClassValue =
   | string
   | number
@@ -30,10 +44,11 @@ export function toPersianDigits(value: number | string) {
  */
 const FA_NUMBER_FORMATTER = new Intl.NumberFormat('fa-IR');
 
-export const formatFaNumber = (value: number | string): string =>
-  FA_NUMBER_FORMATTER.format(
-    typeof value === 'number' ? value : Number(value.replace(/,/g, '')),
-  );
+export const formatFaNumber = (value: number | string): string => {
+  const num =
+    typeof value === 'number' ? value : Number(stripNumericSeparators(value));
+  return Number.isFinite(num) ? FA_NUMBER_FORMATTER.format(num) : '۰';
+};
 
 const FA_WEEKDAY_SHORT_FORMATTER = new Intl.DateTimeFormat('fa-IR', {
   weekday: 'short',
@@ -91,7 +106,7 @@ export const getFullImageUrl = (
 export const formatPrice = (value: number | string): string => {
   if (value === null || value === undefined || value === '') return '۰';
   const strValue =
-    typeof value === 'string' ? value.replace(/,/g, '') : String(value);
+    typeof value === 'number' ? String(value) : stripNumericSeparators(value);
   const num = parseFloat(strValue);
   if (isNaN(num)) return '۰';
   return Math.floor(num).toLocaleString('en-US');
@@ -113,11 +128,12 @@ export const getNext7Days = (): { date: string; label: string }[] => {
 export const DefaultImage = '/placeholder.webp';
 
 export const formatNumberInput = (value: string) => {
-  return value.replace(/\B(?=(\d{3})+(?!\d))/g, '،');
+  return sanitizeIntegerInput(value).replace(/\B(?=(\d{3})+(?!\d))/g, '،');
 };
 
-export const unformatNumberInput = (value: string) => {
-  return parseFloat(value.replace(/,/g, '')) || 0;
+export const unformatNumberInput = (value: string | number | null | undefined) => {
+  if (value === null || value === undefined || value === '') return 0;
+  return parseFloat(stripNumericSeparators(value)) || 0;
 };
 
 export const getDurationLabel = (days: number): string => {

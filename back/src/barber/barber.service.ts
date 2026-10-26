@@ -2,9 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import {
   isAllowedSlotIntervalMinutes,
   normalizeSlotIntervalMinutes,
@@ -14,18 +18,51 @@ import { getPagination, QueryDto } from 'src/common/query';
 import {
   isValidIranianNationalCode,
   normalizeNationalCode,
+  toEnglishDigits,
 } from 'src/common/utils/national-code.util';
+import { FilesService } from 'src/files/files.service';
 import { City } from 'src/locations/entities/city.entity';
+import { Province } from 'src/locations/entities/province.entity';
+import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { Service } from 'src/services/entities/service.entity';
 import { User } from 'src/users/entities/user.entity';
-import { Brackets, EntityManager, Repository } from 'typeorm';
+import { Brackets, EntityManager, In, Repository } from 'typeorm';
 
 import { ReviewBarberDto } from './dto/review-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
-import { BarberProfile } from './entities/barber.entity';
+import {
+  BARBER_MODERATED_FIELD_LABELS,
+  BarberPendingChanges,
+  BarberPendingStatus,
+  BarberProfile,
+  getBarberChangedFieldLabels,
+} from './entities/barber.entity';
+
+const MODERATED_DIFF_KEYS = [
+  'fullName',
+  'salonName',
+  'provinceId',
+  'cityId',
+  'address',
+  'bio',
+  'profileImage',
+  'portfolioImages',
+] as const;
+
+function stringArraysEqual(
+  left: string[] | null | undefined,
+  right: string[] | null | undefined,
+): boolean {
+  const a = left ?? [];
+  const b = right ?? [];
+  if (a.length !== b.length) return false;
+  return a.every((item, index) => item === b[index]);
+}
 
 @Injectable()
-export class BarberService {
+export class BarberService implements OnModuleInit {
+  private readonly logger = new Logger(BarberService.name);
+
   constructor(
     @InjectRepository(User)
     private userRepo: Repository<User>,
@@ -35,7 +72,75 @@ export class BarberService {
 
     @InjectRepository(City)
     private cityRepository: Repository<City>,
+
+    @Optional()
+    @InjectRepository(Province)
+    private provinceRepository?: Repository<Province>,
+
+    @Optional()
+    private readonly bookingSmsService?: BookingSmsService,
+
+    @Optional()
+    private readonly filesService?: FilesService,
+
+    @Optional()
+    private readonly baleNotificationService?: BaleNotificationService,
   ) {}
+
+  /**
+   * در محیط پروداکشن `synchronize` غیرفعال است؛ این متد به شکل idempotent
+   * ستون‌های مربوط به پیش‌نویس ویرایش پروفایل را در جدول `barber_profile`
+   * ایجاد می‌کند تا بدون نیاز به اجرای دستی SQL کار کند.
+   */
+  async onModuleInit() {
+    if (
+      typeof this.profileRepository?.query !== 'function' ||
+      !this.profileRepository?.metadata?.tableName
+    ) {
+      return;
+    }
+
+    const tableName = this.profileRepository.metadata.tableName;
+    if (!/^[a-zA-Z0-9_]+$/.test(tableName)) {
+      return;
+    }
+
+    try {
+      const rows: Array<{ COLUMN_NAME?: string; column_name?: string }> =
+        await this.profileRepository.query(
+          'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+          [tableName],
+        );
+
+      const existing = new Set(
+        (rows ?? []).map(row =>
+          String(row.COLUMN_NAME ?? row.column_name ?? '').toLowerCase(),
+        ),
+      );
+
+      if (!existing.has('pending_changes')) {
+        await this.profileRepository.query(
+          `ALTER TABLE \`${tableName}\` ADD COLUMN \`pending_changes\` JSON NULL`,
+        );
+      }
+
+      if (!existing.has('pending_status')) {
+        await this.profileRepository.query(
+          `ALTER TABLE \`${tableName}\` ADD COLUMN \`pending_status\` VARCHAR(20) NOT NULL DEFAULT 'none'`,
+        );
+      }
+
+      if (!existing.has('pending_rejection_reason')) {
+        await this.profileRepository.query(
+          `ALTER TABLE \`${tableName}\` ADD COLUMN \`pending_rejection_reason\` TEXT NULL`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `بررسی/ایجاد ستون‌های pending پروفایل آرایشگر ناموفق بود: ${String(error)}`,
+      );
+    }
+  }
 
   // src/barber/barber.service.ts
   async create(
@@ -159,9 +264,17 @@ export class BarberService {
       );
 
     if (notApproved) {
-      qb.andWhere('profile.isApproved != :isApproved', {
-        isApproved: true,
-      });
+      qb.andWhere(
+        new Brackets(subQb => {
+          subQb
+            .where('profile.isApproved != :isApproved', {
+              isApproved: true,
+            })
+            .orWhere('profile.pendingStatus = :pendingStatus', {
+              pendingStatus: 'pending',
+            });
+        }),
+      );
     } else {
       qb.andWhere('profile.isApproved = :isApproved', {
         isApproved: true,
@@ -190,14 +303,48 @@ export class BarberService {
       });
     }
 
-    if (query.search) {
+    if (query.search?.trim()) {
+      const rawTrimmed = query.search.trim();
+      const normalizedTrimmed = toEnglishDigits(rawTrimmed);
       qb.andWhere(
-        new Brackets(qb => {
-          qb.where('user.fullName LIKE :search')
-            .orWhere('profile.salonName LIKE :search')
-            .orWhere('services.name LIKE :search');
+        new Brackets(subQb => {
+          subQb
+            .where('user.fullName LIKE :search', {
+              search: `%${normalizedTrimmed}%`,
+            })
+            .orWhere('profile.salonName LIKE :search', {
+              search: `%${normalizedTrimmed}%`,
+            })
+            .orWhere('services.name LIKE :search', {
+              search: `%${normalizedTrimmed}%`,
+            });
+
+          if (notApproved) {
+            subQb.orWhere('CAST(profile.pendingChanges AS CHAR) LIKE :search', {
+              search: `%${normalizedTrimmed}%`,
+            });
+          }
+
+          if (normalizedTrimmed !== rawTrimmed) {
+            subQb
+              .orWhere('user.fullName LIKE :rawSearch', {
+                rawSearch: `%${rawTrimmed}%`,
+              })
+              .orWhere('profile.salonName LIKE :rawSearch', {
+                rawSearch: `%${rawTrimmed}%`,
+              })
+              .orWhere('services.name LIKE :rawSearch', {
+                rawSearch: `%${rawTrimmed}%`,
+              });
+
+            if (notApproved) {
+              subQb.orWhere(
+                'CAST(profile.pendingChanges AS CHAR) LIKE :rawSearch',
+                { rawSearch: `%${rawTrimmed}%` },
+              );
+            }
+          }
         }),
-        { search: `%${query.search}%` },
       );
     }
 
@@ -255,6 +402,69 @@ export class BarberService {
 
     const [rawData, total] = await qb.getManyAndCount();
 
+    const pendingCityMap = new Map<number, City>();
+    const pendingProvinceMap = new Map<number, Province>();
+    if (notApproved) {
+      const pendingCityIds = Array.from(
+        new Set(
+          rawData
+            .map((u: any) =>
+              u.barberProfile?.pendingStatus === 'pending'
+                ? u.barberProfile?.pendingChanges?.cityId
+                : null,
+            )
+            .filter(
+              (cid: unknown): cid is number =>
+                typeof cid === 'number' && Number.isInteger(cid) && cid > 0,
+            ),
+        ),
+      );
+      if (
+        pendingCityIds.length > 0 &&
+        typeof this.cityRepository?.find === 'function'
+      ) {
+        const cities = await this.cityRepository.find({
+          where: { id: In(pendingCityIds) },
+          relations: { province: true },
+        });
+        for (const c of cities) {
+          pendingCityMap.set(c.id, c);
+          if (c.province) {
+            pendingProvinceMap.set(c.province.id, c.province);
+          }
+        }
+      }
+
+      const unresolvedProvinceIds = Array.from(
+        new Set(
+          rawData
+            .map((u: any) =>
+              u.barberProfile?.pendingStatus === 'pending'
+                ? u.barberProfile?.pendingChanges?.provinceId
+                : null,
+            )
+            .filter(
+              (pid: unknown): pid is number =>
+                typeof pid === 'number' &&
+                Number.isInteger(pid) &&
+                pid > 0 &&
+                !pendingProvinceMap.has(pid),
+            ),
+        ),
+      );
+      if (
+        unresolvedProvinceIds.length > 0 &&
+        typeof this.provinceRepository?.find === 'function'
+      ) {
+        const provinces = await this.provinceRepository.find({
+          where: { id: In(unresolvedProvinceIds) },
+        });
+        for (const p of provinces) {
+          pendingProvinceMap.set(p.id, p);
+        }
+      }
+    }
+
     // نگاشت به فرمت دلخواه همراه با محاسبه قیمت شروع
     const data = rawData.map((user: any) => {
       const services = user.services || [];
@@ -262,19 +472,62 @@ export class BarberService {
         .map((s: any) => Number(s.price))
         .filter((p: number) => Number.isFinite(p) && p >= 0);
       const minPrice = prices.length > 0 ? Math.min(...prices) : null;
+      const profile: BarberProfile | undefined = user.barberProfile;
+
+      if (notApproved) {
+        const pending =
+          profile?.pendingStatus === 'pending' ? profile.pendingChanges : null;
+        const resolvedCity =
+          pending && 'cityId' in pending
+            ? pending.cityId
+              ? (pendingCityMap.get(pending.cityId) ?? null)
+              : null
+            : (profile?.city ?? null);
+        const resolvedProvince =
+          pending && 'provinceId' in pending
+            ? pending.provinceId
+              ? (pendingProvinceMap.get(pending.provinceId) ??
+                resolvedCity?.province ??
+                null)
+              : null
+            : (profile?.province ?? null);
+
+        return {
+          id: user.id,
+          fullName: pending?.fullName ?? user.fullName ?? '',
+          salonName: pending?.salonName ?? profile?.salonName ?? '',
+          profileImage:
+            pending?.profileImage !== undefined
+              ? pending.profileImage
+              : profile?.profileImage || null,
+          activityType: profile?.activityType || null,
+          cityName: resolvedCity?.name || null,
+          citySlug: resolvedCity?.slug || null,
+          provinceName: resolvedProvince?.name || null,
+          minPrice,
+          servicesCount: services.length,
+          rating: Number(profile?.rating || 0),
+          reviewCount: Number(profile?.reviewCount || 0),
+          isApproved: Boolean(profile?.isApproved),
+          hasPendingChanges: profile?.pendingStatus === 'pending',
+          isEditReview: Boolean(
+            profile?.isApproved && profile?.pendingStatus === 'pending',
+          ),
+        };
+      }
 
       return {
         id: user.id,
-        salonName: user.barberProfile?.salonName || '',
-        profileImage: user.barberProfile?.profileImage || null,
-        activityType: user.barberProfile?.activityType || null,
-        cityName: user.barberProfile?.city?.name || null,
-        citySlug: user.barberProfile?.city?.slug || null,
-        provinceName: user.barberProfile?.province?.name || null,
+        salonName: profile?.salonName || '',
+        profileImage: profile?.profileImage || null,
+        activityType: profile?.activityType || null,
+        cityName: profile?.city?.name || null,
+        citySlug: profile?.city?.slug || null,
+        provinceName: profile?.province?.name || null,
         minPrice,
         servicesCount: services.length,
-        rating: Number(user.barberProfile?.rating || 0),
-        reviewCount: Number(user.barberProfile?.reviewCount || 0),
+        rating: Number(profile?.rating || 0),
+        reviewCount: Number(profile?.reviewCount || 0),
       };
     });
 
@@ -498,6 +751,153 @@ export class BarberService {
     };
   }
 
+  private prunePendingChanges(
+    draft: BarberPendingChanges,
+    user: User,
+    profile: BarberProfile,
+  ): BarberPendingChanges | null {
+    const next: BarberPendingChanges = { ...draft };
+
+    if (
+      next.fullName !== undefined &&
+      next.fullName.trim() === (user.fullName ?? '').trim()
+    ) {
+      delete next.fullName;
+    }
+
+    if (
+      next.salonName !== undefined &&
+      next.salonName.trim() === (profile.salonName ?? '').trim()
+    ) {
+      delete next.salonName;
+    }
+
+    if (
+      next.provinceId !== undefined &&
+      (next.provinceId ?? null) === (profile.provinceId ?? null)
+    ) {
+      delete next.provinceId;
+    }
+
+    if (
+      next.cityId !== undefined &&
+      (next.cityId ?? null) === (profile.cityId ?? null)
+    ) {
+      delete next.cityId;
+    }
+
+    if (
+      next.address !== undefined &&
+      next.address.trim() === (profile.address ?? '').trim()
+    ) {
+      delete next.address;
+    }
+
+    if (next.bio !== undefined && (next.bio ?? '') === (profile.bio ?? '')) {
+      delete next.bio;
+    }
+
+    if (
+      next.profileImage !== undefined &&
+      (next.profileImage ?? null) === (profile.profileImage ?? null)
+    ) {
+      delete next.profileImage;
+    }
+
+    if (
+      next.portfolioImages !== undefined &&
+      stringArraysEqual(next.portfolioImages, profile.portfolioImages ?? [])
+    ) {
+      delete next.portfolioImages;
+    }
+
+    const hasDiff = MODERATED_DIFF_KEYS.some(key => next[key] !== undefined);
+    if (!hasDiff) {
+      return null;
+    }
+
+    next.submittedAt = new Date().toISOString();
+    return next;
+  }
+
+  private hasPendingDraftChanged(
+    previousDraft: BarberPendingChanges,
+    nextPruned: BarberPendingChanges,
+  ): boolean {
+    return MODERATED_DIFF_KEYS.some(key => {
+      if (key === 'portfolioImages') {
+        if (
+          (previousDraft.portfolioImages === undefined) !==
+          (nextPruned.portfolioImages === undefined)
+        ) {
+          return true;
+        }
+        return !stringArraysEqual(
+          previousDraft.portfolioImages,
+          nextPruned.portfolioImages,
+        );
+      }
+      return previousDraft[key] !== nextPruned[key];
+    });
+  }
+
+  private async resolveEffectiveLocation(
+    profile: BarberProfile,
+    pending: BarberPendingChanges | null | undefined,
+  ): Promise<{
+    provinceId: number | null;
+    cityId: number | null;
+    province: Province | null;
+    city: City | null;
+  }> {
+    const hasPendingCity = Boolean(pending && 'cityId' in pending);
+    const hasPendingProvince = Boolean(pending && 'provinceId' in pending);
+
+    const effectiveCityId = hasPendingCity
+      ? (pending?.cityId ?? null)
+      : (profile.cityId ?? null);
+    const effectiveProvinceId = hasPendingProvince
+      ? (pending?.provinceId ?? null)
+      : (profile.provinceId ?? null);
+
+    let effectiveCity: City | null = null;
+    if (effectiveCityId === (profile.cityId ?? null)) {
+      effectiveCity = profile.city ?? null;
+    } else if (
+      effectiveCityId !== null &&
+      typeof this.cityRepository?.findOne === 'function'
+    ) {
+      effectiveCity = await this.cityRepository.findOne({
+        where: { id: effectiveCityId },
+        relations: { province: true },
+      });
+    }
+
+    let effectiveProvince: Province | null = null;
+    if (effectiveProvinceId === (profile.provinceId ?? null)) {
+      effectiveProvince = profile.province ?? null;
+    } else if (
+      effectiveCity?.province &&
+      effectiveCity.province.id === effectiveProvinceId
+    ) {
+      effectiveProvince = effectiveCity.province;
+    } else if (
+      effectiveProvinceId !== null &&
+      typeof this.provinceRepository?.findOne === 'function'
+    ) {
+      effectiveProvince = await this.provinceRepository.findOne({
+        where: { id: effectiveProvinceId },
+      });
+    }
+
+    return {
+      provinceId: effectiveProvinceId,
+      cityId: effectiveCityId,
+      province: effectiveProvince,
+      city: effectiveCity,
+    };
+  }
+
   async findOneByUserId(userId: number): Promise<any> {
     const user = await this.userRepo.findOne({
       where: { id: userId },
@@ -518,25 +918,43 @@ export class BarberService {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد');
     }
 
+    const pendingStatus: BarberPendingStatus = profile.pendingStatus || 'none';
+    const pending =
+      profile.isApproved && pendingStatus !== 'none'
+        ? profile.pendingChanges
+        : null;
+
+    const location = await this.resolveEffectiveLocation(profile, pending);
+
     return {
       id: user.id,
-      fullName: user.fullName,
+      fullName: pending?.fullName ?? user.fullName,
       phone: user.phone,
+      nationalCode: user.nationalCode || null,
       email: user.email,
       birthDate: user.birthDate || null,
-      salonName: profile.salonName,
-      provinceId: profile.provinceId,
-      cityId: profile.cityId,
-      provinceName: profile.province?.name || null,
-      cityName: profile.city?.name || null,
-      address: profile.address,
-      bio: profile.bio,
-      profileImage: profile.profileImage,
-      portfolioImages: profile.portfolioImages || [],
+      salonName: pending?.salonName ?? profile.salonName,
+      provinceId: location.provinceId,
+      cityId: location.cityId,
+      provinceName: location.province?.name || null,
+      cityName: location.city?.name || null,
+      address: pending?.address ?? profile.address,
+      bio: pending?.bio !== undefined ? pending.bio : profile.bio,
+      profileImage:
+        pending?.profileImage !== undefined
+          ? pending.profileImage
+          : profile.profileImage,
+      portfolioImages:
+        pending?.portfolioImages !== undefined
+          ? pending.portfolioImages
+          : profile.portfolioImages || [],
       workStartTime: profile.workStartTime,
       workEndTime: profile.workEndTime,
       isApproved: profile.isApproved,
       rejectionReason: profile.rejectionReason || null,
+      pendingStatus,
+      hasPendingChanges: pendingStatus === 'pending',
+      pendingRejectionReason: profile.pendingRejectionReason || null,
       slotIntervalMinutes: normalizeSlotIntervalMinutes(
         profile.slotIntervalMinutes,
       ),
@@ -559,7 +977,7 @@ export class BarberService {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد');
     }
 
-    return this.update(profile.userId, dto);
+    return this.update(profile.userId, dto, { byAdmin: true });
   }
 
   /** جزئیات آرایشگر برای پنل ادمین بر اساس شناسهٔ پروفایل (uuid) */
@@ -613,25 +1031,43 @@ export class BarberService {
       throw new NotFoundException('آرایشگر یافت نشد');
     }
 
+    const pendingStatus: BarberPendingStatus = profile.pendingStatus || 'none';
+    const hasPendingEdit = Boolean(
+      profile.isApproved &&
+      pendingStatus === 'pending' &&
+      profile.pendingChanges,
+    );
+    const pending = hasPendingEdit ? profile.pendingChanges : null;
+    const location = await this.resolveEffectiveLocation(profile, pending);
+
     return {
       id: user.id,
       barberProfileId: profile.id,
-      fullName: user.fullName,
+      fullName: pending?.fullName ?? user.fullName,
       phone: user.phone ?? null,
       email: user.email ?? null,
       nationalCode: user.nationalCode ?? null,
       birthDate: user.birthDate ?? null,
       isActive: user.isActive,
-      salonName: profile.salonName,
+      salonName: pending?.salonName ?? profile.salonName,
       activityType: profile.activityType,
-      province: profile.province ?? null,
-      provinceId: profile.provinceId ?? null,
-      city: profile.city ?? null,
-      cityId: profile.cityId ?? null,
-      address: profile.address,
-      bio: profile.bio ?? null,
-      profileImage: profile.profileImage ?? null,
-      portfolioImages: profile.portfolioImages ?? [],
+      province: location.province,
+      provinceId: location.provinceId,
+      city: location.city,
+      cityId: location.cityId,
+      address: pending?.address ?? profile.address,
+      bio:
+        pending?.bio !== undefined
+          ? (pending.bio ?? null)
+          : (profile.bio ?? null),
+      profileImage:
+        pending?.profileImage !== undefined
+          ? (pending.profileImage ?? null)
+          : (profile.profileImage ?? null),
+      portfolioImages:
+        pending?.portfolioImages !== undefined
+          ? pending.portfolioImages
+          : (profile.portfolioImages ?? []),
       workStartTime: profile.workStartTime ?? null,
       workEndTime: profile.workEndTime ?? null,
       slotIntervalMinutes: normalizeSlotIntervalMinutes(
@@ -639,6 +1075,22 @@ export class BarberService {
       ),
       isApproved: profile.isApproved,
       rejectionReason: profile.rejectionReason ?? null,
+      pendingStatus,
+      hasPendingChanges: hasPendingEdit,
+      isEditReview: hasPendingEdit,
+      pendingRejectionReason: profile.pendingRejectionReason ?? null,
+      currentApprovedProfile: hasPendingEdit
+        ? {
+            fullName: user.fullName,
+            salonName: profile.salonName,
+            provinceName: profile.province?.name ?? null,
+            cityName: profile.city?.name ?? null,
+            address: profile.address,
+            bio: profile.bio ?? null,
+            profileImage: profile.profileImage ?? null,
+            portfolioImages: profile.portfolioImages ?? [],
+          }
+        : null,
       rating: Number(profile.rating || 0),
       reviewCount: Number(profile.reviewCount || 0),
       createdAt: profile.createdAt,
@@ -655,8 +1107,19 @@ export class BarberService {
     };
   }
 
-  // متد update اصلاح‌شده برای پشتیبانی از فیلدهای جدید
-  async update(userId: number, dto: UpdateBarberDto): Promise<BarberProfile> {
+  /**
+   * ویرایش پروفایل آرایشگر.
+   *
+   * اگر پروفایل قبلاً تایید شده باشد (`profile.isApproved === true`) و ویرایش
+   * توسط خود آرایشگر انجام شود (`!options?.byAdmin`)، فیلدهای عمومی پروفایل در
+   * `pendingChanges` ذخیره می‌شوند تا نسخهٔ قبلی همچنان برای عموم کاربران نمایش
+   * داده شود و تنها پس از تایید ادمین جایگزین گردد.
+   */
+  async update(
+    userId: number,
+    dto: UpdateBarberDto,
+    options?: { byAdmin?: boolean },
+  ): Promise<BarberProfile> {
     const user = await this.userRepo.findOne({
       where: { id: userId },
       relations: { barberProfile: true },
@@ -670,12 +1133,20 @@ export class BarberService {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد');
     }
 
-    // به‌روزرسانی فیلدهای User
-    if (dto.fullName) {
-      user.fullName = dto.fullName;
+    if (
+      dto.slotIntervalMinutes !== undefined &&
+      !isAllowedSlotIntervalMinutes(dto.slotIntervalMinutes)
+    ) {
+      throw new BadRequestException(
+        'بازه زمانی رزرو باید یکی از مقادیر ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد',
+      );
     }
+
+    // اعتبارسنجی و ذخیره فیلدهای خصوصی User که نیازی به تایید نمایش عمومی ندارند
+    let userChanged = false;
     if (dto.birthDate !== undefined) {
       user.birthDate = dto.birthDate ? new Date(dto.birthDate) : null;
+      userChanged = true;
     }
     if (dto.nationalCode !== undefined) {
       if (dto.nationalCode) {
@@ -695,59 +1166,335 @@ export class BarberService {
       } else {
         user.nationalCode = null;
       }
+      userChanged = true;
     }
-    await this.userRepo.save(user);
 
-    // به‌روزرسانی فیلدهای BarberProfile
-    const updateData: Partial<BarberProfile> = {};
-    if (dto.salonName !== undefined) updateData.salonName = dto.salonName;
-    if (dto.provinceId !== undefined) updateData.provinceId = dto.provinceId;
-    if (dto.cityId !== undefined) updateData.cityId = dto.cityId;
-    if (dto.address !== undefined) updateData.address = dto.address;
-    if (dto.bio !== undefined) updateData.bio = dto.bio;
-    if (dto.workStartTime !== undefined)
-      updateData.workStartTime = dto.workStartTime;
-    if (dto.workEndTime !== undefined) updateData.workEndTime = dto.workEndTime;
+    // فیلدهای عملیاتی زمان‌بندی که مستقیماً اعمال می‌شوند
+    if (dto.workStartTime !== undefined) {
+      profile.workStartTime = dto.workStartTime;
+    }
+    if (dto.workEndTime !== undefined) {
+      profile.workEndTime = dto.workEndTime;
+    }
     if (dto.slotIntervalMinutes !== undefined) {
-      if (!isAllowedSlotIntervalMinutes(dto.slotIntervalMinutes)) {
-        throw new BadRequestException(
-          'بازه زمانی رزرو باید یکی از مقادیر ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد',
-        );
-      }
-      updateData.slotIntervalMinutes = dto.slotIntervalMinutes;
+      profile.slotIntervalMinutes = dto.slotIntervalMinutes;
     }
-    if (dto.profileImage !== undefined)
-      updateData.profileImage = dto.profileImage;
-    // وضعیت تایید فقط از مسیر ادمین (reviewBarber) تغییر می‌کند.
 
-    Object.assign(profile, updateData);
-    return this.profileRepository.save(profile);
+    const byAdmin = Boolean(options?.byAdmin);
+    const hasModeratedFieldInDto =
+      dto.fullName !== undefined ||
+      dto.salonName !== undefined ||
+      dto.provinceId !== undefined ||
+      dto.cityId !== undefined ||
+      dto.address !== undefined ||
+      dto.bio !== undefined ||
+      dto.profileImage !== undefined;
+
+    if (byAdmin || !profile.isApproved) {
+      const filesToDeleteAfterSave: string[] = [];
+      const unapprovedChangedFields: string[] = [];
+
+      if (!byAdmin && !profile.isApproved) {
+        if (
+          dto.fullName &&
+          dto.fullName.trim() !== (user.fullName ?? '').trim()
+        ) {
+          unapprovedChangedFields.push(BARBER_MODERATED_FIELD_LABELS.fullName);
+        }
+        if (
+          dto.salonName !== undefined &&
+          dto.salonName.trim() !== (profile.salonName ?? '').trim()
+        ) {
+          unapprovedChangedFields.push(BARBER_MODERATED_FIELD_LABELS.salonName);
+        }
+        if (
+          dto.provinceId !== undefined &&
+          (dto.provinceId ?? null) !== (profile.provinceId ?? null)
+        ) {
+          unapprovedChangedFields.push(
+            BARBER_MODERATED_FIELD_LABELS.provinceId,
+          );
+        }
+        if (
+          dto.cityId !== undefined &&
+          (dto.cityId ?? null) !== (profile.cityId ?? null)
+        ) {
+          unapprovedChangedFields.push(BARBER_MODERATED_FIELD_LABELS.cityId);
+        }
+        if (
+          dto.address !== undefined &&
+          dto.address.trim() !== (profile.address ?? '').trim()
+        ) {
+          unapprovedChangedFields.push(BARBER_MODERATED_FIELD_LABELS.address);
+        }
+        if (dto.bio !== undefined && (dto.bio ?? '') !== (profile.bio ?? '')) {
+          unapprovedChangedFields.push(BARBER_MODERATED_FIELD_LABELS.bio);
+        }
+        if (
+          dto.profileImage !== undefined &&
+          (dto.profileImage ?? null) !== (profile.profileImage ?? null)
+        ) {
+          unapprovedChangedFields.push(
+            BARBER_MODERATED_FIELD_LABELS.profileImage,
+          );
+        }
+      }
+
+      if (dto.fullName) {
+        user.fullName = dto.fullName.trim();
+        userChanged = true;
+      }
+      if (dto.salonName !== undefined) profile.salonName = dto.salonName;
+      if (dto.provinceId !== undefined) {
+        profile.provinceId = dto.provinceId ?? null;
+      }
+      if (dto.cityId !== undefined) {
+        profile.cityId = dto.cityId ?? null;
+      }
+      if (dto.address !== undefined) profile.address = dto.address;
+      if (dto.bio !== undefined) profile.bio = dto.bio ?? null;
+      if (dto.profileImage !== undefined) {
+        if (
+          profile.profileImage &&
+          profile.profileImage !== dto.profileImage &&
+          profile.pendingChanges?.profileImage !== profile.profileImage
+        ) {
+          filesToDeleteAfterSave.push(profile.profileImage);
+        }
+        profile.profileImage = dto.profileImage ?? null;
+      }
+
+      if (!byAdmin && !profile.isApproved && hasModeratedFieldInDto) {
+        profile.rejectionReason = null;
+      }
+
+      if (byAdmin && profile.pendingChanges) {
+        const rePruned = this.prunePendingChanges(
+          profile.pendingChanges,
+          user,
+          profile,
+        );
+        profile.pendingChanges = rePruned;
+        if (!rePruned) {
+          profile.pendingStatus = 'none';
+          profile.pendingRejectionReason = null;
+        }
+      }
+
+      if (userChanged) {
+        await this.userRepo.save(user);
+      }
+
+      const saved = await this.profileRepository.save(profile);
+      if (filesToDeleteAfterSave.length > 0) {
+        this.filesService?.deleteFiles(filesToDeleteAfterSave);
+      }
+      if (!byAdmin && unapprovedChangedFields.length > 0) {
+        void this.baleNotificationService?.notifyBarberProfileEdited?.({
+          userId: user.id,
+          changedFields: unapprovedChangedFields,
+          isApprovedBarber: false,
+        });
+      }
+      return saved;
+    }
+
+    // پروفایل قبلاً تایید شده و ویرایش توسط خود آرایشگر انجام شده است:
+    // نسخهٔ تاییدشدهٔ فعلی دست‌نخورده می‌ماند تا نمایش عمومی قطع نشود.
+    if (userChanged) {
+      await this.userRepo.save(user);
+    }
+
+    if (!hasModeratedFieldInDto) {
+      return this.profileRepository.save(profile);
+    }
+
+    const previousPendingStatus: BarberPendingStatus =
+      profile.pendingStatus || 'none';
+    const previousDraft = profile.pendingChanges ?? {};
+    const draft: BarberPendingChanges = { ...previousDraft };
+    const supersededDraftFiles: string[] = [];
+
+    if (dto.fullName !== undefined && dto.fullName.trim()) {
+      draft.fullName = dto.fullName.trim();
+    }
+    if (dto.salonName !== undefined) {
+      draft.salonName = dto.salonName;
+    }
+    if (dto.provinceId !== undefined) {
+      draft.provinceId = dto.provinceId ?? null;
+    }
+    if (dto.cityId !== undefined) {
+      draft.cityId = dto.cityId ?? null;
+    }
+    if (dto.address !== undefined) {
+      draft.address = dto.address;
+    }
+    if (dto.bio !== undefined) {
+      draft.bio = dto.bio ?? null;
+    }
+    if (dto.profileImage !== undefined) {
+      if (
+        previousDraft.profileImage &&
+        previousDraft.profileImage !== dto.profileImage &&
+        previousDraft.profileImage !== profile.profileImage
+      ) {
+        supersededDraftFiles.push(previousDraft.profileImage);
+      }
+      draft.profileImage = dto.profileImage ?? null;
+    }
+
+    const pruned = this.prunePendingChanges(draft, user, profile);
+    const shouldNotifyBale = Boolean(
+      pruned &&
+      (previousPendingStatus !== 'pending' ||
+        this.hasPendingDraftChanged(previousDraft, pruned)),
+    );
+    if (pruned) {
+      profile.pendingChanges = pruned;
+      profile.pendingStatus = 'pending';
+      profile.pendingRejectionReason = null;
+    } else {
+      profile.pendingChanges = null;
+      profile.pendingStatus = 'none';
+      profile.pendingRejectionReason = null;
+    }
+
+    const saved = await this.profileRepository.save(profile);
+    if (supersededDraftFiles.length > 0) {
+      this.filesService?.deleteFiles(supersededDraftFiles);
+    }
+    if (shouldNotifyBale && pruned) {
+      void this.baleNotificationService?.notifyBarberProfileEdited?.({
+        userId: user.id,
+        changedFields: getBarberChangedFieldLabels(pruned),
+        isApprovedBarber: true,
+      });
+    }
+    return saved;
   }
 
   async updatePortfolioImages(
     userId: number,
     portfolioImages: string[],
   ): Promise<BarberProfile> {
-    const profile = await this.profileRepository.findOne({
-      where: { userId },
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: { barberProfile: true },
     });
+    const profile =
+      user?.barberProfile ??
+      (await this.profileRepository.findOne({ where: { userId } }));
+
     if (!profile) {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد');
     }
 
-    profile.portfolioImages = portfolioImages;
-    return this.profileRepository.save(profile);
+    const liveImages = profile.portfolioImages ?? [];
+
+    if (!profile.isApproved) {
+      const portfolioChanged = !stringArraysEqual(portfolioImages, liveImages);
+      const removedLive = liveImages.filter(
+        image => !portfolioImages.includes(image),
+      );
+      profile.portfolioImages = portfolioImages;
+      profile.rejectionReason = null;
+      const saved = await this.profileRepository.save(profile);
+      if (removedLive.length > 0) {
+        this.filesService?.deleteFiles(removedLive);
+      }
+      if (portfolioChanged) {
+        void this.baleNotificationService?.notifyBarberProfileEdited?.({
+          userId,
+          changedFields: [BARBER_MODERATED_FIELD_LABELS.portfolioImages],
+          isApprovedBarber: false,
+        });
+      }
+      return saved;
+    }
+
+    // برای آرایشگر تاییدشده، عکس‌های فعلی برای نمایش عمومی دست‌نخورده می‌مانند
+    // و فقط عکس‌های پیش‌نویس قبلی که دیگر استفاده نمی‌شوند پاک می‌شوند.
+    const previousPendingStatus: BarberPendingStatus =
+      profile.pendingStatus || 'none';
+    const previousDraft = profile.pendingChanges ?? {};
+    const previousDraftImages = previousDraft.portfolioImages ?? [];
+    const removedDraftOnly = previousDraftImages.filter(
+      image => !portfolioImages.includes(image) && !liveImages.includes(image),
+    );
+
+    const draft: BarberPendingChanges = {
+      ...previousDraft,
+      portfolioImages,
+    };
+
+    const effectiveUser =
+      user ?? ({ id: userId, fullName: '' } as unknown as User);
+    const pruned = this.prunePendingChanges(draft, effectiveUser, profile);
+    const shouldNotifyBale = Boolean(
+      pruned &&
+      (previousPendingStatus !== 'pending' ||
+        this.hasPendingDraftChanged(previousDraft, pruned)),
+    );
+
+    if (pruned) {
+      profile.pendingChanges = pruned;
+      profile.pendingStatus = 'pending';
+      profile.pendingRejectionReason = null;
+    } else {
+      profile.pendingChanges = null;
+      profile.pendingStatus = 'none';
+      profile.pendingRejectionReason = null;
+    }
+
+    const saved = await this.profileRepository.save(profile);
+    if (removedDraftOnly.length > 0) {
+      this.filesService?.deleteFiles(removedDraftOnly);
+    }
+
+    if (shouldNotifyBale && pruned) {
+      void this.baleNotificationService?.notifyBarberProfileEdited?.({
+        userId,
+        changedFields: getBarberChangedFieldLabels(pruned),
+        isApprovedBarber: true,
+      });
+    }
+
+    return {
+      ...saved,
+      portfolioImages,
+    };
   }
 
   remove(id: number) {
     return `This action removes a #${id} barber`;
   }
 
-  async reviewBarber(userId: number, dto: ReviewBarberDto): Promise<any> {
+  async reviewBarber(
+    idOrUserId: number | string,
+    dto: ReviewBarberDto,
+  ): Promise<any> {
+    const normalizedId =
+      typeof idOrUserId === 'string'
+        ? toEnglishDigits(idOrUserId.trim())
+        : String(idOrUserId);
+    const numericUserId = Number(normalizedId);
+
+    let resolvedUserId = numericUserId;
+    if (!Number.isInteger(numericUserId) || numericUserId < 1) {
+      const profileByUuid = await this.profileRepository.findOne({
+        where: { id: normalizedId },
+      });
+      if (!profileByUuid) {
+        throw new NotFoundException('پروفایل آرایشگر برای این کاربر یافت نشد');
+      }
+      resolvedUserId = profileByUuid.userId;
+    }
+
     // چون id دریافتی از فرانت User.id است
     const user = await this.userRepo.findOne({
       where: {
-        id: userId,
+        id: resolvedUserId,
       },
       relations: {
         barberProfile: {
@@ -772,14 +1519,76 @@ export class BarberService {
       throw new NotFoundException('پروفایل آرایشگر برای این کاربر یافت نشد');
     }
 
-    // تایید پروفایل
+    const wasApproved = Boolean(barber.isApproved);
+    const hasPendingToApply = Boolean(
+      barber.pendingChanges && barber.pendingStatus === 'pending',
+    );
+    const filesToDeleteAfterSave: string[] = [];
+
+    // تایید پروفایل (ثبت‌نام اولیه یا ویرایش پروفایل)
     if (dto.isApproved === true) {
+      if (hasPendingToApply && barber.pendingChanges) {
+        const pending = barber.pendingChanges;
+
+        if (pending.fullName !== undefined && pending.fullName.trim()) {
+          user.fullName = pending.fullName.trim();
+          await this.userRepo.save(user);
+        }
+
+        if (pending.salonName !== undefined) {
+          barber.salonName = pending.salonName;
+        }
+
+        if ('provinceId' in pending) {
+          barber.provinceId = pending.provinceId ?? null;
+          barber.province = (pending.provinceId
+            ? { id: pending.provinceId }
+            : null) as unknown as Province;
+        }
+
+        if ('cityId' in pending) {
+          barber.cityId = pending.cityId ?? null;
+          barber.city = (pending.cityId
+            ? { id: pending.cityId }
+            : null) as unknown as City;
+        }
+
+        if (pending.address !== undefined) {
+          barber.address = pending.address;
+        }
+
+        if (pending.bio !== undefined) {
+          barber.bio = pending.bio ?? null;
+        }
+
+        if (pending.profileImage !== undefined) {
+          if (
+            barber.profileImage &&
+            barber.profileImage !== pending.profileImage
+          ) {
+            filesToDeleteAfterSave.push(barber.profileImage);
+          }
+          barber.profileImage = pending.profileImage ?? null;
+        }
+
+        if (pending.portfolioImages !== undefined) {
+          const oldImages = barber.portfolioImages ?? [];
+          for (const oldImage of oldImages) {
+            if (!pending.portfolioImages.includes(oldImage)) {
+              filesToDeleteAfterSave.push(oldImage);
+            }
+          }
+          barber.portfolioImages = pending.portfolioImages;
+        }
+      }
+
       barber.isApproved = true;
       barber.rejectionReason = null;
-    }
-
-    // رد پروفایل
-    else {
+      barber.pendingChanges = null;
+      barber.pendingStatus = 'none';
+      barber.pendingRejectionReason = null;
+    } else {
+      // رد پروفایل یا رد تغییرات جدید
       const reason = dto.rejectionReason?.trim();
 
       if (!reason) {
@@ -788,23 +1597,50 @@ export class BarberService {
         );
       }
 
-      barber.isApproved = false;
-      barber.rejectionReason = reason;
+      if (wasApproved) {
+        // آرایشگر از قبل تایید شده است: پروفایل قبلی همچنان برای همه فعال می‌ماند
+        // و فقط وضعیت ویرایش جدید به «رد شده» تغییر می‌کند.
+        barber.isApproved = true;
+        barber.rejectionReason = null;
+        barber.pendingStatus = 'rejected';
+        barber.pendingRejectionReason = reason;
+      } else {
+        barber.isApproved = false;
+        barber.rejectionReason = reason;
+        barber.pendingStatus = 'none';
+        barber.pendingRejectionReason = null;
+      }
     }
 
     const updatedBarber = await this.profileRepository.save(barber);
+
+    if (filesToDeleteAfterSave.length > 0) {
+      this.filesService?.deleteFiles(filesToDeleteAfterSave);
+    }
+
+    // ارسال پیامک تایید پروفایل با قالب 172833 در صورت تایید ثبت‌نام یا تایید ویرایش
+    if (dto.isApproved === true && (!wasApproved || hasPendingToApply)) {
+      await this.bookingSmsService?.sendBarberProfileApprovedToBarber(
+        user.phone,
+        { barberName: user.fullName },
+      );
+    }
 
     return {
       status: 200,
       message: dto.isApproved
         ? 'پروفایل آرایشگر با موفقیت تایید شد'
-        : 'پروفایل آرایشگر رد شد',
+        : wasApproved
+          ? 'تغییرات جدید پروفایل رد شد؛ نسخهٔ قبلی پروفایل همچنان برای کاربران فعال است'
+          : 'پروفایل آرایشگر رد شد',
       data: {
         id: user.id,
         fullName: user.fullName,
         salonName: updatedBarber.salonName,
         isApproved: updatedBarber.isApproved,
         rejectionReason: updatedBarber.rejectionReason,
+        pendingStatus: updatedBarber.pendingStatus,
+        pendingRejectionReason: updatedBarber.pendingRejectionReason,
       },
     };
   }

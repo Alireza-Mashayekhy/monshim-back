@@ -14,7 +14,7 @@ import {
   toFa,
   toISODate,
 } from '@/lib/jalali';
-import { computeOrderPricing } from '@/lib/order-pricing';
+import { computeOrderPricing, formatCommissionLabel } from '@/lib/order-pricing';
 import { formatPrice } from '@/lib/utils';
 import { Barber, Service } from '@/services/features/barber/types';
 import { usePaymentConfig } from '@/services/features/settings/hooks';
@@ -68,12 +68,11 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
     0,
   );
 
-  // محاسبه یکپارچه با بک‌اند: جمع بیعانه‌ها (در نبود بیعانه، مبلغ کل خدمت) + ۱۰٪ بیشترین بیعانه
+  // محاسبه یکپارچه با بک‌اند: جمع بیعانه‌ها (در نبود بیعانه، مبلغ کل خدمت) + کمیسیون پلکانی سایت
   const { data: paymentConfig } = usePaymentConfig();
-  const commissionPercent = paymentConfig?.commissionPercent ?? 10;
   const pricing = useMemo(
-    () => computeOrderPricing(selectedServices, { commissionPercent }),
-    [selectedServices, commissionPercent],
+    () => computeOrderPricing(selectedServices, paymentConfig),
+    [selectedServices, paymentConfig],
   );
   const totalPrice = pricing.totalServicePrice;
   const commissionAmount = pricing.commissionAmount;
@@ -292,7 +291,7 @@ export const Step2BookConfirm: React.FC<Step2BookConfirmProps> = ({
 
             <div className="flex items-center justify-between">
               <span className="text-gray-500">
-                کمیسیون سایت ({toFa(commissionPercent)}٪ بیشترین بیعانه)
+                {formatCommissionLabel(pricing, 'کمیسیون سایت')}
               </span>
               <span className="font-bold text-primary text-base">
                 {toFa(formatPrice(commissionAmount))} تومان
