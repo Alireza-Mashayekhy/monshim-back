@@ -4,6 +4,19 @@ import { ApiSingleResponse } from '@/services/api/types';
 
 import { PublicSiteSettings, SiteSettings } from './types';
 
+function unwrapPublicSettings(payload: unknown): PublicSiteSettings {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    'data' in payload &&
+    payload.data &&
+    typeof payload.data === 'object'
+  ) {
+    return payload.data as PublicSiteSettings;
+  }
+  return payload as PublicSiteSettings;
+}
+
 export async function getSiteSettings() {
   const { data } = await api.get<ApiSingleResponse<SiteSettings>>(
     endpoints.settings.get,
@@ -21,16 +34,18 @@ export async function updateSiteSettings(dto: Partial<SiteSettings>) {
   return data;
 }
 
-export async function getPublicSettings() {
-  const { data } = await api.get<PublicSiteSettings>(endpoints.settings.public);
+export async function getPublicSettings(): Promise<PublicSiteSettings> {
+  const { data } = await api.get<
+    ApiSingleResponse<PublicSiteSettings> | PublicSiteSettings
+  >(endpoints.settings.public);
 
-  return data;
+  return unwrapPublicSettings(data);
 }
 
-export async function getPaymentConfig() {
-  const { data } = await api.get<PublicSiteSettings>(
-    endpoints.settings.paymentConfig,
-  );
+export async function getPaymentConfig(): Promise<PublicSiteSettings> {
+  const { data } = await api.get<
+    ApiSingleResponse<PublicSiteSettings> | PublicSiteSettings
+  >(endpoints.settings.paymentConfig);
 
-  return data;
+  return unwrapPublicSettings(data);
 }

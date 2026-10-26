@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
@@ -17,14 +17,14 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatPrice } from '@/lib/utils';
+import { formatPrice, unformatNumberInput } from '@/lib/utils';
 import { useBankCards, useWithdraw } from '@/services/features/wallet/hooks';
 
 const schema = z.object({
   amount: z
     .string()
     .min(1, 'مبلغ الزامی است')
-    .refine(val => parseFloat(val.replace(/,/g, '')) >= 1, {
+    .refine(val => unformatNumberInput(val) >= 1, {
       message: 'حداقل مبلغ برداشت ۱ تومان است',
     }),
   cardId: z.string().min(1, 'انتخاب کارت الزامی است'),
@@ -61,9 +61,9 @@ export function WithdrawDrawer({
     },
   });
 
-  const { reset, watch, handleSubmit, setValue } = methods;
-  const amountValue = watch('amount');
-  const parsedAmount = parseFloat(amountValue?.replace(/,/g, '') || '0');
+  const { control, reset, handleSubmit, setValue } = methods;
+  const amountValue = useWatch({ control, name: 'amount' });
+  const parsedAmount = unformatNumberInput(amountValue);
 
   const handleFillFullAmount = () => {
     if (balance > 0) {

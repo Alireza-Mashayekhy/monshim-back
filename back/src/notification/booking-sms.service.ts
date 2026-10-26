@@ -6,6 +6,8 @@ import {
   barberCanceledParams,
   barberNewBookingParams,
   BarberParams,
+  BarberProfileApprovedParams,
+  barberProfileApprovedParams,
   bookingParams,
   BookingSmsParams,
   DepositLinkParams,
@@ -156,6 +158,19 @@ export class BookingSmsService {
       SMS_TEMPLATES.DEPOSIT_PAID_CUSTOMER,
       depositPaidCustomerParams(params),
       'پرداخت بیعانه به مشتری',
+    );
+  }
+
+  /** ✅ تأیید پروفایل آرایشگر (قالب 172833) */
+  async sendBarberProfileApprovedToBarber(
+    barberPhone: string,
+    params: BarberProfileApprovedParams,
+  ): Promise<void> {
+    await this.safeSend(
+      barberPhone,
+      SMS_TEMPLATES.BARBER_PROFILE_APPROVED,
+      barberProfileApprovedParams(params),
+      'تأیید پروفایل به آرایشگر',
     );
   }
 

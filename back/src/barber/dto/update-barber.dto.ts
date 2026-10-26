@@ -1,6 +1,7 @@
 // src/barber/dto/update-barber.dto.ts
 import { IsIn, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 import { ALLOWED_SLOT_INTERVAL_MINUTES } from 'src/booking/slot-intervals';
+import { NormalizeDigits, NormalizeNumber } from 'src/common/utils/digits.util';
 
 export class UpdateBarberDto {
   @IsOptional()
@@ -12,6 +13,7 @@ export class UpdateBarberDto {
   birthDate?: string | null;
 
   @IsOptional()
+  @NormalizeDigits()
   @IsString()
   nationalCode?: string | null;
 
@@ -20,12 +22,14 @@ export class UpdateBarberDto {
   salonName?: string;
 
   @IsOptional()
+  @NormalizeNumber()
   @IsNumber()
-  provinceId?: number;
+  provinceId?: number | null;
 
   @IsOptional()
+  @NormalizeNumber()
   @IsNumber()
-  cityId?: number;
+  cityId?: number | null;
 
   @IsOptional()
   @IsString()
@@ -33,7 +37,7 @@ export class UpdateBarberDto {
 
   @IsOptional()
   @IsString()
-  bio?: string;
+  bio?: string | null;
 
   @IsOptional()
   @IsString()
@@ -44,6 +48,7 @@ export class UpdateBarberDto {
   workEndTime?: string | null;
 
   @IsOptional()
+  @NormalizeNumber()
   @IsInt()
   @IsIn([...ALLOWED_SLOT_INTERVAL_MINUTES], {
     message: 'بازه زمانی رزرو باید یکی از مقادیر ۱۵، ۳۰، ۴۵ یا ۶۰ دقیقه باشد',
@@ -52,7 +57,7 @@ export class UpdateBarberDto {
 
   @IsOptional()
   @IsString()
-  profileImage?: string;
+  profileImage?: string | null;
 
   /**
    * توجه: فیلدهای `isApproved` و `rejectionReason` عمداً از این DTO حذف

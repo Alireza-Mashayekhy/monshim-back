@@ -3,6 +3,7 @@ import {
   SMS_PARAM_MAX_LENGTH,
 } from '../common/constants/constants';
 import {
+  barberProfileApprovedParams,
   bookingParams,
   clipForSms,
   depositLinkParams,
@@ -79,10 +80,28 @@ describe('sms-templates', () => {
     ).toMatch(/^[۰-۹]{4}\/[۰-۹]{2}\/[۰-۹]{2}$/);
   });
 
-  it('از قالب‌های خواسته‌شده برای تغییر ساعت و پرداخت بیعانه استفاده می‌کند', () => {
+  it('از قالب‌های خواسته‌شده برای تغییر ساعت، پرداخت بیعانه و تایید پروفایل استفاده می‌کند', () => {
     expect(SMS_TEMPLATES.BOOKING_TIME_CHANGED_CUSTOMER).toBe(488101);
     expect(SMS_TEMPLATES.DEPOSIT_PAID_BARBER).toBe(798384);
     expect(SMS_TEMPLATES.DEPOSIT_PAID_CUSTOMER).toBe(634504);
+    expect(SMS_TEMPLATES.BARBER_PROFILE_APPROVED).toBe(172833);
+  });
+
+  it('پارامتر NAME پیامک تایید پروفایل آرایشگر (172833) را می‌سازد و در سقف ۲۵ کاراکتر نگه می‌دارد', () => {
+    expect(barberProfileApprovedParams({ barberName: 'علی رضایی' })).toEqual([
+      { name: 'NAME', value: 'علی رضایی' },
+    ]);
+
+    expect(barberProfileApprovedParams({ barberName: '   ' })).toEqual([
+      { name: 'NAME', value: 'همکار' },
+    ]);
+
+    const clipped = barberProfileApprovedParams({
+      barberName: 'سید محمدحسین طباطبایی بزرگمهر تهرانی',
+    });
+    expectAllParamsWithinLimit(clipped);
+    expect(clipped[0].name).toBe('NAME');
+    expect(clipped[0].value).toHaveLength(MAX);
   });
 
   it('پارامترهای پیامک پرداخت بیعانه به آرایشگر را با ترتیب قالب می‌سازد', () => {

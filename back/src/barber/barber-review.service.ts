@@ -11,6 +11,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { getPagination, QueryDto } from 'src/common/query';
+import { toEnglishDigits } from 'src/common/utils/digits.util';
 import { In, Repository } from 'typeorm';
 
 import { CreateBarberReviewDto } from './dto/create-barber-review.dto';
@@ -245,10 +246,19 @@ export class BarberReviewService implements OnModuleInit {
     }
 
     if (query.search?.trim()) {
-      qb.andWhere(
-        '(review.comment LIKE :search OR customer.fullName LIKE :search OR barber.salonName LIKE :search OR barberUser.fullName LIKE :search)',
-        { search: `%${query.search.trim()}%` },
-      );
+      const rawSearch = query.search.trim();
+      const normalizedSearch = toEnglishDigits(rawSearch);
+      if (normalizedSearch !== rawSearch) {
+        qb.andWhere(
+          '(review.comment LIKE :search OR review.comment LIKE :rawSearch OR customer.fullName LIKE :search OR customer.fullName LIKE :rawSearch OR barber.salonName LIKE :search OR barber.salonName LIKE :rawSearch OR barberUser.fullName LIKE :search OR barberUser.fullName LIKE :rawSearch)',
+          { search: `%${normalizedSearch}%`, rawSearch: `%${rawSearch}%` },
+        );
+      } else {
+        qb.andWhere(
+          '(review.comment LIKE :search OR customer.fullName LIKE :search OR barber.salonName LIKE :search OR barberUser.fullName LIKE :search)',
+          { search: `%${normalizedSearch}%` },
+        );
+      }
     }
 
     const { skip, take } = getPagination(page, limit);

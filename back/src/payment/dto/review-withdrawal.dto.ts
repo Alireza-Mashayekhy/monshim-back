@@ -1,8 +1,10 @@
 import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { NormalizeDigits } from 'src/common/utils/digits.util';
 
 export class ApproveWithdrawalDto {
   /** شناسهٔ پیگیری واریز بانکی (اختیاری) */
   @IsOptional()
+  @NormalizeDigits()
   @IsString()
   @MaxLength(128)
   transferReference?: string;

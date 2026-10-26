@@ -1,20 +1,32 @@
 // components/form/formatted-number-input.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-
+import { sanitizeIntegerInput, stripNumericSeparators } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 
 interface FormattedNumberInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange' | 'value'> {
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    'type' | 'onChange' | 'value'
+  > {
   value: string | number;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
 }
 
+// فرمت‌کننده عدد با کاما و پشتیبانی از ارقام فارسی/عربی
+function formatNumber(val: string | number | undefined | null): string {
+  if (val === undefined || val === null || val === '') return '';
+  const strValue =
+    typeof val === 'number' ? String(val) : stripNumericSeparators(val);
+  const num = parseFloat(strValue);
+  if (isNaN(num)) return '';
+  return Math.trunc(num).toLocaleString('en-US');
+}
+
 /**
- * کامپوننت ورودی عددی با جداکننده سه‌رقمی (کاما)
+ * کامپوننت ورودی عددی با جداکننده سه‌رقمی (کاما) و پذیرش اعداد فارسی/عربی
  * برای استفاده در فرم‌هایی که از react-hook-form استفاده نمی‌کنند
  */
 export default function FormattedNumberInput({
@@ -24,41 +36,23 @@ export default function FormattedNumberInput({
   className,
   ...rest
 }: FormattedNumberInputProps) {
-  const [displayValue, setDisplayValue] = useState('');
-
-  // فرمت‌کننده عدد با کاما
-  const formatNumber = (val: string | number | undefined | null): string => {
-    if (val === undefined || val === null || val === '') return '';
-    const strValue = typeof val === 'string' ? val.replace(/,/g, '') : String(val);
-    const num = parseFloat(strValue);
-    if (isNaN(num)) return '';
-    return num.toLocaleString('en-US');
-  };
-
-  // همگام‌سازی با مقدار بیرونی
-  useEffect(() => {
-    setDisplayValue(formatNumber(value));
-  }, [value]);
+  const displayValue = formatNumber(value);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawInput = e.target.value;
-    let raw = rawInput.replace(/,/g, '').replace(/[^0-9]/g, '');
+    const raw = sanitizeIntegerInput(e.target.value);
 
     if (raw === '') {
-      setDisplayValue('');
       onChange('');
       return;
     }
 
     const numValue = parseFloat(raw);
     if (isNaN(numValue)) {
-      setDisplayValue('');
       onChange('');
       return;
     }
 
-    onChange(raw);
-    setDisplayValue(formatNumber(raw));
+    onChange(String(Math.trunc(numValue)));
   };
 
   return (

@@ -123,8 +123,10 @@ export default function PortfolioManager({
     setIsEditing(false);
   };
 
+  const effectiveSavedImages = isEditing ? savedImages : currentImages;
+
   const displayedImages = [
-    ...savedImages.map((src, index) => ({
+    ...effectiveSavedImages.map((src, index) => ({
       id: `saved-${src}-${index}`,
       src: getFullImageUrl(src) ?? src,
       isSaved: true,

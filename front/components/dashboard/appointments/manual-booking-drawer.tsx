@@ -45,7 +45,7 @@ import { DEPOSIT_PAYMENT_TIMEOUT_HOURS } from '@/constants/booking';
 import { useDebounce } from '@/hooks/use-debounce';
 import { jalaliToIso } from '@/lib/date-utils';
 import { gregorianToJalali } from '@/lib/jalali';
-import { computeOrderPricing } from '@/lib/order-pricing';
+import { computeOrderPricing, formatCommissionLabel } from '@/lib/order-pricing';
 import { normalizePhone } from '@/lib/phone';
 import { cn, formatPrice, toPersianDigits } from '@/lib/utils';
 import {
@@ -225,7 +225,6 @@ export function ManualBookingDrawer({
   const { data: services, isLoading: servicesLoading } = useMyServices();
 
   const { data: paymentConfig } = usePaymentConfig();
-  const commissionPercent = paymentConfig?.commissionPercent ?? 10;
 
   const selectedServices = useMemo(() => {
     const list = services?.data ?? [];
@@ -245,12 +244,10 @@ export function ManualBookingDrawer({
 
   const invoicePreview = useMemo(() => {
     if (!selectedServices.length) return null;
-    const computed = computeOrderPricing(selectedServices, {
-      commissionPercent,
-    });
+    const computed = computeOrderPricing(selectedServices, paymentConfig);
     if (computed.depositAmount <= 0) return null;
     return computed;
-  }, [selectedServices, commissionPercent]);
+  }, [selectedServices, paymentConfig]);
 
   const { data: barberProfile } = useMyBarberProfile();
   const addCustomer = useAddClubCustomer();
@@ -1019,8 +1016,7 @@ export function ManualBookingDrawer({
 
                       <div className="flex items-center justify-between text-[10px] text-gray-500">
                         <span>
-                          کمیسیون سایت ({toPersianDigits(commissionPercent)}٪
-                          بیشترین بیعانه):
+                          {formatCommissionLabel(invoicePreview, 'کمیسیون سایت')}:
                         </span>
                         <span className="font-bold text-primary">
                           {toPersianDigits(
@@ -1055,8 +1051,7 @@ export function ManualBookingDrawer({
                   ) : (
                     <span className="text-[10px] font-bold text-gray-600">
                       مبلغ پرداختی مشتری = جمع بیعانه‌ها (در نبود بیعانه، مبلغ
-                      کل خدمت) + {toPersianDigits(commissionPercent)}٪ بیشترین
-                      بیعانه
+                      کل خدمت) + کمیسیون پلکانی سایت (تا سقف ۲۰۰٬۰۰۰ تومان)
                     </span>
                   )
                 ) : (

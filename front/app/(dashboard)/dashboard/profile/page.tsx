@@ -167,7 +167,36 @@ export default function ProfilePage() {
     );
   }
 
-  const isRejected = profile?.data?.rejectionReason;
+  const profileData = profile?.data;
+  const isApproved = Boolean(profileData?.isApproved);
+  const pendingStatus = profileData?.pendingStatus ?? 'none';
+  const hasPendingEdit = isApproved && pendingStatus === 'pending';
+  const hasRejectedEdit = isApproved && pendingStatus === 'rejected';
+  const isInitialRejected = !isApproved && Boolean(profileData?.rejectionReason);
+
+  const statusTone = hasRejectedEdit || isInitialRejected
+    ? 'red'
+    : hasPendingEdit || !isApproved
+      ? 'yellow'
+      : 'green';
+
+  const statusCardClass =
+    statusTone === 'green'
+      ? 'border-green-500 bg-green-50'
+      : statusTone === 'red'
+        ? 'border-red-500 bg-red-50'
+        : 'border-yellow-500 bg-yellow-50';
+
+  const statusBadgeClass =
+    statusTone === 'green'
+      ? 'bg-green-100 text-green-700'
+      : statusTone === 'red'
+        ? 'bg-red-100 text-red-700'
+        : 'bg-yellow-100 text-yellow-700';
+
+  const statusEmoji =
+    statusTone === 'green' ? '✅' : statusTone === 'red' ? '❌' : '⏳';
+
   const myReferrals = referralsData?.data?.referrals ?? [];
   const referralStats = referralsData?.data?.stats;
 
@@ -198,42 +227,61 @@ export default function ProfilePage() {
       {/* وضعیت تایید */}
       {profile && (
         <FadeIn delay={0.05}>
-          <AppCard
-            className={`border-r-4 ${
-              profile?.data?.isApproved
-                ? 'border-green-500 bg-green-50'
-                : isRejected
-                  ? 'border-red-500 bg-red-50'
-                  : 'border-yellow-500 bg-yellow-50'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-full ${
-                  profile?.data?.isApproved
-                    ? 'bg-green-100 text-green-700'
-                    : isRejected
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                }`}
-              >
-                {profile?.data?.isApproved ? '✅' : isRejected ? '❌' : '⏳'}
+          <AppCard className={`border-r-4 ${statusCardClass}`}>
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-full shrink-0 ${statusBadgeClass}`}>
+                {statusEmoji}
               </div>
-              <div>
+              <div className="space-y-1">
                 <p className="font-bold">
-                  {profile?.data?.isApproved
-                    ? 'حساب شما تایید شده است'
-                    : isRejected
-                      ? 'درخواست شما رد شده است'
-                      : 'در انتظار تایید'}
+                  {hasPendingEdit
+                    ? 'تغییرات جدید پروفایل در انتظار تایید است'
+                    : hasRejectedEdit
+                      ? 'ویرایش جدید پروفایل شما تایید نشد'
+                      : isApproved
+                        ? 'حساب و اطلاعات پروفایل شما تایید شده است'
+                        : isInitialRejected
+                          ? 'درخواست شما رد شده است'
+                          : 'در انتظار تایید'}
                 </p>
-                {isRejected && (
-                  <p className="text-sm text-red-600 mt-1">
-                    دلیل: {profile?.data?.rejectionReason}
+
+                {hasPendingEdit && (
+                  <p className="text-sm text-yellow-800">
+                    اطلاعات جدیدی که وارد کرده‌اید در پروفایل شما ذخیره شده و در حال
+                    بررسی است. تا زمان تایید، پروفایل تاییدشدهٔ قبلی شما بدون وقفه به
+                    کاربران نمایش داده می‌شود.
                   </p>
                 )}
-                {!profile?.data?.isApproved && !isRejected && (
-                  <p className="text-sm text-yellow-600 mt-1">
+
+                {hasRejectedEdit && (
+                  <>
+                    {profileData?.pendingRejectionReason && (
+                      <p className="text-sm font-medium text-red-700">
+                        دلیل عدم تایید: {profileData.pendingRejectionReason}
+                      </p>
+                    )}
+                    <p className="text-sm text-red-600">
+                      پروفایل تاییدشدهٔ قبلی شما همچنان فعال است و به کاربران نمایش
+                      داده می‌شود. می‌توانید اطلاعات جدید را اصلاح و دوباره ذخیره کنید.
+                    </p>
+                  </>
+                )}
+
+                {isApproved && !hasPendingEdit && !hasRejectedEdit && (
+                  <p className="text-sm text-green-700">
+                    اطلاعات فعلی پروفایل شما تایید شده و برای همهٔ کاربران قابل مشاهده
+                    است.
+                  </p>
+                )}
+
+                {isInitialRejected && (
+                  <p className="text-sm text-red-600">
+                    دلیل: {profileData?.rejectionReason}
+                  </p>
+                )}
+
+                {!isApproved && !isInitialRejected && (
+                  <p className="text-sm text-yellow-700">
                     اطلاعات شما در حال بررسی است، پس از تایید فعال می‌شود.
                   </p>
                 )}

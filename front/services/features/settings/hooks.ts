@@ -42,6 +42,12 @@ export function useUpdateSiteSettings() {
       queryClient.invalidateQueries({
         queryKey: ['adminSettings'],
       });
+      queryClient.invalidateQueries({
+        queryKey: ['publicSettings'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['paymentConfig'],
+      });
 
       toast.success('تنظیمات با موفقیت ذخیره شد');
     },

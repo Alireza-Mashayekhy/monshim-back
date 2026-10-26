@@ -36,6 +36,9 @@ export const SMS_TEMPLATES = {
 
   /** ✅ پرداخت موفق بیعانه از لینک — پیامک به مشتری */
   DEPOSIT_PAID_CUSTOMER: 634504,
+
+  /** ✅ تأیید پروفایل آرایشگر — پیامک به آرایشگر */
+  BARBER_PROFILE_APPROVED: 172833,
 } as const;
 
 /** تبدیل ارقام انگلیسی به فارسی */
@@ -122,6 +125,10 @@ export interface DepositPaidCustomerParams {
   salonName: string;
 }
 
+export interface BarberProfileApprovedParams {
+  barberName: string;
+}
+
 /** پارامترهای مشترک قالب‌های نوبت */
 export function bookingParams(params: BookingSmsParams) {
   return [
@@ -179,4 +186,11 @@ export function depositLinkParams(params: DepositLinkParams) {
     { name: 'SALON_NAME', value: clipForSms(params.salonName, 'سالن') },
     { name: 'PAYMENT_LINK', value: String(params.paymentToken ?? '').trim() },
   ];
+}
+
+/** پارامترهای قالب «تأیید پروفایل آرایشگر» (قالب 172833 — #NAME#) */
+export function barberProfileApprovedParams(
+  params: BarberProfileApprovedParams,
+) {
+  return [{ name: 'NAME', value: clipForSms(params.barberName, 'همکار') }];
 }

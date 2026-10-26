@@ -139,11 +139,17 @@ export const useUpdateBarberProfile = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: UpdateBarberProfile) => updateBarberProfile(dto),
-    onSuccess: () => {
+    onSuccess: response => {
       queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
       queryClient.invalidateQueries({ queryKey: ['barber'] });
       queryClient.invalidateQueries({ queryKey: ['available-slots'] });
-      toast.success('پروفایل با موفقیت به‌روزرسانی شد.');
+      if (response?.data?.pendingStatus === 'pending') {
+        toast.success(
+          'تغییرات ذخیره شد و پس از تایید پشتیبانی برای کاربران نمایش داده می‌شود.',
+        );
+      } else {
+        toast.success('پروفایل با موفقیت به‌روزرسانی شد.');
+      }
     },
     onError: (error: any) => {
       toast.error(
@@ -213,8 +219,18 @@ export const useUploadProfileImage = () => {
   return useMutation({
     mutationFn: (file: File) => uploadProfileImage(file),
     onSuccess: () => {
+      const currentProfile =
+        queryClient.getQueryData<ApiSingleResponse<BarberProfile>>([
+          'my-barber-profile',
+        ]);
       queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
-      toast.success('عکس پروفایل با موفقیت آپلود شد.');
+      if (currentProfile?.data?.isApproved) {
+        toast.success(
+          'عکس پروفایل ذخیره شد و پس از تایید پشتیبانی برای کاربران نمایش داده می‌شود.',
+        );
+      } else {
+        toast.success('عکس پروفایل با موفقیت آپلود شد.');
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'خطا در آپلود عکس');
@@ -226,9 +242,15 @@ export const useUpdateBarberPortfolio = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: UpdateBarberPortfolio) => updateBarberPortfolio(input),
-    onSuccess: async () => {
+    onSuccess: async response => {
       await queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
-      toast.success('نمونه‌کارها با موفقیت به‌روزرسانی شدند.');
+      if (response?.data?.pendingStatus === 'pending') {
+        toast.success(
+          'نمونه‌کارها ذخیره شد و پس از تایید پشتیبانی برای کاربران نمایش داده می‌شود.',
+        );
+      } else {
+        toast.success('نمونه‌کارها با موفقیت به‌روزرسانی شدند.');
+      }
     },
     onError: (error: any) => {
       toast.error(

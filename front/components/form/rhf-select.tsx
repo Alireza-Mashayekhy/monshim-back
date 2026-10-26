@@ -17,6 +17,7 @@ export type RHFSelectProps = React.ComponentProps<'select'> & {
   label?: string;
   items?: { value: string; text?: string }[];
   placeholder?: string;
+  onValueChange?: (value: string) => void;
 };
 
 export default function RHFSelect({ ...other }: RHFSelectProps) {
@@ -33,7 +34,10 @@ export default function RHFSelect({ ...other }: RHFSelectProps) {
             <FieldLabel htmlFor={field.name}>{other?.label}</FieldLabel>
             <Select
               key={currentValue} // ← کلید جدید: با تغییر مقدار، Select بازسازی می‌شود
-              onValueChange={field.onChange}
+              onValueChange={val => {
+                field.onChange(val);
+                other.onValueChange?.(val);
+              }}
               value={currentValue}
             >
               <SelectTrigger

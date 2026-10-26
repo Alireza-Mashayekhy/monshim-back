@@ -106,6 +106,22 @@ export const useReviewBarber = () => {
         queryKey: ['adminBarberApproval', variables.id],
       });
 
+      queryClient.invalidateQueries({
+        queryKey: ['barber'],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['barbers'],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['homeBarbers'],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ['my-barber-profile'],
+      });
+
       toast.success('وضعیت پروفایل با موفقیت تغییر کرد.');
     },
 

@@ -4,15 +4,65 @@ import { OTPInput, OTPInputContext } from 'input-otp';
 import { MinusIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { toEnglishDigits } from '@/lib/digits';
 import { cn } from '@/lib/utils';
+
+const NUMERIC_OTP_PATTERNS = new Set([
+  '[0-9]*',
+  '[0-9]+',
+  '^[0-9]*$',
+  '^[0-9]+$',
+  '\\d*',
+  '\\d+',
+  '^\\d*$',
+  '^\\d+$',
+]);
 
 function InputOTP({
   className,
   containerClassName,
+  value,
+  onChange,
+  onComplete,
+  pasteTransformer,
+  pattern,
+  inputMode = 'numeric',
   ...props
 }: React.ComponentProps<typeof OTPInput> & {
   containerClassName?: string;
 }) {
+  const isNumericOtp =
+    inputMode === 'numeric' &&
+    (!pattern || NUMERIC_OTP_PATTERNS.has(pattern));
+
+  const effectivePattern = isNumericOtp ? '^[0-9۰-۹٠-٩]+$' : pattern;
+
+  const handleChange = React.useCallback(
+    (nextValue: string) => {
+      const normalized = toEnglishDigits(nextValue);
+      onChange?.(isNumericOtp ? normalized.replace(/\D/g, '') : normalized);
+    },
+    [isNumericOtp, onChange],
+  );
+
+  const handleComplete = React.useCallback(
+    (completedValue: string) => {
+      if (!onComplete) return;
+      const normalized = toEnglishDigits(completedValue);
+      onComplete(isNumericOtp ? normalized.replace(/\D/g, '') : normalized);
+    },
+    [isNumericOtp, onComplete],
+  );
+
+  const handlePaste = React.useCallback(
+    (pasted: string) => {
+      const normalized = toEnglishDigits(pasted);
+      const cleaned = isNumericOtp ? normalized.replace(/\D/g, '') : normalized;
+      return pasteTransformer ? pasteTransformer(cleaned) : cleaned;
+    },
+    [isNumericOtp, pasteTransformer],
+  );
+
   return (
     <OTPInput
       data-slot="input-otp"
@@ -22,6 +72,12 @@ function InputOTP({
       )}
       spellCheck={false}
       className={cn('disabled:cursor-not-allowed', className)}
+      inputMode={inputMode}
+      pattern={effectivePattern}
+      value={typeof value === 'string' ? toEnglishDigits(value) : value}
+      onChange={handleChange}
+      onComplete={onComplete ? handleComplete : undefined}
+      pasteTransformer={handlePaste}
       {...props}
     />
   );

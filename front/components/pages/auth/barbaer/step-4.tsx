@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import FormattedNumberInput from '@/components/form/formatted-number-input';
 import StepFooter from '@/components/pages/auth/barbaer/step-footer';
 import { Button } from '@/components/ui/button';
+import { stripNumericSeparators } from '@/lib/digits';
 import { cn } from '@/lib/utils';
 import type { ServiceInput } from '@/store/useBarberSignupStore';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
@@ -16,7 +17,9 @@ const MIN_DEPOSIT = 100_000;
 const DEPOSIT_MAX_RATIO = 0.3;
 
 function parseAmount(value: string): number | null {
-  const num = Number(String(value ?? '').replace(/,/g, ''));
+  const clean = stripNumericSeparators(value);
+  if (!clean) return null;
+  const num = Number(clean);
   return Number.isFinite(num) ? num : null;
 }
 

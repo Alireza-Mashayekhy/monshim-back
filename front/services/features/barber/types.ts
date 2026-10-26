@@ -1,5 +1,18 @@
 import { CityResponse, ProvinceResponse } from '../locations/types';
 
+export type BarberPendingStatus = 'none' | 'pending' | 'rejected';
+
+export interface ApprovedProfileSnapshot {
+  fullName: string;
+  salonName: string;
+  provinceName: string | null;
+  cityName: string | null;
+  address: string;
+  bio: string | null;
+  profileImage: string | null;
+  portfolioImages: string[];
+}
+
 export interface BarberResponse {
   id: number;
   barberProfile?: BarberProfile;
@@ -14,6 +27,9 @@ export interface BarberResponse {
   servicesCount?: number | null;
   rating?: number | null;
   reviewCount?: number | null;
+  isApproved?: boolean;
+  hasPendingChanges?: boolean;
+  isEditReview?: boolean;
 }
 
 export interface Service {
@@ -66,12 +82,13 @@ export interface BarberProfile {
   email?: string;
   birthDate?: string | null;
   salonName: string;
+  activityType?: string | null;
   provinceId?: number | null;
   cityId?: number | null;
   provinceName?: string | null;
   cityName?: string | null;
-  city: CityResponse;
-  province: ProvinceResponse;
+  city?: CityResponse | null;
+  province?: ProvinceResponse | null;
   address: string;
   bio?: string | null;
   profileImage?: string | null;
@@ -81,6 +98,11 @@ export interface BarberProfile {
   slotIntervalMinutes?: SlotIntervalMinutes;
   isApproved: boolean;
   rejectionReason?: string | null;
+  pendingStatus?: BarberPendingStatus;
+  hasPendingChanges?: boolean;
+  isEditReview?: boolean;
+  pendingRejectionReason?: string | null;
+  currentApprovedProfile?: ApprovedProfileSnapshot | null;
   createdAt: string;
 }
 

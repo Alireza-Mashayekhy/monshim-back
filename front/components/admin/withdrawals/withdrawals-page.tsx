@@ -46,7 +46,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useDebounce } from '@/hooks/use-debounce';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { cn } from '@/lib/utils';
+import { cn, toEnglishDigits } from '@/lib/utils';
 import {
   useAdminWithdrawals,
   useApproveAdminWithdrawal,
@@ -836,7 +836,9 @@ export default function AdminWithdrawalsPage() {
                   <Input
                     id="withdrawal-review-note"
                     value={note}
-                    onChange={event => setNote(event.target.value)}
+                    onChange={event =>
+                      setNote(toEnglishDigits(event.target.value))
+                    }
                     maxLength={128}
                     className="bg-white"
                     placeholder="شناسه حواله یا رسید بانکی"

@@ -33,34 +33,6 @@ import {
 } from '@/services/features/wallet/hooks';
 import { BankCard } from '@/services/features/wallet/types';
 
-const schema = z.object({
-  bankName: z.string().min(1, 'نام بانک الزامی است'),
-  cardNumber: z
-    .string()
-    .length(16, 'شماره کارت باید ۱۶ رقم باشد')
-    .regex(/^\d+$/, 'فقط اعداد مجاز هستند'),
-  shebaNumber: z
-    .string()
-    .min(1, 'شماره شبا الزامی است')
-    .length(26, 'شماره شبا باید ۲۶ کاراکتر باشد (IR + ۲۴ رقم)')
-    .regex(/^IR\d{24}$/, 'فرمت شماره شبا معتبر نیست (مثال: IRxxxxxxxxxxxxxxxxxxxxxxxx)'),
-  ownerName: z.string().min(1, 'نام صاحب حساب الزامی است'),
-  nationalCode: z
-    .string()
-    .transform(sanitizeNationalCodeInput)
-    .superRefine((val, ctx) => {
-      const error = getNationalCodeError(val);
-      if (error) ctx.addIssue({ code: 'custom', message: error });
-    }),
-});
-
-type FormData = z.infer<typeof schema>;
-
-interface CardDrawerProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
 const formatCardNumber = (num: string) => num.replace(/(\d{4})(?=\d)/g, '$1 ');
 
 /**
@@ -77,6 +49,47 @@ const sanitizeShebaInput = (value: string) =>
     .toUpperCase()
     .replace(/[^IR0-9]/g, '')
     .slice(0, 26);
+
+const schema = z.object({
+  bankName: z.string().min(1, 'نام بانک الزامی است'),
+  cardNumber: z
+    .string()
+    .transform(sanitizeCardNumberInput)
+    .pipe(
+      z
+        .string()
+        .length(16, 'شماره کارت باید ۱۶ رقم باشد')
+        .regex(/^\d+$/, 'فقط اعداد مجاز هستند'),
+    ),
+  shebaNumber: z
+    .string()
+    .transform(sanitizeShebaInput)
+    .pipe(
+      z
+        .string()
+        .min(1, 'شماره شبا الزامی است')
+        .length(26, 'شماره شبا باید ۲۶ کاراکتر باشد (IR + ۲۴ رقم)')
+        .regex(
+          /^IR\d{24}$/,
+          'فرمت شماره شبا معتبر نیست (مثال: IRxxxxxxxxxxxxxxxxxxxxxxxx)',
+        ),
+    ),
+  ownerName: z.string().min(1, 'نام صاحب حساب الزامی است'),
+  nationalCode: z
+    .string()
+    .transform(sanitizeNationalCodeInput)
+    .superRefine((val, ctx) => {
+      const error = getNationalCodeError(val);
+      if (error) ctx.addIssue({ code: 'custom', message: error });
+    }),
+});
+
+type FormData = z.infer<typeof schema>;
+
+interface CardDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
 
 function OwnerMismatchNotice() {
   return (

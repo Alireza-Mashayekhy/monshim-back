@@ -29,6 +29,7 @@ import { useEffect, useState } from 'react';
 import Logo from '@/components/shared/logo';
 import { Button } from '@/components/ui/button';
 import { toFa } from '@/lib/jalali';
+import { formatCommissionLabel } from '@/lib/order-pricing';
 import { cn, formatPrice, getFullImageUrl } from '@/lib/utils';
 import {
   useDepositInvoice,
@@ -576,8 +577,10 @@ export function DepositInvoiceView({ token }: DepositInvoiceViewProps) {
 
               <div className="flex items-center justify-between">
                 <span className="font-medium text-gray-500">
-                  کمیسیون سامانه منشیم (
-                  {toFa(invoice.pricing.commissionPercent)}٪ بیشترین بیعانه)
+                  {formatCommissionLabel(
+                    invoice.pricing,
+                    'کمیسیون سامانه منشیم',
+                  )}
                 </span>
                 <span className="font-bold text-primary">
                   {toFa(formatPrice(invoice.pricing.commissionAmount))} تومان
