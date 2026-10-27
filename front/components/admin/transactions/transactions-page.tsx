@@ -962,7 +962,7 @@ export default function AdminTransactionsPage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {withdrawalAction?.action === 'approve'
-                ? 'با تایید، این برداشت «انجام‌شده» ثبت می‌شود. لطفاً فقط پس از واریز واقعی وجه ادامه دهید.'
+                ? 'با تایید، این برداشت «انجام‌شده» ثبت می‌شود و پیامک «واریز انجام شد» برای آرایشگر ارسال می‌گردد. لطفاً فقط پس از واریز واقعی وجه ادامه دهید.'
                 : 'با رد کردن، مبلغ به کیف پول آرایشگر برگردانده می‌شود و تراکنش «ناموفق» ثبت می‌گردد.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
