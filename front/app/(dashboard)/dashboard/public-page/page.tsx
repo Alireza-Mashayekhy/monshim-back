@@ -49,7 +49,7 @@ const URL_HOST_PREFIX = `${siteConfig.url.replace(/^https?:\/\//, '')}/barber/`;
  *
  * صفحهٔ عمومی با آدرس `/barber/[slug]` وقتی فعال می‌شود که یکی از این دو شرط
  * برقرار باشد:
- *   • خرید یک‌بارهٔ پکیج ۷۹۹ هزار تومانی (مادام‌العمر)؛
+ *   • خرید یک‌بارهٔ پکیج ۷۷۳ هزار تومانی (مادام‌العمر)؛
  *   • یا ثبت ۳۰۰ رزرو موفق که پرداخت آن‌ها در درگاه انجام شده و لغو نشده باشند
  *     (مشابه بخش امور مالی).
  *
@@ -71,7 +71,7 @@ export default function PublicPagePage() {
   const required = status?.requiredPaidBookings ?? 300;
   const paidBookings = status?.paidBookingsCount ?? 0;
   const progress = Math.min(100, Math.round((paidBookings / required) * 100));
-  const price = status?.packagePriceTomans ?? 799000;
+  const price = status?.packagePriceTomans ?? 773000;
   const publicUrl = status?.publicUrl ?? '';
 
   const showSlugForm = isActive && (!currentSlug || isEditingSlug);

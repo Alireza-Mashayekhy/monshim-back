@@ -15,7 +15,7 @@
  */
 
 /** قیمت پکیج صفحهٔ عمومی به تومان */
-export const PUBLIC_PAGE_PACKAGE_PRICE_TOMANS = 799_000;
+export const PUBLIC_PAGE_PACKAGE_PRICE_TOMANS = 773_000;
 
 /** تعداد رزروهای موفقِ پرداخت‌شده در درگاه که صفحهٔ عمومی را رایگان فعال می‌کند */
 export const PUBLIC_PAGE_REQUIRED_PAID_BOOKINGS = 300;
