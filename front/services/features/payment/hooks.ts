@@ -32,7 +32,7 @@ export const usePaySubscription = () => {
   });
 };
 
-/** خرید یک‌بارهٔ پکیج صفحهٔ عمومی آرایشگاه (۷۹۹ هزار تومان) */
+/** خرید یک‌بارهٔ پکیج صفحهٔ عمومی آرایشگاه (۷۷۳ هزار تومان) */
 export const usePayPublicPage = () => {
   return useMutation({
     mutationFn: () => payPublicPage(),
