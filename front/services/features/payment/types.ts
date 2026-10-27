@@ -1,8 +1,13 @@
 export interface InitiatePaymentResponse {
-  trackId: number;
-  paymentUrl: string;
-  orderId: string;
+  trackId?: number;
+  paymentUrl?: string | null;
+  orderId?: string;
   amount: number;
+  free?: boolean;
+  originalAmount?: number;
+  discountAmount?: number;
+  discountPercent?: number;
+  discountCode?: string | null;
   planName?: string;
   bookingId?: string;
   depositAmount?: number;

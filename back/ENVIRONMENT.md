@@ -57,3 +57,5 @@
   می‌شود؛ اگر پرداخت انجام نشود، خودبه‌خود آزاد می‌شود.
 - `slot_holds` و ستون `bookings.deposit_requested_at` در production باید با
   `sql/deposit-link-and-slot-holds.sql` ساخته شوند (در توسعه `synchronize` خودکار است).
+- برای کدهای تخفیف صفحهٔ عمومی، در production جدول `public_page_discounts` را با
+  `sql/public-page-discounts.sql` بسازید؛ در محیط توسعه TypeORM آن را خودکار ایجاد می‌کند.

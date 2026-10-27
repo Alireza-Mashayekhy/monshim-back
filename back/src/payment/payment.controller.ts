@@ -19,6 +19,7 @@ import { getRequestOrigin } from 'src/common/utils/public-url.util';
 
 import { ChargeWalletDto } from './dto/charge-wallet.dto';
 import { InitiateBookingPaymentDto } from './dto/initiate-booking-payment.dto';
+import { InitiatePublicPagePaymentDto } from './dto/initiate-public-page-payment.dto';
 import { InitiateSubscriptionPaymentDto } from './dto/initiate-subscription-payment.dto';
 import { PaymentService } from './payment.service';
 
@@ -45,9 +46,13 @@ export class PaymentController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.Barber, Role.Admin)
   @Post('public-page')
-  async payPublicPage(@Req() req: any) {
+  async payPublicPage(
+    @Req() req: any,
+    @Body() dto: InitiatePublicPagePaymentDto,
+  ) {
     return this.paymentService.initiatePublicPagePayment(
       req.user.id,
+      dto?.discountCode,
       getRequestOrigin(req),
     );
   }

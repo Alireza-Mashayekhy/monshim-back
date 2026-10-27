@@ -418,6 +418,7 @@ export class PaymentService {
    */
   async initiatePublicPagePayment(
     userId: number,
+    discountCode?: string,
     requestOrigin?: string | null,
   ) {
     const user = await this.userRepo.findOne({ where: { id: userId } });
@@ -439,27 +440,74 @@ export class PaymentService {
       );
     }
 
+    const quote = discountCode
+      ? await this.publicPageService.getDiscountQuote(discountCode)
+      : {
+          code: null,
+          percentOff: 0,
+          originalAmount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+          discountAmount: 0,
+          amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+        };
+
     const orderId = `PAGE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const discountDescription = quote.code
+      ? ` (کد ${quote.code}، تخفیف ${quote.percentOff}٪)`
+      : '';
+    const discountMetadata = quote.code
+      ? JSON.stringify({
+          discountCode: quote.code,
+          discountPercent: quote.percentOff,
+          originalAmount: quote.originalAmount,
+          discountAmount: quote.discountAmount,
+        })
+      : null;
+
+    if (quote.amount === 0 && quote.code) {
+      const complimentaryPayment = await this.paymentRepo.save(
+        this.paymentRepo.create({
+          userId,
+          amount: 0,
+          trackId: null,
+          orderId,
+          purpose: PaymentPurpose.PUBLIC_PAGE,
+          purposeId: profile.id,
+          status: PaymentStatus.PAID,
+          description: `خرید رایگان صفحهٔ اختصاصی آرایشگاه (${profile.salonName})${discountDescription}`,
+          metadata: discountMetadata,
+          paidAt: new Date(),
+        }),
+      );
+      await this.publicPageService.activateAfterPayment(complimentaryPayment);
+      return {
+        free: true,
+        amount: 0,
+        orderId,
+        discountCode: quote.code,
+      };
+    }
+
     const appUrl = this.getAppUrl(requestOrigin);
     const callbackUrl = `${appUrl}/api/payment/callback`;
 
     const { trackId, paymentUrl } = await this.requestZibalPayment({
-      amountTomans: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      amountTomans: quote.amount,
       callbackUrl,
-      description: `خرید صفحهٔ اختصاصی آرایشگاه - ${profile.salonName}`,
+      description: `خرید صفحهٔ اختصاصی آرایشگاه - ${profile.salonName}${discountDescription}`,
       orderId,
       mobile: user.phone,
     });
 
     const payment = this.paymentRepo.create({
       userId,
-      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      amount: quote.amount,
       trackId,
       orderId,
       purpose: PaymentPurpose.PUBLIC_PAGE,
       purposeId: profile.id,
       status: PaymentStatus.PENDING,
-      description: `خرید صفحهٔ اختصاصی آرایشگاه (${profile.salonName})`,
+      description: `خرید صفحهٔ اختصاصی آرایشگاه (${profile.salonName})${discountDescription}`,
+      metadata: discountMetadata,
     });
 
     await this.paymentRepo.save(payment);
@@ -468,7 +516,11 @@ export class PaymentService {
       trackId,
       paymentUrl,
       orderId,
-      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      amount: quote.amount,
+      originalAmount: quote.originalAmount,
+      discountAmount: quote.discountAmount,
+      discountPercent: quote.percentOff,
+      discountCode: quote.code,
     };
   }
 

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import {
@@ -34,11 +34,16 @@ export const usePaySubscription = () => {
 
 /** خرید یک‌بارهٔ پکیج صفحهٔ عمومی آرایشگاه (۷۷۳ هزار تومان) */
 export const usePayPublicPage = () => {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => payPublicPage(),
+    mutationFn: (discountCode?: string) => payPublicPage(discountCode),
     onSuccess: response => {
-      const paymentUrl = response.data?.paymentUrl;
-      if (paymentUrl) {
+      const result = response.data;
+      const paymentUrl = result?.paymentUrl;
+      if (result?.free) {
+        toast.success('کد تخفیف اعمال شد؛ صفحهٔ اختصاصی شما فعال شد');
+        void queryClient.invalidateQueries({ queryKey: ['public-page'] });
+      } else if (paymentUrl) {
         toast.info('در حال انتقال به درگاه پرداخت زیبال...');
         window.location.href = paymentUrl;
       }

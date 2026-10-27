@@ -20,9 +20,10 @@ export async function paySubscription(dto: InitiateSubscriptionPaymentDto) {
 }
 
 // درخواست خرید پکیج «صفحهٔ عمومی آرایشگاه» با درگاه زیبال
-export async function payPublicPage() {
+export async function payPublicPage(discountCode?: string) {
   const { data } = await api.post<ApiSingleResponse<InitiatePaymentResponse>>(
     endpoints.payment.publicPage,
+    discountCode ? { discountCode } : {},
   );
   return data;
 }

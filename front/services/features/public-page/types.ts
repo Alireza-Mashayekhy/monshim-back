@@ -22,6 +22,14 @@ export interface PublicPageStatus {
   isApproved: boolean;
 }
 
+export interface PublicPageDiscountQuote {
+  code: string;
+  percentOff: number;
+  originalAmount: number;
+  discountAmount: number;
+  amount: number;
+}
+
 export interface SlugAvailabilityResult {
   slug: string;
   valid: boolean;
