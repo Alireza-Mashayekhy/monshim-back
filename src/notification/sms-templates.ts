@@ -39,6 +39,14 @@ export const SMS_TEMPLATES = {
 
   /** ✅ تأیید پروفایل آرایشگر — پیامک به آرایشگر */
   BARBER_PROFILE_APPROVED: 172833,
+
+  /**
+   * ✅ واریز درخواست برداشت — پیامک به آرایشگر
+   *
+   * تایید برداشت توسط ادمین یعنی وجه واقعاً به حساب آرایشگر واریز شده است؛
+   * این قالب همان لحظه برای آرایشگر ارسال می‌شود (#NAME#).
+   */
+  WITHDRAWAL_PAID_BARBER: 142864,
 } as const;
 
 /** تبدیل ارقام انگلیسی به فارسی */
@@ -129,6 +137,10 @@ export interface BarberProfileApprovedParams {
   barberName: string;
 }
 
+export interface WithdrawalPaidParams {
+  barberName: string;
+}
+
 /** پارامترهای مشترک قالب‌های نوبت */
 export function bookingParams(params: BookingSmsParams) {
   return [
@@ -192,5 +204,10 @@ export function depositLinkParams(params: DepositLinkParams) {
 export function barberProfileApprovedParams(
   params: BarberProfileApprovedParams,
 ) {
+  return [{ name: 'NAME', value: clipForSms(params.barberName, 'همکار') }];
+}
+
+/** پارامترهای قالب «واریز درخواست برداشت» (قالب 142864 — #NAME#) */
+export function withdrawalPaidParams(params: WithdrawalPaidParams) {
   return [{ name: 'NAME', value: clipForSms(params.barberName, 'همکار') }];
 }

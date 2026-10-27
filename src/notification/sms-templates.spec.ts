@@ -10,6 +10,7 @@ import {
   depositPaidBarberParams,
   depositPaidCustomerParams,
   SMS_TEMPLATES,
+  withdrawalPaidParams,
 } from './sms-templates';
 
 const MAX = SMS_PARAM_MAX_LENGTH;
@@ -97,6 +98,25 @@ describe('sms-templates', () => {
     ]);
 
     const clipped = barberProfileApprovedParams({
+      barberName: 'سید محمدحسین طباطبایی بزرگمهر تهرانی',
+    });
+    expectAllParamsWithinLimit(clipped);
+    expect(clipped[0].name).toBe('NAME');
+    expect(clipped[0].value).toHaveLength(MAX);
+  });
+
+  it('پارامتر NAME پیامک واریز برداشت (142864) را می‌سازد و در سقف ۲۵ کاراکتر نگه می‌دارد', () => {
+    expect(SMS_TEMPLATES.WITHDRAWAL_PAID_BARBER).toBe(142864);
+
+    expect(withdrawalPaidParams({ barberName: 'علی رضایی' })).toEqual([
+      { name: 'NAME', value: 'علی رضایی' },
+    ]);
+
+    expect(withdrawalPaidParams({ barberName: '   ' })).toEqual([
+      { name: 'NAME', value: 'همکار' },
+    ]);
+
+    const clipped = withdrawalPaidParams({
       barberName: 'سید محمدحسین طباطبایی بزرگمهر تهرانی',
     });
     expectAllParamsWithinLimit(clipped);

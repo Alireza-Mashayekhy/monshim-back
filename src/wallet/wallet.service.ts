@@ -15,6 +15,7 @@ import {
   normalizeNationalCode,
   toEnglishDigits,
 } from 'src/common/utils/national-code.util';
+import { BookingSmsService } from 'src/notification/booking-sms.service';
 import {
   Payment,
   PaymentPurpose,
@@ -60,6 +61,8 @@ export class WalletService {
     private zohalService: ZohalService,
     @Optional()
     private readonly baleNotificationService?: BaleNotificationService,
+    @Optional()
+    private readonly bookingSmsService?: BookingSmsService,
   ) {}
 
   // ==================== کیف پول ====================
@@ -587,7 +590,53 @@ export class WalletService {
       );
     }
 
-    return this.transactionRepo.findOne({ where: { id } });
+    const approved = await this.transactionRepo.findOne({ where: { id } });
+
+    // تایید ادمین یعنی پول واقعاً واریز شده است؛ آرایشگر باید خبر دار شود.
+    // پیامک با قالب 142864 ارسال می‌شود و خطایش هرگز پاسخ ادمین را نمی‌شکند.
+    if (approved) {
+      await this.sendWithdrawalPaidSms(approved);
+    }
+
+    return approved;
+  }
+
+  /**
+   * پیامک «درخواست برداشت شما با موفقیت واریز گردید» (قالب 142864).
+   *
+   * شماره و نام آرایشگر از کیف پولِ متصل به تراکنش خوانده می‌شود؛ اگر به
+   * هر دلیلی پیدا نشود یا ارسال پیامک خطا بدهد، فقط لاگ می‌کنیم چون وضعیت
+   * تراکنش از قبل نهایی شده و نباید به ادمین خطا برگردد.
+   */
+  private async sendWithdrawalPaidSms(transaction: Transaction): Promise<void> {
+    if (!this.bookingSmsService) return;
+
+    try {
+      const wallet = await this.walletRepo.findOne({
+        where: { id: transaction.walletId },
+        relations: { user: true },
+      });
+
+      const user = wallet?.user;
+
+      if (!user?.phone) {
+        this.logger.warn(
+          `پیامک واریز برداشت ارسال نشد: شماره موبایل برای تراکنش ${transaction.id} یافت نشد`,
+        );
+
+        return;
+      }
+
+      await this.bookingSmsService.sendWithdrawalPaidToBarber(user.phone, {
+        barberName: user.fullName ?? '',
+      });
+    } catch (error: any) {
+      this.logger.error(
+        `خطا در ارسال پیامک واریز برداشت برای تراکنش ${transaction.id}: ${
+          error?.message ?? String(error)
+        }`,
+      );
+    }
   }
 
   /**

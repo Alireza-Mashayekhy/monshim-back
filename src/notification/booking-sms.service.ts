@@ -17,6 +17,8 @@ import {
   DepositPaidCustomerParams,
   depositPaidCustomerParams,
   SMS_TEMPLATES,
+  WithdrawalPaidParams,
+  withdrawalPaidParams,
 } from './sms-templates';
 
 /**
@@ -171,6 +173,24 @@ export class BookingSmsService {
       SMS_TEMPLATES.BARBER_PROFILE_APPROVED,
       barberProfileApprovedParams(params),
       'تأیید پروفایل به آرایشگر',
+    );
+  }
+
+  /**
+   * ✅ واریز درخواست برداشت برای آرایشگر (قالب 142864)
+   *
+   * تایید برداشت از سوی ادمین به معنای واریز واقعی وجه است؛ این پیامک
+   * بلافاصله بعد از نهایی‌شدن وضعیت تراکنش برای آرایشگر ارسال می‌شود.
+   */
+  async sendWithdrawalPaidToBarber(
+    barberPhone: string,
+    params: WithdrawalPaidParams,
+  ): Promise<void> {
+    await this.safeSend(
+      barberPhone,
+      SMS_TEMPLATES.WITHDRAWAL_PAID_BARBER,
+      withdrawalPaidParams(params),
+      'واریز برداشت به آرایشگر',
     );
   }
 
