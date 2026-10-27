@@ -34,7 +34,10 @@ import {
   PUBLIC_PAGE_REQUIRED_PAID_BOOKINGS,
   PublicPageActivationReason,
 } from './constants';
+import { CreatePublicPageDiscountDto } from './dto/create-public-page-discount.dto';
+import { UpdatePublicPageDiscountDto } from './dto/update-public-page-discount.dto';
 import { BarberPublicPagePurchase } from './entities/barber-public-page-purchase.entity';
+import { PublicPageDiscount } from './entities/public-page-discount.entity';
 import { validatePublicPageSlug } from './slug.util';
 
 export interface PublicPageStatus {
@@ -101,6 +104,9 @@ export class PublicPageService {
   constructor(
     @InjectRepository(BarberPublicPagePurchase)
     private readonly purchaseRepo: Repository<BarberPublicPagePurchase>,
+
+    @InjectRepository(PublicPageDiscount)
+    private readonly discountRepo: Repository<PublicPageDiscount>,
 
     @InjectRepository(BarberProfile)
     private readonly profileRepo: Repository<BarberProfile>,
@@ -538,6 +544,74 @@ export class PublicPageService {
           Number.isInteger(entry.id) && entry.id > 0 && Boolean(entry.slug),
       )
       .sort((a, b) => a.id - b.id);
+  }
+
+  private normalizeDiscountCode(code: string) {
+    return code.trim().toUpperCase();
+  }
+
+  async listDiscountCodes() {
+    return this.discountRepo.find({ order: { createdAt: 'DESC' } });
+  }
+
+  async createDiscountCode(dto: CreatePublicPageDiscountDto) {
+    const discount = this.discountRepo.create({
+      code: this.normalizeDiscountCode(dto.code),
+      percentOff: dto.percentOff,
+      isActive: true,
+    });
+    try {
+      return await this.discountRepo.save(discount);
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        throw new ConflictException('این کد تخفیف از قبل ثبت شده است');
+      }
+      throw error;
+    }
+  }
+
+  async updateDiscountCode(id: string, dto: UpdatePublicPageDiscountDto) {
+    const discount = await this.discountRepo.findOne({ where: { id } });
+    if (!discount) throw new NotFoundException('کد تخفیف یافت نشد');
+    if (dto.code !== undefined) {
+      discount.code = this.normalizeDiscountCode(dto.code);
+    }
+    if (dto.percentOff !== undefined) discount.percentOff = dto.percentOff;
+    if (dto.isActive !== undefined) discount.isActive = dto.isActive;
+    try {
+      return await this.discountRepo.save(discount);
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        throw new ConflictException('این کد تخفیف از قبل ثبت شده است');
+      }
+      throw error;
+    }
+  }
+
+  async deleteDiscountCode(id: string) {
+    const result = await this.discountRepo.delete(id);
+    if (!result.affected) throw new NotFoundException('کد تخفیف یافت نشد');
+    return { id };
+  }
+
+  async getDiscountQuote(rawCode: string) {
+    const code = this.normalizeDiscountCode(rawCode);
+    const discount = await this.discountRepo.findOne({
+      where: { code, isActive: true },
+    });
+    if (!discount)
+      throw new BadRequestException('کد تخفیف نامعتبر یا غیرفعال است');
+
+    const discountAmount = Math.round(
+      (PUBLIC_PAGE_PACKAGE_PRICE_TOMANS * discount.percentOff) / 100,
+    );
+    return {
+      code: discount.code,
+      percentOff: discount.percentOff,
+      originalAmount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      discountAmount,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS - discountAmount,
+    };
   }
 
   /**

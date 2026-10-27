@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -15,6 +16,7 @@ import { AuthGuard } from 'src/common/guards/auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 
 import { UpdatePublicPageSlugDto } from './dto/update-public-page-slug.dto';
+import { ValidatePublicPageDiscountDto } from './dto/validate-public-page-discount.dto';
 import { PublicPageService } from './public-page.service';
 
 /**
@@ -48,6 +50,13 @@ export class PublicPageController {
   @Get('me')
   getMyStatus(@Req() req: any) {
     return this.publicPageService.getStatusByUserId(req.user.id);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.Barber, Role.Admin)
+  @Post('discount/quote')
+  quoteDiscount(@Body() dto: ValidatePublicPageDiscountDto) {
+    return this.publicPageService.getDiscountQuote(dto.code);
   }
 
   @UseGuards(AuthGuard, RolesGuard)
