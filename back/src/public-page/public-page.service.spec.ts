@@ -50,6 +50,35 @@ describe('PublicPage slug utility', () => {
 });
 
 describe('PublicPageService', () => {
+  it('کد تخفیف را بدون حساسیت به بزرگی حروف اعمال و مبلغ را محاسبه می‌کند', async () => {
+    const { service } = createService({
+      discount: { code: 'SAVE25', percentOff: 25, isActive: true },
+    });
+
+    await expect(service.getDiscountQuote(' save25 ')).resolves.toEqual({
+      code: 'SAVE25',
+      percentOff: 25,
+      originalAmount: 773_000,
+      discountAmount: 193_250,
+      amount: 579_750,
+    });
+  });
+
+  it('کد تخفیف صددرصدی خرید را رایگان می‌کند و کد نامعتبر رد می‌شود', async () => {
+    const { service } = createService({
+      discount: { code: 'FREE100', percentOff: 100, isActive: true },
+    });
+    await expect(service.getDiscountQuote('FREE100')).resolves.toMatchObject({
+      amount: 0,
+      discountAmount: 773_000,
+    });
+
+    const { service: withoutDiscount } = createService();
+    await expect(withoutDiscount.getDiscountQuote('MISSING')).rejects.toThrow(
+      'کد تخفیف نامعتبر یا غیرفعال است',
+    );
+  });
+
   function createMockBookingQb(options?: { count?: number; rawRows?: any[] }) {
     const subQb: any = {
       select: jest.fn().mockReturnThis(),
@@ -89,6 +118,7 @@ describe('PublicPageService', () => {
     qualifiedRows?: any[];
     purchaseDirectoryRows?: any[];
     duplicateDbError?: boolean;
+    discount?: any;
   }) {
     const bookingQb = createMockBookingQb({
       count: params?.paidBookingsCount ?? 0,
@@ -168,8 +198,12 @@ describe('PublicPageService', () => {
       ),
     };
 
+    const discountRepo: any = {
+      findOne: jest.fn().mockResolvedValue(params?.discount ?? null),
+    };
     const service = new PublicPageService(
       purchaseRepo,
+      discountRepo,
       profileRepo,
       bookingRepo,
       barberService,

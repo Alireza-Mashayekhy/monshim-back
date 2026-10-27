@@ -12,6 +12,7 @@ import {
   Loader2,
   Pencil,
   Sparkles,
+  Tag,
 } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
@@ -39,6 +40,7 @@ import { usePayPublicPage } from '@/services/features/payment/hooks';
 import {
   useCheckPublicPageSlug,
   useMyPublicPageStatus,
+  useQuotePublicPageDiscount,
   useUpdatePublicPageSlug,
 } from '@/services/features/public-page/hooks';
 
@@ -60,9 +62,12 @@ export default function PublicPagePage() {
   const [copied, setCopied] = useState(false);
   const [isEditingSlug, setIsEditingSlug] = useState(false);
   const [slugDraft, setSlugDraft] = useState('');
+  const [discountCode, setDiscountCode] = useState('');
 
   const { data: statusData, isLoading } = useMyPublicPageStatus();
   const payPublicPage = usePayPublicPage();
+  const quoteDiscount = useQuotePublicPageDiscount();
+  const appliedDiscount = quoteDiscount.data?.data;
   const updateSlug = useUpdatePublicPageSlug();
 
   const status = statusData?.data;
@@ -151,6 +156,20 @@ export default function PublicPagePage() {
       );
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'خطا در ثبت اسلاگ'));
+    }
+  };
+
+  const handleApplyDiscount = async () => {
+    const code = discountCode.trim().toUpperCase();
+    if (!code) {
+      toast.error('کد تخفیف را وارد کنید');
+      return;
+    }
+    try {
+      const response = await quoteDiscount.mutateAsync(code);
+      toast.success(`کد تخفیف ${response.data.code} با موفقیت اعمال شد`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'کد تخفیف معتبر نیست'));
     }
   };
 
@@ -361,11 +380,22 @@ export default function PublicPagePage() {
                 <div>
                   <p className="text-white/70">پکیج صفحهٔ اختصاصی</p>
                   <h3 className="mt-2 text-3xl font-black">
-                    {formatFaNumber(price)}
+                    {formatFaNumber(appliedDiscount?.amount ?? price)}
                   </h3>
                   <p className="text-sm text-white/70">
                     تومان — پرداخت یک‌باره
                   </p>
+                  {appliedDiscount && (
+                    <div className="mt-2 text-sm">
+                      <p className="text-white/70 line-through">
+                        {formatFaNumber(appliedDiscount.originalAmount)} تومان
+                      </p>
+                      <p className="mt-1 font-bold text-white">
+                        با تخفیف {toPersianDigits(appliedDiscount.percentOff)}٪:{' '}
+                        {formatFaNumber(appliedDiscount.amount)} تومان
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <Sparkles size={30} className="text-white/60" />
               </div>
@@ -377,11 +407,60 @@ export default function PublicPagePage() {
                 <li>• فعال‌سازی آنی و مادام‌العمر بدون نیاز به تمدید</li>
               </ul>
 
+              <div className="mt-5 rounded-2xl border border-white/20 bg-white/10 p-3">
+                <label
+                  htmlFor="public-page-discount"
+                  className="mb-2 flex items-center gap-2 text-sm font-bold text-white"
+                >
+                  <Tag size={15} /> کد تخفیف دارید؟
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id="public-page-discount"
+                    dir="ltr"
+                    value={discountCode}
+                    maxLength={32}
+                    autoComplete="off"
+                    placeholder="کد تخفیف"
+                    className="bg-white text-gray-900 placeholder:text-gray-400"
+                    onChange={event => {
+                      setDiscountCode(
+                        event.target.value.replace(/\s/g, '').toUpperCase(),
+                      );
+                      quoteDiscount.reset();
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!discountCode.trim() || quoteDiscount.isPending}
+                    onClick={() => void handleApplyDiscount()}
+                  >
+                    {quoteDiscount.isPending ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      'اعمال'
+                    )}
+                  </Button>
+                </div>
+                {appliedDiscount && (
+                  <p className="mt-2 text-xs font-semibold text-white">
+                    {toPersianDigits(appliedDiscount.percentOff)}٪ تخفیف —
+                    صرفه‌جویی {formatFaNumber(appliedDiscount.discountAmount)}{' '}
+                    تومان
+                  </p>
+                )}
+              </div>
+
               <Button
                 variant="secondary"
                 className="mt-5 w-full text-primary"
-                disabled={payPublicPage.isPending}
-                onClick={() => payPublicPage.mutate()}
+                disabled={
+                  payPublicPage.isPending ||
+                  quoteDiscount.isPending ||
+                  (Boolean(discountCode.trim()) && !appliedDiscount)
+                }
+                onClick={() => payPublicPage.mutate(appliedDiscount?.code)}
               >
                 {payPublicPage.isPending ? (
                   <Loader2 size={16} className="animate-spin" />

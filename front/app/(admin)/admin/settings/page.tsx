@@ -2,6 +2,7 @@
 
 import { Settings } from 'lucide-react';
 
+import PublicPageDiscounts from '@/components/admin/settings/public-page-discounts';
 import SubscriptionSection from '@/components/admin/settings/subscription-section';
 
 export default function SettingsPage() {
@@ -22,6 +23,7 @@ export default function SettingsPage() {
       {/* <FinancialSettings /> */}
 
       <SubscriptionSection />
+      <PublicPageDiscounts />
     </div>
   );
 }

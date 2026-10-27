@@ -153,5 +153,8 @@ export const endpoints = {
     me: '/public-page/me',
     checkSlug: '/public-page/slug/check',
     updateSlug: '/public-page/me/slug',
+    discountQuote: '/public-page/discount/quote',
+    adminDiscounts: '/admin/public-page/discounts',
+    adminDiscount: (id: string) => `/admin/public-page/discounts/${id}`,
   },
 };

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   checkPublicPageSlug,
   getMyPublicPageStatus,
+  quotePublicPageDiscount,
   updateMyPublicPageSlug,
 } from './api';
 
@@ -31,6 +32,11 @@ export function useCheckPublicPageSlug(slug: string, enabled = true) {
     staleTime: 10 * 1000,
     retry: false,
   });
+}
+
+/** محاسبهٔ قیمت خرید صفحهٔ عمومی با کد تخفیف */
+export function useQuotePublicPageDiscount() {
+  return useMutation({ mutationFn: quotePublicPageDiscount });
 }
 
 /** ثبت یا تغییر اسلاگ صفحهٔ عمومی آرایشگر */
