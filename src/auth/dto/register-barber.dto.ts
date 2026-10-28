@@ -10,10 +10,12 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import {
+  ACTIVITY_TYPE_ERROR_MESSAGE,
+  ACTIVITY_TYPE_VALUES,
+} from 'src/barber/activity-types';
 import { NormalizeDigits, NormalizeNumber } from 'src/common/utils/digits.util';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
-
-export const ACTIVITY_TYPE_VALUES = ['women', 'men', 'both'] as const;
 
 export const MIN_DEPOSIT_PRICE = 100_000;
 
@@ -45,7 +47,9 @@ export class RegisterBarberDto extends CreateUserDto {
   @IsNotEmpty()
   salonName: string;
 
-  @IsIn(ACTIVITY_TYPE_VALUES, { message: 'نوع فعالیت معتبر نیست' })
+  // فهرست مقادیر مجاز در `src/barber/activity-types.ts` تعریف شده تا مسیر
+  // ثبت‌نام و مسیر ویرایش پروفایل از یک منبع مشترک استفاده کنند.
+  @IsIn(ACTIVITY_TYPE_VALUES, { message: ACTIVITY_TYPE_ERROR_MESSAGE })
   @IsNotEmpty({ message: 'انتخاب نوع فعالیت سالن اجباری است' })
   activityType: string;
 

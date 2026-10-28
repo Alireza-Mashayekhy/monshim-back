@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import {
+  BARBER_MODERATED_DIFF_KEYS,
   BARBER_MODERATED_FIELD_LABELS,
   BarberPendingChanges,
   BarberProfile,
@@ -25,17 +26,6 @@ import { EntityManager, Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
-
-const BARBER_DIFF_KEYS = [
-  'fullName',
-  'salonName',
-  'provinceId',
-  'cityId',
-  'address',
-  'bio',
-  'profileImage',
-  'portfolioImages',
-] as const;
 
 @Injectable()
 export class UsersService {
@@ -216,7 +206,9 @@ export class UsersService {
       delete draft.fullName;
     }
 
-    const hasDiff = BARBER_DIFF_KEYS.some(key => draft[key] !== undefined);
+    const hasDiff = BARBER_MODERATED_DIFF_KEYS.some(
+      key => draft[key] !== undefined,
+    );
     const shouldNotifyBale = Boolean(
       hasDiff &&
       (previousPendingStatus !== 'pending' ||

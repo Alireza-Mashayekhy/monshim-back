@@ -3,6 +3,12 @@ import { IsIn, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 import { ALLOWED_SLOT_INTERVAL_MINUTES } from 'src/booking/slot-intervals';
 import { NormalizeDigits, NormalizeNumber } from 'src/common/utils/digits.util';
 
+import {
+  ACTIVITY_TYPE_ERROR_MESSAGE,
+  ACTIVITY_TYPE_VALUES,
+  type ActivityTypeValue,
+} from '../activity-types';
+
 export class UpdateBarberDto {
   @IsOptional()
   @IsString()
@@ -20,6 +26,15 @@ export class UpdateBarberDto {
   @IsOptional()
   @IsString()
   salonName?: string;
+
+  /**
+   * نوع فعالیت سالن (بانوان/آقایان/هردو)؛ همان گزینه‌ای که آرایشگر در
+   * ثبت‌نام انتخاب کرده و می‌تواند در ویرایش پروفایل هم تغییرش دهد.
+   * مقدار `null` پذیرفته نمی‌شود چون نوع فعالیت نباید پاک شود.
+   */
+  @IsOptional()
+  @IsIn(ACTIVITY_TYPE_VALUES, { message: ACTIVITY_TYPE_ERROR_MESSAGE })
+  activityType?: ActivityTypeValue;
 
   @IsOptional()
   @NormalizeNumber()
