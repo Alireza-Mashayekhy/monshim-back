@@ -22,6 +22,7 @@ export type BarberPendingStatus = 'none' | 'pending' | 'rejected';
 export interface BarberPendingChanges {
   fullName?: string;
   salonName?: string;
+  activityType?: string | null;
   provinceId?: number | null;
   cityId?: number | null;
   address?: string;
@@ -37,6 +38,7 @@ export const BARBER_MODERATED_FIELD_LABELS: Record<
 > = {
   fullName: 'نام و نام خانوادگی',
   salonName: 'نام سالن',
+  activityType: 'نوع فعالیت',
   provinceId: 'استان',
   cityId: 'شهر',
   address: 'آدرس',
@@ -45,16 +47,24 @@ export const BARBER_MODERATED_FIELD_LABELS: Record<
   portfolioImages: 'نمونه‌کارها',
 };
 
+/**
+ * کلیدهایی که وجودشان در پیش‌نویس ویرایش به معنای «تغییر واقعی» است.
+ *
+ * عمداً از خودِ نقشهٔ برچسب‌ها مشتق می‌شود تا وقتی فیلد تحت‌نظارت جدیدی
+ * اضافه می‌شود، منطق تشخیص تغییر در همهٔ سرویس‌ها (BarberService و
+ * UsersService) هم‌زمان به‌روز بماند و فهرست‌ها از هم واگرا نشوند.
+ */
+export const BARBER_MODERATED_DIFF_KEYS = Object.keys(
+  BARBER_MODERATED_FIELD_LABELS,
+) as Array<Exclude<keyof BarberPendingChanges, 'submittedAt'>>;
+
 export function getBarberChangedFieldLabels(
   changes: Partial<BarberPendingChanges> | null | undefined,
 ): string[] {
   if (!changes) return [];
-  const orderedKeys = Object.keys(BARBER_MODERATED_FIELD_LABELS) as Array<
-    Exclude<keyof BarberPendingChanges, 'submittedAt'>
-  >;
-  return orderedKeys
-    .filter(key => changes[key] !== undefined)
-    .map(key => BARBER_MODERATED_FIELD_LABELS[key]);
+  return BARBER_MODERATED_DIFF_KEYS.filter(
+    key => changes[key] !== undefined,
+  ).map(key => BARBER_MODERATED_FIELD_LABELS[key]);
 }
 
 @Entity()

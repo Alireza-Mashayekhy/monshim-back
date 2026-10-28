@@ -32,6 +32,7 @@ import AppCard from '@/components/shared/app-card';
 import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getActivityTypeLabel } from '@/constants/activity-types';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { isoToJalali } from '@/lib/date-utils';
 import { getImageUploadError, IMAGE_ACCEPT } from '@/lib/image-upload';
@@ -395,6 +396,15 @@ export default function ProfilePage() {
               <InfoRow
                 label="نام فروشگاه"
                 value={profile?.data?.salonName || 'ثبت نشده'}
+              />
+              <InfoRow
+                label="نوع فعالیت"
+                value={
+                  profile?.data?.activityType
+                    ? getActivityTypeLabel(profile.data.activityType) ||
+                      profile.data.activityType
+                    : 'ثبت نشده'
+                }
               />
               <InfoRow
                 label="استان"

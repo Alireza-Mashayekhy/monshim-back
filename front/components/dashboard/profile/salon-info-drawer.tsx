@@ -6,6 +6,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 
 import FormProvider from '@/components/form/form-provider';
+import RHFActivityType from '@/components/form/rhf-activity-type';
 import RHFInput from '@/components/form/rhf-input';
 import RHFSelect from '@/components/form/rhf-select';
 import RHFTextArea from '@/components/form/rhf-textarea';
@@ -17,17 +18,37 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
+import { ACTIVITY_TYPES, ActivityTypeValue } from '@/constants/activity-types';
 import {
   useMyBarberProfile,
   useUpdateBarberProfile,
 } from '@/services/features/barber/hooks';
+import { UpdateBarberProfile } from '@/services/features/barber/types';
 import {
   useCityList,
   useProvinceList,
 } from '@/services/features/locations/hooks';
 
+/**
+ * مقدار ذخیره‌شدهٔ قدیمی ممکن است یکی از سه گزینهٔ استاندارد نباشد
+ * (مثلاً برچسب فارسی «آرایشگاه مردانه» در داده‌های اولیه). در آن حالت فیلد
+ * خالی نمایش داده می‌شود و تا وقتی آرایشگر گزینهٔ معتبری انتخاب نکند، چیزی
+ * ارسال نمی‌شود تا ویرایش بقیهٔ اطلاعات سالن بی‌دلیل مسدود نشود.
+ */
+const toActivityTypeValue = (
+  value: string | null | undefined,
+): ActivityTypeValue | undefined =>
+  ACTIVITY_TYPES.some(type => type.value === value)
+    ? (value as ActivityTypeValue)
+    : undefined;
+
 const schema = z.object({
   salonName: z.string().min(1, 'نام فروشگاه الزامی است'),
+  activityType: z
+    .enum(['women', 'men', 'both'], {
+      message: 'لطفاً نوع فعالیت سالن را انتخاب کنید.',
+    })
+    .optional(),
   provinceId: z.string().nullable(),
   cityId: z.string().nullable(),
   address: z.string().min(1, 'آدرس الزامی است'),
@@ -49,6 +70,7 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
     resolver: zodResolver(schema),
     defaultValues: {
       salonName: '',
+      activityType: undefined,
       provinceId: null,
       cityId: null,
       address: '',
@@ -69,6 +91,7 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
     if (profile?.data) {
       reset({
         salonName: profile.data.salonName || '',
+        activityType: toActivityTypeValue(profile.data.activityType),
         provinceId: profile.data.provinceId
           ? String(profile.data.provinceId)
           : null,
@@ -81,13 +104,16 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
 
   const onSubmit = (data: FormData) => {
     const trimmedBio = data.bio?.trim();
-    const payload = {
+    const payload: UpdateBarberProfile = {
       salonName: data.salonName.trim(),
       provinceId: data.provinceId ? parseInt(data.provinceId, 10) : null,
       cityId: data.cityId ? parseInt(data.cityId, 10) : null,
       address: data.address.trim(),
       bio: trimmedBio ? trimmedBio : null,
     };
+    if (data.activityType) {
+      payload.activityType = data.activityType;
+    }
     updateMutation.mutate(payload, {
       onSuccess: () => onOpenChange(false),
     });
@@ -116,6 +142,12 @@ export function SalonInfoDrawer({ open, onOpenChange }: SalonInfoDrawerProps) {
           className="px-4 pb-4 space-y-4"
         >
           <RHFInput name="salonName" label="نام فروشگاه" isRequired />
+
+          <RHFActivityType
+            name="activityType"
+            label="نوع فعالیت"
+            description="سالن شما ویژه بانوان است، آقایان یا هردو؟ این مورد در صفحهٔ عمومی سالن شما نمایش داده می‌شود."
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <RHFSelect

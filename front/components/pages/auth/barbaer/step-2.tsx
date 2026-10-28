@@ -2,7 +2,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LucideIcon, MapPin, Mars, Venus, VenusAndMars } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -14,21 +14,15 @@ import RHFInput from '@/components/form/rhf-input';
 import RHFSelect from '@/components/form/rhf-select';
 import RHFTextArea from '@/components/form/rhf-textarea';
 import StepFooter from '@/components/pages/auth/barbaer/step-footer';
+import { ActivityTypePicker } from '@/components/shared/activity-type-picker';
 import { Button } from '@/components/ui/button';
-import { ACTIVITY_TYPES, ActivityTypeValue } from '@/constants/activity-types';
+import { ACTIVITY_TYPES } from '@/constants/activity-types';
 import { getImageUploadError, IMAGE_SIZE_ERROR } from '@/lib/image-upload';
-import { cn } from '@/lib/utils';
 import {
   useCityList,
   useProvinceList,
 } from '@/services/features/locations/hooks';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
-
-const ACTIVITY_ICONS: Record<ActivityTypeValue, LucideIcon> = {
-  women: Venus,
-  men: Mars,
-  both: VenusAndMars,
-};
 
 interface Step2Props {
   onSubmit: (data: Record<string, unknown>) => void;
@@ -200,28 +194,10 @@ export default function BarbaerStep2({ onSubmit }: Step2Props) {
             control={methods.control}
             render={({ field, fieldState }) => (
               <div className="space-y-1.5">
-                <div className="grid grid-cols-3 gap-2.5">
-                  {ACTIVITY_TYPES.map(type => {
-                    const Icon = ACTIVITY_ICONS[type.value];
-                    const selected = field.value === type.value;
-                    return (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => field.onChange(type.value)}
-                        className={cn(
-                          'flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl border-2 transition-all cursor-pointer text-xs font-bold',
-                          selected
-                            ? 'border-primary bg-primary/5 text-primary shadow-xs'
-                            : 'border-gray-200 hover:border-gray-300 text-gray-600 bg-gray-50/50',
-                        )}
-                      >
-                        <Icon className="w-5 h-5" />
-                        <span>{type.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <ActivityTypePicker
+                  value={field.value}
+                  onChange={field.onChange}
+                />
                 {fieldState.error && (
                   <p className="text-xs text-red-500">
                     {fieldState.error.message}

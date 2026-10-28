@@ -60,7 +60,7 @@ describe('Barber profile approval SMS (172833) & non-disruptive profile editing'
       id: '11111111-2222-3333-4444-555555555555',
       userId: 42,
       salonName: 'پیرایش کلاسیک',
-      activityType: 'آرایشگاه مردانه',
+      activityType: 'men',
       provinceId: 1,
       province: tehranProvince,
       cityId: 10,
@@ -490,6 +490,101 @@ describe('Barber profile approval SMS (172833) & non-disruptive profile editing'
     await service.update(42, { salonName: 'پیرایش کلاسیک' });
     expect(profile.pendingStatus).toBe('none');
     expect(profile.pendingChanges).toBeNull();
+  });
+
+  it('تغییر «نوع فعالیت» توسط آرایشگر تاییدشده تا تایید ادمین عمومی نمی‌شود و مقدار نامعتبر خطای ۴۰۰ می‌دهد', async () => {
+    const { service, profile, baleNotificationService } = createHarness(true);
+
+    // فقط همان سه گزینهٔ ثبت‌نام پذیرفته می‌شود (مقدار ناشناخته یا null رد می‌شود)
+    await expect(
+      service.update(42, { activityType: 'unisex' as never }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.update(42, { activityType: null as never }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(profile.activityType).toBe('men');
+    expect(profile.pendingStatus).toBe('none');
+
+    // ویرایش معتبر -> پیش‌نویس در انتظار تایید ادمین
+    await service.update(42, { activityType: 'both' });
+    expect(profile.pendingStatus).toBe('pending');
+    expect(profile.pendingChanges?.activityType).toBe('both');
+    // نسخهٔ تاییدشدهٔ فعلی دست‌نخورده می‌ماند
+    expect(profile.activityType).toBe('men');
+    expect(
+      baleNotificationService.notifyBarberProfileEdited,
+    ).toHaveBeenCalledWith({
+      userId: 42,
+      changedFields: ['نوع فعالیت'],
+      isApprovedBarber: true,
+    });
+
+    // خود آرایشگر مقدار جدید را در پروفایلش می‌بیند
+    const selfView = await service.findOneByUserId(42);
+    expect(selfView.activityType).toBe('both');
+
+    // کاربران عادی همچنان نوع فعالیت تاییدشدهٔ قبلی را می‌بینند
+    const publicDetail = await service.findPublicOne(42);
+    expect(publicDetail.activityType).toBe('men');
+
+    // ادمین در صف تایید و صفحهٔ بررسی، مقدار پیشنهادی و مقدار فعلی را می‌بیند
+    const adminQueue = await service.findAll(
+      { page: 1, limit: 10 },
+      undefined,
+      true,
+    );
+    expect(adminQueue.data[0].activityType).toBe('both');
+
+    const approvalDetail = await service.findApprovalDetail('42');
+    expect(approvalDetail.activityType).toBe('both');
+    expect(approvalDetail.currentApprovedProfile).toMatchObject({
+      activityType: 'men',
+    });
+
+    // تایید ادمین -> مقدار جدید عمومی می‌شود
+    await service.reviewBarber(42, { isApproved: true });
+    expect(profile.activityType).toBe('both');
+    expect(profile.pendingStatus).toBe('none');
+    expect(profile.pendingChanges).toBeNull();
+    expect((await service.findPublicOne(42)).activityType).toBe('both');
+
+    // رد کردن ویرایش -> نوع فعالیت تاییدشدهٔ قبلی فعال می‌ماند
+    await service.update(42, { activityType: 'women' });
+    await service.reviewBarber(42, {
+      isApproved: false,
+      rejectionReason: 'سالن فقط ویژه آقایان است',
+    });
+    expect(profile.activityType).toBe('both');
+    expect(profile.pendingStatus).toBe('rejected');
+    expect((await service.findPublicOne(42)).activityType).toBe('both');
+    expect((await service.findOneByUserId(42)).activityType).toBe('women');
+  });
+
+  it('نوع فعالیت برای آرایشگر تاییدنشده مستقیماً ذخیره می‌شود، ویرایش ادمین هم بلافاصله اعمال می‌شود و ذخیرهٔ مقدار تکراری pending نمی‌سازد', async () => {
+    const { service, profile } = createHarness(true);
+
+    // ثبت مقدار یکسان با نسخهٔ تاییدشده -> بدون پیش‌نویس
+    await service.update(42, { activityType: 'men' });
+    expect(profile.pendingStatus).toBe('none');
+    expect(profile.pendingChanges).toBeNull();
+
+    // ویرایش مستقیم ادمین بدون صف تایید اعمال می‌شود
+    await service.updateByProfileId(profile.id, { activityType: 'women' });
+    expect(profile.activityType).toBe('women');
+    expect(profile.pendingStatus).toBe('none');
+
+    // آرایشگر تاییدنشده (مثلاً پس از رد اولیه) هم مستقیماً ویرایش می‌کند
+    const unapproved = createHarness(false);
+    await unapproved.service.update(42, { activityType: 'both' });
+    expect(unapproved.profile.activityType).toBe('both');
+    expect(unapproved.profile.pendingStatus).toBe('none');
+    expect(
+      unapproved.baleNotificationService.notifyBarberProfileEdited,
+    ).toHaveBeenCalledWith({
+      userId: 42,
+      changedFields: ['نوع فعالیت'],
+      isApprovedBarber: false,
+    });
   });
 
   it('فیلدهای زمان‌بندی و خصوصی (کد ملی، تاریخ تولد، بازه نوبت) بدون نیاز به تایید مجدد مستقیماً ذخیره می‌شوند', async () => {
