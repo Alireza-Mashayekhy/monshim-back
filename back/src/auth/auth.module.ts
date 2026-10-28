@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { BarberModule } from 'src/barber/barber.module';
 import { FilesModule } from 'src/files/files.module';
+import { NotificationModule } from 'src/notification/notification.module';
 import { OtpModule } from 'src/otp/otp.module';
 import { ReferralModule } from 'src/referral/referral.module';
 import { ServicesModule } from 'src/services/services.module';
@@ -19,6 +20,7 @@ import { AuthService } from './auth.service';
     ServicesModule,
     FilesModule,
     ReferralModule,
+    NotificationModule,
     JwtModule.registerAsync({
       global: true,
       inject: [ConfigService],

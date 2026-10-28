@@ -8,6 +8,8 @@ import {
   BarberParams,
   BarberProfileApprovedParams,
   barberProfileApprovedParams,
+  BarberProfileSubmittedParams,
+  barberProfileSubmittedParams,
   bookingParams,
   BookingSmsParams,
   DepositLinkParams,
@@ -173,6 +175,24 @@ export class BookingSmsService {
       SMS_TEMPLATES.BARBER_PROFILE_APPROVED,
       barberProfileApprovedParams(params),
       'تأیید پروفایل به آرایشگر',
+    );
+  }
+
+  /**
+   * 🔔 ثبت‌نام آرایشگر / ارسال پروفایل برای بررسی (قالب 573804)
+   *
+   * هنگام تکمیل ثبت‌نام آرایشگر و ورود پروفایل به صف تایید ادمین ارسال
+   * می‌شود تا آرایشگر مطمئن شود اطلاعاتش دریافت شده است.
+   */
+  async sendBarberProfileSubmittedToBarber(
+    barberPhone: string,
+    params: BarberProfileSubmittedParams,
+  ): Promise<void> {
+    await this.safeSend(
+      barberPhone,
+      SMS_TEMPLATES.BARBER_PROFILE_SUBMITTED,
+      barberProfileSubmittedParams(params),
+      'دریافت پروفایل برای بررسی به آرایشگر',
     );
   }
 

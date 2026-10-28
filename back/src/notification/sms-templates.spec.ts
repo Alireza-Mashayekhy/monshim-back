@@ -4,6 +4,7 @@ import {
 } from '../common/constants/constants';
 import {
   barberProfileApprovedParams,
+  barberProfileSubmittedParams,
   bookingParams,
   clipForSms,
   depositLinkParams,
@@ -86,6 +87,24 @@ describe('sms-templates', () => {
     expect(SMS_TEMPLATES.DEPOSIT_PAID_BARBER).toBe(798384);
     expect(SMS_TEMPLATES.DEPOSIT_PAID_CUSTOMER).toBe(634504);
     expect(SMS_TEMPLATES.BARBER_PROFILE_APPROVED).toBe(172833);
+    expect(SMS_TEMPLATES.BARBER_PROFILE_SUBMITTED).toBe(573804);
+  });
+
+  it('پارامتر NAME پیامک «پروفایل در حال بررسی» (573804) را می‌سازد', () => {
+    expect(barberProfileSubmittedParams({ barberName: 'علی رضایی' })).toEqual([
+      { name: 'NAME', value: 'علی رضایی' },
+    ]);
+
+    expect(barberProfileSubmittedParams({ barberName: '   ' })).toEqual([
+      { name: 'NAME', value: 'همکار' },
+    ]);
+
+    const clipped = barberProfileSubmittedParams({
+      barberName: 'سید محمدحسین طباطبایی بزرگمهر تهرانی',
+    });
+    expectAllParamsWithinLimit(clipped);
+    expect(clipped[0].name).toBe('NAME');
+    expect(clipped[0].value).toHaveLength(MAX);
   });
 
   it('پارامتر NAME پیامک تایید پروفایل آرایشگر (172833) را می‌سازد و در سقف ۲۵ کاراکتر نگه می‌دارد', () => {
