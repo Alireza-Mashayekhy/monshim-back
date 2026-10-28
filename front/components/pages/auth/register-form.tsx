@@ -33,6 +33,7 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { useHydrated } from '@/hooks/use-hydrated';
+import { useResetCityOnProvinceChange } from '@/hooks/use-reset-city-on-province-change';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   buildAuthHref,
@@ -129,13 +130,9 @@ function RegisterFormContent({
     registerFormResolver.preload();
   }, []);
 
-  const previousProvince = useRef(selectedProvinceId);
-  useEffect(() => {
-    if (previousProvince.current !== selectedProvinceId) {
-      methods.setValue('cityId', '', { shouldValidate: true });
-      previousProvince.current = selectedProvinceId;
-    }
-  }, [selectedProvinceId, methods]);
+  // با تغییر استان، شهرِ انتخاب‌شده پاک می‌شود — بدون اینکه پیش از انتخاب
+  // شهر، خطای «انتخاب شهر اجباری است» قرمز شود (توضیح کامل در خود hook).
+  useResetCityOnProvinceChange(methods, selectedProvinceId);
 
   // Pre-fill phone from URL param if available
   useEffect(() => {

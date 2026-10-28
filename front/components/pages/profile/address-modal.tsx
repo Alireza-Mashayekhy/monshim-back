@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import * as z from 'zod';
@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useResetCityOnProvinceChange } from '@/hooks/use-reset-city-on-province-change';
 import { getApiErrorMessage } from '@/lib/api-error';
 import type { UserResponse } from '@/services/features/auth/types';
 import {
@@ -66,13 +67,9 @@ export function AddressModal({ open, onOpenChange, user }: AddressModalProps) {
   const { data: provinces } = useProvinceList();
   const { data: cities } = useCityList(parseInt(selectedProvinceId));
 
-  const previousProvince = useRef(selectedProvinceId);
-  useEffect(() => {
-    if (previousProvince.current !== selectedProvinceId) {
-      methods.setValue('cityId', '', { shouldValidate: true });
-      previousProvince.current = selectedProvinceId;
-    }
-  }, [selectedProvinceId, methods]);
+  // با تغییر استان، شهرِ انتخاب‌شده پاک می‌شود — بدون اینکه پیش از انتخاب
+  // شهر، خطای «انتخاب شهر اجباری است» قرمز شود (توضیح کامل در خود hook).
+  useResetCityOnProvinceChange(methods, selectedProvinceId);
 
   const provinceOptions = provinces?.data?.map((p: any) => ({
     value: p.id.toString(),
