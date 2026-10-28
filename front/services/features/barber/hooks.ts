@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { revalidateMyPublicBarberPage } from '@/lib/actions/public-page';
 import type { ApiListResponse, ApiSingleResponse } from '@/services/api/types';
 
 import {
@@ -143,6 +144,11 @@ export const useUpdateBarberProfile = () => {
       queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
       queryClient.invalidateQueries({ queryKey: ['barber'] });
       queryClient.invalidateQueries({ queryKey: ['available-slots'] });
+      // کشِ SSR صفحهٔ عمومی/رزرو (که ۳۰۰ ثانیه زنده می‌ماند) هم تازه شود؛
+      // برای آرایشگرِ تاییدشده این ویرایش فقط پیش‌نویس است، ولی برای
+      // آرایشگرِ تاییدنشده یا فیلدهای عمومی (ساعت کاری/بازهٔ نوبت) همان
+      // لحظه در صفحه‌های عمومی دیده می‌شود.
+      void revalidateMyPublicBarberPage();
       if (response?.data?.pendingStatus === 'pending') {
         toast.success(
           'تغییرات ذخیره شد و پس از تایید پشتیبانی برای کاربران نمایش داده می‌شود.',
@@ -210,6 +216,8 @@ export const useUpdateSlotInterval = () => {
       queryClient.invalidateQueries({ queryKey: profileQueryKey });
       queryClient.invalidateQueries({ queryKey: ['barber'] });
       queryClient.invalidateQueries({ queryKey: ['available-slots'] });
+      // بازهٔ نوبت در پاسخِ عمومی پروفایل هم نمایش داده می‌شود.
+      void revalidateMyPublicBarberPage();
     },
   });
 };
@@ -244,6 +252,7 @@ export const useUpdateBarberPortfolio = () => {
     mutationFn: (input: UpdateBarberPortfolio) => updateBarberPortfolio(input),
     onSuccess: async response => {
       await queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
+      void revalidateMyPublicBarberPage();
       if (response?.data?.pendingStatus === 'pending') {
         toast.success(
           'نمونه‌کارها ذخیره شد و پس از تایید پشتیبانی برای کاربران نمایش داده می‌شود.',
@@ -281,6 +290,7 @@ export const useUpdateWorkHours = () => {
       queryClient.invalidateQueries({ queryKey: ['my-barber-profile'] });
       queryClient.invalidateQueries({ queryKey: ['barber'] });
       queryClient.invalidateQueries({ queryKey: ['available-slots'] });
+      void revalidateMyPublicBarberPage();
       toast.success('ساعات رزرو با موفقیت به‌روز شد.');
     },
     onError: (error: any) => {

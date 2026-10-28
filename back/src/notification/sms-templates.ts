@@ -41,6 +41,17 @@ export const SMS_TEMPLATES = {
   BARBER_PROFILE_APPROVED: 172833,
 
   /**
+   * 🔔 ثبت‌نام آرایشگر و ارسال پروفایل برای بررسی — پیامک به آرایشگر
+   *
+   * بلافاصله بعد از تکمیل ثبت‌نام (وقتی پروفایل وارد صف تایید ادمین می‌شود)
+   * برای خود آرایشگر ارسال می‌شود تا بداند اطلاعاتش دریافت شده و در حال
+   * بررسی است. متن قالب:
+   *   «🔔 #NAME# عزیز، اطلاعات سالن شما در دست بررسی توسط کارشناسان ماست.
+   *    از صبر و شکیبایی شما سپاسگذاریم.🙏 MONSHIIM.IR»
+   */
+  BARBER_PROFILE_SUBMITTED: 573804,
+
+  /**
    * ✅ واریز درخواست برداشت — پیامک به آرایشگر
    *
    * تایید برداشت توسط ادمین یعنی وجه واقعاً به حساب آرایشگر واریز شده است؛
@@ -198,6 +209,20 @@ export function depositLinkParams(params: DepositLinkParams) {
     { name: 'SALON_NAME', value: clipForSms(params.salonName, 'سالن') },
     { name: 'PAYMENT_LINK', value: String(params.paymentToken ?? '').trim() },
   ];
+}
+
+/**
+ * پارامترهای قالب «پروفایل در حال بررسی» (قالب 573804 — فقط #NAME#)
+ */
+export interface BarberProfileSubmittedParams {
+  barberName: string;
+}
+
+/** پارامترهای قالب «پروفایل در حال بررسی» (قالب 573804 — #NAME#) */
+export function barberProfileSubmittedParams(
+  params: BarberProfileSubmittedParams,
+) {
+  return [{ name: 'NAME', value: clipForSms(params.barberName, 'همکار') }];
 }
 
 /** پارامترهای قالب «تأیید پروفایل آرایشگر» (قالب 172833 — #NAME#) */

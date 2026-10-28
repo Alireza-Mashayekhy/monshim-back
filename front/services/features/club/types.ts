@@ -32,6 +32,8 @@ export interface CreateClubCustomerDto {
 
 export interface UpdateClubCustomerDto {
   fullName?: string;
+  /** شمارهٔ موبایل؛ با ارقام انگلیسی و قالب 09xxxxxxxxx */
+  phone?: string;
   /** مقدار null برای حذف گروه */
   groupId?: string | null;
 }

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,8 +9,12 @@ import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination } from 'src/common/query';
 import { toEnglishDigits } from 'src/common/utils/digits.util';
+import {
+  isValidIranMobile,
+  normalizeIranMobile,
+} from 'src/common/utils/phone.util';
 import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 
 import { DEFAULT_CUSTOMER_GROUPS } from './constants';
 import { ClubCustomerQueryDto } from './dto/club-customer-query.dto';
@@ -67,10 +72,30 @@ export class ClubService {
     const barber = await this.getBarberProfile(userId);
     await this.ensureDefaultGroups(barber.id);
 
-    return this.groupRepo.find({
+    const groups = await this.groupRepo.find({
       where: { barberId: barber.id },
       order: { isDefault: 'DESC', createdAt: 'ASC' },
     });
+
+    // تعداد اعضای هر گروه (فرانت این مقدار را به شکل `customersCount`
+    // نمایش می‌دهد ولی قبلاً هیچ‌وقت از سرور نمی‌آمد).
+    const counts = await this.clubCustomerRepo
+      .createQueryBuilder('club')
+      .select('club.groupId', 'groupId')
+      .addSelect('COUNT(*)', 'count')
+      .where('club.barberId = :barberId', { barberId: barber.id })
+      .andWhere('club.groupId IS NOT NULL')
+      .groupBy('club.groupId')
+      .getRawMany<{ groupId: string; count: string }>();
+
+    const countByGroup = new Map(
+      (counts ?? []).map(row => [row.groupId, Number(row.count) || 0]),
+    );
+
+    return groups.map(group => ({
+      ...group,
+      customersCount: countByGroup.get(group.id) ?? 0,
+    }));
   }
 
   async createGroup(userId: number, dto: CreateCustomerGroupDto) {
@@ -126,10 +151,14 @@ export class ClubService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
+    // ⚠️ رابطهٔ `club.customer` عمداً join نمی‌شود: این رابطه به موجودیت
+    // `User` اشاره می‌کند که ستون‌های حساسی مثل `password` (هش)، کد ملی،
+    // ایمیل و نقش‌ها دارد و با `leftJoinAndSelect` همهٔ آن‌ها در پاسخ لیست
+    // باشگاه به مرورگر آرایشگر فرستاده می‌شد. لیست باشگاه فقط به نام و
+    // شمارهٔ ذخیره‌شده در خود رکورد باشگاه نیاز دارد.
     const qb = this.clubCustomerRepo
       .createQueryBuilder('club')
       .leftJoinAndSelect('club.group', 'group')
-      .leftJoinAndSelect('club.customer', 'customer')
       .where('club.barberId = :barberId', { barberId: barber.id });
 
     if (query.groupId) {
@@ -175,13 +204,34 @@ export class ClubService {
     const barber = await this.getBarberProfile(userId);
     await this.ensureDefaultGroups(barber.id);
 
+    const phone = this.normalizePhone(dto.phone);
+    if (!phone) {
+      throw new BadRequestException('شماره موبایل معتبر نیست');
+    }
+
     return this.upsertMember(barber.id, {
-      fullName: this.normalizeName(dto.fullName),
-      phone: dto.phone,
+      fullName: this.normalizeName(dto.fullName) || 'مشتری',
+      phone,
       groupId: dto.groupId ?? null,
     });
   }
 
+  /**
+   * ویرایش مشتری باشگاه (نام، شمارهٔ موبایل و گروه).
+   *
+   * نکته‌های مهمی که اینجا رعایت می‌شوند:
+   *  ۱. فقط فیلدهایی که واقعاً در بدنهٔ درخواست آمده‌اند اعمال می‌شوند؛ قبلاً
+   *     هنگام تغییر فقط «گروه»، نامِ ذخیره‌شدهٔ باشگاه روی حساب کاربر
+   *     بازنویسی می‌شد و نام واقعی کاربر از بین می‌رفت.
+   *  ۲. شمارهٔ جدید علاوه بر رکورد باشگاه، روی حساب کاربر (که مبنای ارسال
+   *     پیامک تأیید/یادآوری نوبت و لینک بیعانه است) هم به‌روز می‌شود؛
+   *     وگرنه در لیست باشگاه شمارهٔ جدید دیده می‌شد ولی پیامک‌ها به شمارهٔ
+   *     قبلی می‌رفتند.
+   *  ۳. اگر شمارهٔ جدید متعلق به حساب دیگری باشد، تغییر انجام نمی‌شود
+   *     (۴۰۹) تا دو حساب با یک شماره ساخته نشود.
+   *  ۴. رکوردهای باشگاه همین مشتری نزد بقیهٔ آرایشگرها هم با نام/شمارهٔ
+   *     جدید هم‌گام می‌شوند تا همه‌جا یکسان دیده شود.
+   */
   async updateCustomer(userId: number, id: string, dto: UpdateClubCustomerDto) {
     const barber = await this.getBarberProfile(userId);
     const member = await this.clubCustomerRepo.findOne({
@@ -199,19 +249,87 @@ export class ClubService {
       member.groupId = null;
     }
 
-    if (dto.fullName?.trim())
-      member.fullName = this.normalizeName(dto.fullName);
+    // ── نام و نام خانوادگی ──
+    let nextFullName: string | null = null;
+    if (dto.fullName !== undefined) {
+      const normalized = this.normalizeName(dto.fullName);
+      if (!normalized) {
+        throw new BadRequestException('نام و نام خانوادگی نمی‌تواند خالی باشد');
+      }
+      nextFullName = normalized;
+      member.fullName = normalized;
+    }
+
+    // ── شمارهٔ موبایل ──
+    let nextPhone: string | null = null;
+    if (dto.phone !== undefined) {
+      const normalizedPhone = this.normalizePhone(dto.phone);
+      if (!normalizedPhone) {
+        throw new BadRequestException('شماره موبایل معتبر نیست');
+      }
+      nextPhone = normalizedPhone;
+      member.phone = normalizedPhone;
+    }
 
     const user = await this.userRepo.findOne({
       where: { id: member.customerId },
     });
 
-    if (user) {
-      user.fullName = member.fullName;
+    if (user && (nextFullName !== null || nextPhone !== null)) {
+      if (nextFullName !== null) {
+        user.fullName = nextFullName;
+      }
+
+      if (nextPhone !== null && nextPhone !== user.phone) {
+        // حساب آرایشگر/مدیر نباید از این مسیر شماره‌اش عوض شود.
+        if ((user.roles ?? []).some(role => role !== Role.User)) {
+          throw new BadRequestException(
+            'این شماره متعلق به حساب آرایشگر یا مدیر است و از بخش باشگاه مشتریان قابل تغییر نیست',
+          );
+        }
+
+        const owner = await this.userRepo.findOne({
+          where: { phone: nextPhone },
+        });
+
+        if (owner && owner.id !== user.id) {
+          throw new ConflictException(
+            'این شماره قبلاً برای کاربر دیگری در سامانه ثبت شده است',
+          );
+        }
+
+        user.phone = nextPhone;
+      }
+
       await this.userRepo.save(user);
+
+      // هم‌گام‌سازی رکوردهای باشگاه همین مشتری (در صورت ثبت نزد چند آرایشگر)
+      await this.syncCustomerSnapshots(
+        user.id,
+        { fullName: nextFullName, phone: nextPhone },
+        member.id,
+      );
     }
 
     return this.clubCustomerRepo.save(member);
+  }
+
+  /**
+   * اعمال نام/شمارهٔ جدید روی همهٔ رکوردهای باشگاهِ یک کاربر تا لیست همهٔ
+   * آرایشگرها با دادهٔ حساب کاربر هم‌خوان بماند.
+   */
+  private async syncCustomerSnapshots(
+    customerId: number,
+    values: { fullName: string | null; phone: string | null },
+    skipId: string,
+  ) {
+    const patch: { fullName?: string; phone?: string } = {};
+    if (values.fullName) patch.fullName = values.fullName;
+    if (values.phone) patch.phone = values.phone;
+
+    if (Object.keys(patch).length === 0) return;
+
+    await this.clubCustomerRepo.update({ customerId, id: Not(skipId) }, patch);
   }
 
   async removeCustomer(userId: number, id: string) {
@@ -308,7 +426,9 @@ export class ClubService {
       barberId,
       customerId: user.id,
       fullName: data.fullName,
-      phone: user.phone,
+      // شمارهٔ واردشده توسط آرایشگر (نرمال‌شده) ذخیره می‌شود؛ برای کاربر
+      // موجود با همان شماره پیدا شده است، پس تفاوتی با `user.phone` ندارد.
+      phone: data.phone || user.phone,
       groupId: data.groupId,
     });
 
@@ -356,5 +476,13 @@ export class ClubService {
 
   private normalizeName(name: string) {
     return (name || '').trim().replace(/\s+/g, ' ');
+  }
+
+  /** شمارهٔ موبایل را به قالب یکسان `09xxxxxxxxx` می‌برد؛ نامعتبر → null */
+  private normalizePhone(phone: string | null | undefined) {
+    const normalized = normalizeIranMobile(phone);
+    return typeof normalized === 'string' && isValidIranMobile(normalized)
+      ? normalized
+      : null;
   }
 }
