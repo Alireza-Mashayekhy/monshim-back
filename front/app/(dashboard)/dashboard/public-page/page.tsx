@@ -10,9 +10,10 @@ import {
   Globe,
   Link2,
   Loader2,
-  Pencil,
+  Lock,
   Sparkles,
   Tag,
+  TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
@@ -20,6 +21,7 @@ import { toast } from 'sonner';
 
 import DashboardShell from '@/components/dashboard/layout/dashboard-shell';
 import AppCard from '@/components/shared/app-card';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import FadeIn from '@/components/shared/fade-in';
 import PageHeader from '@/components/shared/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -60,8 +62,8 @@ const URL_HOST_PREFIX = `${siteConfig.url.replace(/^https?:\/\//, '')}/barber/`;
  */
 export default function PublicPagePage() {
   const [copied, setCopied] = useState(false);
-  const [isEditingSlug, setIsEditingSlug] = useState(false);
   const [slugDraft, setSlugDraft] = useState('');
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [discountCode, setDiscountCode] = useState('');
 
   const { data: statusData, isLoading } = useMyPublicPageStatus();
@@ -79,33 +81,28 @@ export default function PublicPagePage() {
   const price = status?.packagePriceTomans ?? 773000;
   const publicUrl = status?.publicUrl ?? '';
 
-  const showSlugForm = isActive && (!currentSlug || isEditingSlug);
+  // اسلاگ فقط یک بار ثبت می‌شود: بعد از ثبت، فرم انتخاب اسلاگ دیگر نمایش داده
+  // نمی‌شود و بک‌اند هم هر تلاش برای تغییر را رد می‌کند.
+  const isSlugLocked = Boolean(status?.isSlugLocked ?? currentSlug);
+  const showSlugForm = isActive && !currentSlug && !isSlugLocked;
   const trimmedDraft = slugDraft.trim();
   const localValidation = validatePublicPageSlug(slugDraft);
   const candidateSlug = localValidation.valid ? localValidation.slug : '';
   const debouncedSlug = useDebounce(candidateSlug, 350);
-  const isSameAsCurrent = Boolean(
-    currentSlug &&
-    localValidation.valid &&
-    localValidation.slug === currentSlug,
-  );
   const shouldCheckRemote =
     showSlugForm &&
     localValidation.valid &&
-    !isSameAsCurrent &&
     debouncedSlug === localValidation.slug;
 
   const slugCheck = useCheckPublicPageSlug(debouncedSlug, shouldCheckRemote);
   const isCheckingAvailability =
     showSlugForm &&
     localValidation.valid &&
-    !isSameAsCurrent &&
     (debouncedSlug !== localValidation.slug || slugCheck.isFetching);
   const remoteAvailability = slugCheck.data?.data;
 
   const canSaveSlug =
     localValidation.valid &&
-    !isSameAsCurrent &&
     !isCheckingAvailability &&
     Boolean(remoteAvailability?.available) &&
     !updateSlug.isPending;
@@ -121,41 +118,27 @@ export default function PublicPagePage() {
     }
   };
 
-  const handleStartEditSlug = () => {
-    setSlugDraft(currentSlug ?? '');
-    setIsEditingSlug(true);
-  };
-
-  const handleCancelEditSlug = () => {
-    setSlugDraft('');
-    setIsEditingSlug(false);
-  };
-
-  const handleSaveSlug = async (event: FormEvent<HTMLFormElement>) => {
+  // ثبت نهایی فقط بعد از تأیید صریح کاربر در دیالوگ انجام می‌شود.
+  const handleSaveSlug = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!localValidation.valid) {
       toast.error(localValidation.reason);
       return;
     }
+    if (!canSaveSlug) return;
+    setIsConfirmOpen(true);
+  };
 
-    if (isSameAsCurrent) {
-      setIsEditingSlug(false);
-      return;
-    }
-
+  const handleConfirmSaveSlug = async () => {
     try {
       const response = await updateSlug.mutateAsync(localValidation.slug);
       const savedSlug = response.data?.slug ?? localValidation.slug;
       void revalidateMyPublicBarberPage([currentSlug, savedSlug]);
       setSlugDraft('');
-      setIsEditingSlug(false);
-      toast.success(
-        currentSlug
-          ? 'اسلاگ صفحهٔ اختصاصی با موفقیت ویرایش شد'
-          : 'اسلاگ صفحهٔ اختصاصی با موفقیت ثبت شد',
-      );
+      toast.success('آدرس اختصاصی شما ثبت شد و از این پس قابل تغییر نیست');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'خطا در ثبت اسلاگ'));
+      throw error;
     }
   };
 
@@ -212,11 +195,11 @@ export default function PublicPagePage() {
               {!isActive
                 ? 'صفحهٔ اختصاصی شما غیرفعال است. با خرید پکیج یا رسیدن به ۳۰۰ رزرو موفقِ پرداخت‌شده در درگاه فعال می‌شود و سپس می‌توانید اسلاگ دلخواه سالن خود را ثبت کنید.'
                 : currentSlug
-                  ? 'صفحهٔ اختصاصی شما فعال است؛ مشتریان می‌توانند بدون ورود به سامانه آن را با آدرس اختصاصی شما ببینند و در نتایج جستجو نمایش داده می‌شود.'
+                  ? 'صفحهٔ اختصاصی شما فعال است؛ مشتریان می‌توانند بدون ورود به سامانه آن را با آدرس اختصاصی شما ببینند و در نتایج جستجو نمایش داده می‌شود. آدرس اختصاصی شما قطعی و غیرقابل تغییر است.'
                   : 'صفحهٔ اختصاصی شما فعال شده است! برای ساخت لینک عمومی و جایگزینی شناسهٔ عددی در آدرس، لطفاً یک اسلاگ یکتا برای سالن خود انتخاب و ثبت کنید.'}
             </p>
 
-            {isActive && currentSlug && publicUrl && !isEditingSlug && (
+            {isActive && currentSlug && publicUrl && (
               <div className="mt-4 rounded-2xl border border-primary/20 bg-primary-2/50 p-4">
                 <p className="text-xs text-muted-foreground">
                   آدرس اختصاصی صفحهٔ شما
@@ -237,15 +220,15 @@ export default function PublicPagePage() {
                     {copied ? <Check size={14} /> : null}
                     {copied ? 'کپی شد' : 'کپی لینک'}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    type="button"
-                    onClick={handleStartEditSlug}
-                  >
-                    <Pencil size={14} /> تغییر اسلاگ
-                  </Button>
                 </div>
+                <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-white/70 p-2.5 text-xs leading-6 text-gray-600">
+                  <Lock size={14} className="mt-1 shrink-0 text-gray-400" />
+                  <span>
+                    آدرس اختصاصی فقط یک بار قابل انتخاب است و پس از ثبت قابل
+                    تغییر نیست؛ تغییر آدرس باعث از دست رفتن رتبهٔ صفحهٔ شما در
+                    نتایج گوگل می‌شود.
+                  </span>
+                </p>
               </div>
             )}
 
@@ -257,9 +240,7 @@ export default function PublicPagePage() {
                 <div className="flex items-center gap-2">
                   <Link2 size={16} className="text-primary" />
                   <h3 className="text-sm font-black text-gray-900">
-                    {currentSlug
-                      ? 'ویرایش اسلاگ آدرس اختصاصی'
-                      : 'ثبت اسلاگ آدرس اختصاصی سالن'}
+                    ثبت اسلاگ آدرس اختصاصی سالن
                   </h3>
                 </div>
 
@@ -267,6 +248,18 @@ export default function PublicPagePage() {
                   این عبارت به‌جای شناسهٔ عددی در آدرس عمومی صفحهٔ شما نمایش
                   داده می‌شود. فقط از حروف انگلیسی کوچک، اعداد و خط تیره (-)
                   استفاده کنید.
+                </p>
+
+                <p className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-6 text-rose-700">
+                  <TriangleAlert size={15} className="mt-1 shrink-0" />
+                  <span>
+                    <strong className="font-black">
+                      این انتخاب فقط یک بار انجام می‌شود و قابل برگشت نیست.
+                    </strong>{' '}
+                    اسلاگ پس از ثبت قفل می‌شود و دیگر امکان تغییر آن از پنل وجود
+                    ندارد؛ چون آدرس صفحهٔ شما در گوگل و لینک‌هایی که مشتریان
+                    به‌اشتراک گذاشته‌اند به همین آدرس گره می‌خورد.
+                  </span>
                 </p>
 
                 <div
@@ -299,10 +292,6 @@ export default function PublicPagePage() {
                     <span className="flex items-center gap-1.5 font-medium text-rose-600">
                       <AlertCircle size={14} className="shrink-0" />
                       {localValidation.reason}
-                    </span>
-                  ) : isSameAsCurrent ? (
-                    <span className="text-muted-foreground">
-                      این اسلاگ هم‌اکنون روی صفحهٔ شما ثبت شده است.
                     </span>
                   ) : isCheckingAvailability ? (
                     <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -337,24 +326,50 @@ export default function PublicPagePage() {
                     {updateSlug.isPending ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : null}
-                    {currentSlug
-                      ? 'ذخیرهٔ اسلاگ جدید'
-                      : 'ثبت اسلاگ و ساخت لینک'}
+                    ثبت نهایی اسلاگ و ساخت لینک
                   </Button>
-                  {currentSlug && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={updateSlug.isPending}
-                      onClick={handleCancelEditSlug}
-                    >
-                      انصراف
-                    </Button>
-                  )}
                 </div>
+                <p className="text-[11px] leading-5 text-muted-foreground">
+                  با زدن این دکمه یک پنجرهٔ تأیید باز می‌شود تا انتخاب نهایی خود
+                  را قطعی کنید.
+                </p>
               </form>
             )}
+
+            <ConfirmDialog
+              open={isConfirmOpen}
+              onOpenChange={setIsConfirmOpen}
+              title="ثبت قطعی و یک‌بارهٔ آدرس اختصاصی"
+              confirmLabel="بله، ثبت کن؛ دیگر تغییر نمی‌دهم"
+              cancelLabel="انصراف"
+              isPending={updateSlug.isPending}
+              onConfirm={handleConfirmSaveSlug}
+              description={
+                <span className="block space-y-2 text-right">
+                  <span className="block">
+                    آدرس اختصاصی صفحهٔ شما به این صورت ساخته می‌شود:
+                  </span>
+                  <span
+                    dir="ltr"
+                    className="block rounded-lg bg-gray-100 px-2 py-1.5 text-center text-xs font-bold text-gray-800"
+                  >
+                    {`${URL_HOST_PREFIX}${localValidation.valid ? localValidation.slug : ''}`}
+                  </span>
+                  <span className="block font-bold text-rose-600">
+                    ⚠️ این کار قابل برگشت نیست و فقط یک بار می‌توانید انجامش
+                    بدهید.
+                  </span>
+                  <span className="block">
+                    بعد از ثبت، اسلاگ قفل می‌شود و امکان تغییر آن از پنل وجود
+                    ندارد؛ آدرس فعلی صفحهٔ شما در گوگل و لینک‌هایی که
+                    به‌اشتراک گذاشته‌اید به همین عبارت وابسته می‌شود.
+                  </span>
+                  <span className="block">
+                    اگر مطمئن نیستید، «انصراف» را بزنید و بعداً ثبت کنید.
+                  </span>
+                </span>
+              }
+            />
 
             {isActive && status && !status.isApproved && (
               <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-6 text-amber-700">
@@ -402,7 +417,9 @@ export default function PublicPagePage() {
 
               <ul className="mt-5 space-y-2 text-sm text-white/90">
                 <li>• صفحهٔ اختصاصی و سئوشده برای سالن شما در گوگل</li>
-                <li>• انتخاب اسلاگ (آدرس اختصاصی یکتا) بدون نمایش آیدی</li>
+                <li>
+                  • انتخاب یک‌بارهٔ اسلاگ (آدرس اختصاصی یکتا) بدون نمایش آیدی
+                </li>
                 <li>• نمایش خدمات، قیمت‌ها، نمونه‌کارها و نظرات</li>
                 <li>• فعال‌سازی آنی و مادام‌العمر بدون نیاز به تمدید</li>
               </ul>

@@ -9,9 +9,13 @@ import {
   PaymentStatus,
 } from 'src/payment/entities/payment.entity';
 import { TransactionType } from 'src/wallet/entities/transaction.entity';
+import { IsNull } from 'typeorm';
 
 import { PUBLIC_PAGE_REQUIRED_PAID_BOOKINGS } from './constants';
-import { PublicPageService } from './public-page.service';
+import {
+  PUBLIC_PAGE_SLUG_LOCKED_MESSAGE,
+  PublicPageService,
+} from './public-page.service';
 import { normalizePublicPageSlug, validatePublicPageSlug } from './slug.util';
 
 describe('PublicPage slug utility', () => {
@@ -118,6 +122,7 @@ describe('PublicPageService', () => {
     qualifiedRows?: any[];
     purchaseDirectoryRows?: any[];
     duplicateDbError?: boolean;
+    updateAffected?: number;
     discount?: any;
   }) {
     const bookingQb = createMockBookingQb({
@@ -166,7 +171,7 @@ describe('PublicPageService', () => {
           });
           return Promise.reject(err);
         }
-        return Promise.resolve({ affected: 1 });
+        return Promise.resolve({ affected: params?.updateAffected ?? 1 });
       }),
     };
 
@@ -337,12 +342,93 @@ describe('PublicPageService', () => {
     });
 
     const updated = await okService.updateSlugByUserId(42, '  Aria-Salon  ');
+    // شرط `slug: IsNull()` نوشتن یک‌باره را تضمین می‌کند.
     expect(profileRepo.update).toHaveBeenCalledWith(
-      { id: 'prof-1' },
+      { id: 'prof-1', slug: IsNull() },
       { slug: 'aria-salon' },
     );
     expect(updated.slug).toBe('aria-salon');
+    expect(updated.isSlugLocked).toBe(true);
     expect(updated.publicUrl).toBe('https://monshiim.ir/barber/aria-salon');
+  });
+
+  it('پس از ثبت، تغییر اسلاگ را رد می‌کند (اسلاگ یک‌باره و غیرقابل برگشت است)', async () => {
+    const { service, profileRepo } = createService({
+      profile: {
+        id: 'prof-1',
+        userId: 42,
+        isApproved: true,
+        salonName: 'سالن آریا',
+        slug: 'aria-salon',
+      },
+      purchase: { id: 'pur-1', createdAt: new Date('2026-01-01T00:00:00Z') },
+    });
+
+    await expect(
+      service.updateSlugByUserId(42, 'aria-salon-2'),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    await expect(
+      service.updateSlugByUserId(42, 'aria-salon-2'),
+    ).rejects.toMatchObject({ message: PUBLIC_PAGE_SLUG_LOCKED_MESSAGE });
+
+    expect(profileRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('ارسال دوبارهٔ همان اسلاگ، عملیات بی‌اثر (idempotent) است', async () => {
+    const { service, profileRepo } = createService({
+      profile: {
+        id: 'prof-1',
+        userId: 42,
+        isApproved: true,
+        salonName: 'سالن آریا',
+        slug: 'aria-salon',
+      },
+      purchase: { id: 'pur-1', createdAt: new Date('2026-01-01T00:00:00Z') },
+    });
+
+    const status = await service.updateSlugByUserId(42, ' Aria-Salon ');
+    expect(status.slug).toBe('aria-salon');
+    expect(status.isSlugLocked).toBe(true);
+    expect(profileRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('اگر نوشتن هم‌زمان اسلاگ شکست بخورد (affected=0) خطای Conflict می‌دهد', async () => {
+    const { service } = createService({
+      profile: {
+        id: 'prof-1',
+        userId: 42,
+        isApproved: true,
+        salonName: 'سالن آریا',
+        slug: null,
+      },
+      purchase: { id: 'pur-1', createdAt: new Date('2026-01-01T00:00:00Z') },
+      updateAffected: 0,
+    });
+
+    await expect(
+      service.updateSlugByUserId(42, 'aria-salon'),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('برای آرایشگر دارای اسلاگ، بررسی اسلاگ دیگر پیام «قفل» برمی‌گرداند', async () => {
+    const { service } = createService({
+      profile: {
+        id: 'prof-1',
+        userId: 42,
+        isApproved: true,
+        salonName: 'سالن آریا',
+        slug: 'aria-salon',
+      },
+      purchase: { id: 'pur-1', createdAt: new Date('2026-01-01T00:00:00Z') },
+    });
+
+    const availability = await service.checkSlugAvailability(
+      42,
+      'another-salon',
+    );
+    expect(availability.available).toBe(false);
+    expect(availability.reason).toBe(PUBLIC_PAGE_SLUG_LOCKED_MESSAGE);
   });
 
   it('در خطای هم‌زمانی یکتایی دیتابیس (ER_DUP_ENTRY) خطای Conflict برمی‌گرداند', async () => {
