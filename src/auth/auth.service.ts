@@ -31,6 +31,7 @@ import {
   toEnglishDigits,
 } from 'src/common/utils/national-code.util';
 import { normalizeRoles } from 'src/common/utils/roles.util';
+import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { OtpService } from 'src/otp/otp.service';
 import { ReferralService } from 'src/referral/referral.service';
 import { ServicesService } from 'src/services/services.service';
@@ -64,6 +65,8 @@ export class AuthService {
     private readonly dataSource: DataSource,
     @Optional()
     private readonly baleNotificationService?: BaleNotificationService,
+    @Optional()
+    private readonly bookingSmsService?: BookingSmsService,
   ) {}
 
   async getProfile(userId: number) {
@@ -289,6 +292,12 @@ export class AuthService {
     // ۵. ارسال اعلان ثبت‌نام آرایشگر جدید به ربات بله (جهت بررسی و تایید ادمین)
     void this.baleNotificationService?.notifyBarberRegistered?.(user.id);
 
+    // ۵.۱. پیامک «پروفایل شما در حال بررسی است» (قالب 573804) به خود آرایشگر.
+    // عمداً await نمی‌شود (پاسخ ثبت‌نام نباید به زمان پاسخ سرویس پیامک گره
+    // بخورد) و خطای آن هم فقط لاگ می‌شود تا ثبت‌نام هرگز به‌خاطر پیامک
+    // شکست نخورد یا unhandled rejection ایجاد نکند.
+    this.sendProfileSubmittedSms(user);
+
     // ۶. صدور توکن
     await this.issueTokens(user, response);
 
@@ -400,6 +409,22 @@ export class AuthService {
     clearAuthCookies(response);
 
     return { message: 'خروج با موفقیت انجام شد' };
+  }
+
+  /**
+   * پیامک «اطلاعات سالن شما در دست بررسی است» (قالب 573804) — fire-and-forget.
+   * هر خطایی فقط لاگ می‌شود.
+   */
+  private sendProfileSubmittedSms(user: User) {
+    void Promise.resolve(
+      this.bookingSmsService?.sendBarberProfileSubmittedToBarber?.(user.phone, {
+        barberName: user.fullName,
+      }),
+    ).catch(error => {
+      this.logger.warn(
+        `ارسال پیامک «پروفایل در حال بررسی» برای کاربر ${user.id} ناموفق بود: ${String(error)}`,
+      );
+    });
   }
 
   private async issueTokens(user: User, response: Response) {
