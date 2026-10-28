@@ -82,17 +82,25 @@ export function CustomerDrawer({
   const groupId = useWatch({ control, name: 'groupId' });
   const newGroupName = useWatch({ control, name: 'newGroupName' }) ?? '';
 
-  // مقداردهی فرم هنگام باز شدن
+  // مقداردهی فرم هنگام باز شدن دراور یا انتخاب مشتریِ دیگر.
+  //
+  // وابستگی‌ها عمداً «مقادیر اولیه» (و نه خود شیء `customer`) هستند: هر
+  // refetch لیست یک شیء جدید با همان مقادیر می‌دهد و اگر شیء در وابستگی‌ها
+  // بود، فرم وسط تایپ کردن کاربر پاک می‌شد.
+  const initialFullName = customer?.fullName ?? '';
+  const initialPhone = customer?.phone ?? '';
+  const initialGroupId = customer?.groupId || customer?.group?.id || NO_GROUP;
+
   useEffect(() => {
     if (!open) return;
 
     reset({
-      fullName: customer?.fullName ?? '',
-      phone: customer?.phone ?? '',
-      groupId: customer?.groupId || customer?.group?.id || NO_GROUP,
+      fullName: initialFullName,
+      phone: initialPhone,
+      groupId: initialGroupId,
       newGroupName: '',
     });
-  }, [open, customer, reset]);
+  }, [open, initialFullName, initialPhone, initialGroupId, reset]);
 
   const handleCreateGroup = async () => {
     const value = newGroupName.trim();
@@ -162,6 +170,13 @@ export function CustomerDrawer({
             label="شماره موبایل"
             placeholder="۰۹۱۲۳۴۵۶۷۸۹"
           />
+
+          {isEdit && (
+            <p className="-mt-2 text-xs text-gray-500">
+              با تغییر شماره، پیامک‌های تأیید نوبت و لینک بیعانه هم به شمارهٔ
+              جدید ارسال می‌شوند.
+            </p>
+          )}
 
           {/* انتخاب گروه */}
           <div className="space-y-2">
