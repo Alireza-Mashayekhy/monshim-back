@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Booking } from 'src/booking/entities/booking.entity';
+import { FrontendRevalidationService } from 'src/common/services/frontend-revalidation.service';
 import { FilesModule } from 'src/files/files.module';
 import { City } from 'src/locations/entities/city.entity';
 import { Province } from 'src/locations/entities/province.entity';
@@ -42,7 +43,17 @@ import { WorkHoursService } from './work-hours.service';
     BarberAdminController,
     BarberReviewAdminController,
   ],
-  providers: [BarberService, BarberReviewService, WorkHoursService],
-  exports: [BarberService, BarberReviewService, WorkHoursService],
+  providers: [
+    BarberService,
+    BarberReviewService,
+    WorkHoursService,
+    FrontendRevalidationService,
+  ],
+  exports: [
+    BarberService,
+    BarberReviewService,
+    WorkHoursService,
+    FrontendRevalidationService,
+  ],
 })
 export class BarberModule {}

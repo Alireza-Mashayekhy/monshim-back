@@ -15,6 +15,7 @@ import {
 } from 'src/booking/slot-intervals';
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
+import { FrontendRevalidationService } from 'src/common/services/frontend-revalidation.service';
 import {
   isValidIranianNationalCode,
   normalizeNationalCode,
@@ -85,6 +86,9 @@ export class BarberService implements OnModuleInit {
 
     @Optional()
     private readonly baleNotificationService?: BaleNotificationService,
+
+    @Optional()
+    private readonly frontendRevalidationService?: FrontendRevalidationService,
   ) {}
 
   /**
@@ -140,6 +144,28 @@ export class BarberService implements OnModuleInit {
         `بررسی/ایجاد ستون‌های pending پروفایل آرایشگر ناموفق بود: ${String(error)}`,
       );
     }
+  }
+
+  /**
+   * اعلام تغییر دادهٔ عمومی آرایشگر به فرانت، تا کشِ SSR صفحه‌های عمومی
+   * (`/barber/[slug]`، فهرست آرایشگرها و sitemap) همان لحظه تازه شود.
+   *
+   * این کار «کمربند ایمنی» است: پنل ادمین/آرایشگر خودشان هم بعد از موفقیت
+   * درخواست، Server Actionِ پاک‌سازی کش را صدا می‌زنند؛ اما اگر تایید از مسیر
+   * دیگری (اسکریپت/اپ/ربات) انجام شود، فقط همین اطلاع‌رسانی کشِ فرانت را
+   * به‌روز می‌کند. در صورت نبود تنظیمات، بی‌صدا رد می‌شود.
+   */
+  private notifyPublicProfileChanged(
+    userId: number | null | undefined,
+    slug?: string | null,
+  ) {
+    const numericUserId = Number(userId);
+    if (!Number.isInteger(numericUserId) || numericUserId < 1) return;
+
+    this.frontendRevalidationService?.notifyBarberProfileChanged({
+      userId: numericUserId,
+      slugs: [slug ?? null],
+    });
   }
 
   // src/barber/barber.service.ts
@@ -977,7 +1003,15 @@ export class BarberService implements OnModuleInit {
       throw new NotFoundException('پروفایل آرایشگر یافت نشد');
     }
 
-    return this.update(profile.userId, dto, { byAdmin: true });
+    const updated = await this.update(profile.userId, dto, { byAdmin: true });
+
+    // ویرایش مستقیم ادمین بلافاصله روی صفحهٔ عمومی اثر می‌گذارد.
+    this.notifyPublicProfileChanged(
+      profile.userId,
+      updated?.slug ?? profile.slug,
+    );
+
+    return updated;
   }
 
   /** جزئیات آرایشگر برای پنل ادمین بر اساس شناسهٔ پروفایل (uuid) */
@@ -1043,6 +1077,9 @@ export class BarberService implements OnModuleInit {
     return {
       id: user.id,
       barberProfileId: profile.id,
+      // اسلاگ صفحهٔ عمومی؛ پنل ادمین بعد از تایید از همین مقدار برای
+      // پاک‌سازی دقیق کشِ `/barber/[slug]` استفاده می‌کند.
+      slug: profile.slug ?? null,
       fullName: pending?.fullName ?? user.fullName,
       phone: user.phone ?? null,
       email: user.email ?? null,
@@ -1306,7 +1343,11 @@ export class BarberService implements OnModuleInit {
     }
 
     if (!hasModeratedFieldInDto) {
-      return this.profileRepository.save(profile);
+      // فیلدهای عملیاتی (ساعت کاری/بازهٔ نوبت) بدون تایید اعمال می‌شوند و
+      // بعضی از آن‌ها (بازهٔ نوبت) در صفحهٔ عمومی هم دیده می‌شوند.
+      const savedProfile = await this.profileRepository.save(profile);
+      this.notifyPublicProfileChanged(user.id, profile.slug);
+      return savedProfile;
     }
 
     const previousPendingStatus: BarberPendingStatus =
@@ -1616,6 +1657,13 @@ export class BarberService implements OnModuleInit {
 
     if (filesToDeleteAfterSave.length > 0) {
       this.filesService?.deleteFiles(filesToDeleteAfterSave);
+    }
+
+    // تایید ادمین (ثبت‌نام اولیه یا اعمال ویرایشِ در انتظار) دادهٔ عمومی را
+    // عوض می‌کند؛ کشِ صفحه‌های عمومی فرانت باید همان لحظه تازه شود تا نه
+    // اطلاعات قدیمی دیده شود و نه صفحهٔ آرایشگرِ تازه‌تاییدشده ۴۰۴ بماند.
+    if (dto.isApproved === true) {
+      this.notifyPublicProfileChanged(user.id, updatedBarber.slug);
     }
 
     // ارسال پیامک تایید پروفایل با قالب 172833 در صورت تایید ثبت‌نام یا تایید ویرایش
