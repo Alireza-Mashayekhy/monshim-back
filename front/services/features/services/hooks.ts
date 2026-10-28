@@ -2,6 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { revalidateMyPublicBarberPage } from '@/lib/actions/public-page';
+
 import { createService, deleteService, editService, servicesList } from './api';
 import { UpdateServiceDto } from './types';
 
@@ -19,6 +21,8 @@ export const useCreateService = () => {
     mutationFn: createService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-services'] });
+      // نام/قیمت خدمات در صفحهٔ عمومی و فهرست آرایشگرها نمایش داده می‌شود.
+      void revalidateMyPublicBarberPage();
       toast.success('خدمت با موفقیت اضافه شد.');
     },
     onError: (error: any) => {
@@ -34,6 +38,8 @@ export const useUpdateService = () => {
       editService(id, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-services'] });
+      // نام/قیمت خدمات در صفحهٔ عمومی و فهرست آرایشگرها نمایش داده می‌شود.
+      void revalidateMyPublicBarberPage();
       toast.success('خدمت با موفقیت ویرایش شد.');
     },
     onError: (error: any) => {
@@ -48,6 +54,8 @@ export const useDeleteService = () => {
     mutationFn: deleteService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-services'] });
+      // نام/قیمت خدمات در صفحهٔ عمومی و فهرست آرایشگرها نمایش داده می‌شود.
+      void revalidateMyPublicBarberPage();
       toast.success('خدمت با موفقیت حذف شد.');
     },
     onError: (error: any) => {

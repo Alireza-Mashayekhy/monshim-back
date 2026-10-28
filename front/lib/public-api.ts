@@ -1,5 +1,6 @@
 import { resolveServerApiBaseUrl } from './api-base-url';
 import { publicImageUrl } from './images';
+import { PUBLIC_API_CACHE_TAG } from './public-cache-tags';
 
 type ApiEnvelope<T> = {
   data?: T;
@@ -42,7 +43,10 @@ export async function fetchPublicApi<T>(path: string): Promise<T | null> {
   try {
     const response = await fetch(url, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 300 },
+      // تگ مشترک باعث می‌شود پس از تایید/ویرایش پروفایل یک آرایشگر بتوان
+      // همهٔ صفحه‌هایی که از دادهٔ عمومی ساخته شده‌اند را on-demand تازه کرد
+      // (بدون انتظار برای پایان بازهٔ ۳۰۰ ثانیه‌ای).
+      next: { revalidate: 300, tags: [PUBLIC_API_CACHE_TAG] },
     });
 
     if (!response.ok) {

@@ -51,6 +51,7 @@ export function BarberReviewDialog({ barberId, open, onOpenChange }: Props) {
       dto: {
         isApproved: true,
       },
+      slug: barber?.slug ?? null,
     });
 
     handleDialogOpenChange(false);
@@ -70,6 +71,7 @@ export function BarberReviewDialog({ barberId, open, onOpenChange }: Props) {
         isApproved: false,
         rejectionReason: reason,
       },
+      slug: barber?.slug ?? null,
     });
 
     handleDialogOpenChange(false);

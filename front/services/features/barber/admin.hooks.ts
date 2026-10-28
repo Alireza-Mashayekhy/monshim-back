@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { revalidatePublicBarberCache } from '@/lib/actions/public-page';
+
 import {
   barberReviewListAdmin,
   deleteBarber,
@@ -90,8 +92,15 @@ export const useReviewBarber = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, dto }: { id: string; dto: ReviewBarberDto }) =>
-      reviewBarber(id, dto),
+    mutationFn: ({
+      id,
+      dto,
+    }: {
+      id: string;
+      dto: ReviewBarberDto;
+      /** اسلاگ صفحهٔ عمومی (اختیاری) برای پاک‌سازی دقیق مسیر `/barber/[slug]` */
+      slug?: string | null;
+    }) => reviewBarber(id, dto),
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -120,6 +129,14 @@ export const useReviewBarber = () => {
 
       queryClient.invalidateQueries({
         queryKey: ['my-barber-profile'],
+      });
+
+      // تایید/رد ادمین دیتابیس را همان لحظه تغییر می‌دهد، اما صفحهٔ عمومی
+      // آرایشگر با ISR (۳۰۰ ثانیه) کش شده است؛ بدون این فراخوانی، اطلاعات
+      // قدیمی (یا برای آرایشگرِ تازه‌تاییدشده، ۴۰۴) تا پایان بازه دیده می‌شد.
+      void revalidatePublicBarberCache({
+        userId: variables.id,
+        slugs: variables.slug ? [variables.slug] : [],
       });
 
       toast.success('وضعیت پروفایل با موفقیت تغییر کرد.');
@@ -166,6 +183,9 @@ export const useModerateBarberReview = () => {
       queryClient.invalidateQueries({ queryKey: ['barber'] });
       queryClient.invalidateQueries({ queryKey: ['barbers'] });
       queryClient.invalidateQueries({ queryKey: ['homeBarbers'] });
+      // تایید/رد نظر، امتیاز و تعداد نظرات را در پروفایل عمومی تغییر می‌دهد؛
+      // کشِ SSR صفحهٔ عمومی هم باید تازه شود.
+      void revalidatePublicBarberCache({});
     },
 
     onError: (error: any) => {
