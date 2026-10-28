@@ -27,7 +27,7 @@ import {
   NOT_REFUNDED_PARAMS,
   notRefundedCondition,
 } from 'src/payment/payment-ledger';
-import { Brackets, In, Repository, SelectQueryBuilder } from 'typeorm';
+import { Brackets, In, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 
 import {
   PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
@@ -53,6 +53,11 @@ export interface PublicPageStatus {
   purchasedAt: string | null;
   /** اسلاگ یکتای انتخاب‌شده توسط آرایشگر */
   slug: string | null;
+  /**
+   * آیا اسلاگ قفل شده است؟ (اسلاگ فقط **یک بار** قابل ثبت است و پس از ثبت
+   * به‌دلیل حفظ آدرس و رتبهٔ سئو قابل تغییر نیست)
+   */
+  isSlugLocked: boolean;
   /** آدرس صفحهٔ عمومی آرایشگر در سایت؛ فقط پس از فعال‌سازی و ثبت اسلاگ مقدار دارد */
   publicUrl: string | null;
   /**
@@ -81,6 +86,13 @@ interface DirectoryRow {
   barberProfileId: string;
   updatedAt: Date | string | null;
 }
+
+/**
+ * پیام خطای مشترکِ «اسلاگ فقط یک بار» — هم در API و هم در متن خطای فرانت
+ * استفاده می‌شود تا پیام یکسان بماند.
+ */
+export const PUBLIC_PAGE_SLUG_LOCKED_MESSAGE =
+  'آدرس اختصاصی (اسلاگ) صفحهٔ شما قبلاً ثبت شده و قابل تغییر نیست؛ اسلاگ فقط یک بار قابل انتخاب است و تغییر آن به رتبهٔ سئوی صفحه آسیب می‌زند. در صورت نیاز به اصلاح، با پشتیبانی تماس بگیرید.';
 
 type PublicPageProfileRow = Pick<
   BarberProfile,
@@ -260,6 +272,7 @@ export class PublicPageService {
       packagePriceTomans: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
       purchasedAt: null,
       slug: null,
+      isSlugLocked: false,
       publicUrl: null,
       isApproved: false,
     };
@@ -278,6 +291,7 @@ export class PublicPageService {
         ? state.purchase.createdAt.toISOString()
         : null,
       slug,
+      isSlugLocked: Boolean(slug),
       publicUrl: state.isActive && slug ? this.publicUrl(slug) : null,
       isApproved: Boolean(profile.isApproved),
     };
@@ -306,6 +320,18 @@ export class PublicPageService {
         select: { id: true, userId: true },
       }),
     ]);
+
+    // آرایشگری که اسلاگش را ثبت کرده دیگر نمی‌تواند اسلاگ دیگری بردارد.
+    const myCurrentSlug = myProfile?.slug?.trim() || null;
+    if (myCurrentSlug && myCurrentSlug !== validation.slug) {
+      return {
+        slug: validation.slug,
+        valid: true,
+        available: false,
+        isCurrentUser: false,
+        reason: PUBLIC_PAGE_SLUG_LOCKED_MESSAGE,
+      };
+    }
 
     if (existing) {
       if (myProfile && existing.id === myProfile.id) {
@@ -336,7 +362,14 @@ export class PublicPageService {
     };
   }
 
-  /** ثبت یا ویرایش اسلاگ یکتا پس از فعال‌سازی صفحهٔ اختصاصی آرایشگر. */
+  /**
+   * ثبت **یک‌بارهٔ** اسلاگ یکتا پس از فعال‌سازی صفحهٔ اختصاصی آرایشگر.
+   *
+   * چرا یک‌باره؟ آدرس عمومی `/barber/[slug]` مبنای ایندکس گوگل و لینک‌های
+   * خارجی است؛ تغییر آن باعث از دست رفتن رتبهٔ سئو و ۴۰۴ شدن لینک‌های قبلی
+   * می‌شود. بنابراین بعد از ثبت، تغییر اسلاگ از مسیر پنل ممکن نیست.
+   * ثبت دوبارهٔ همان اسلاگ، عملیات بی‌اثر (idempotent) است.
+   */
   async updateSlugByUserId(
     userId: number,
     rawSlug: string,
@@ -358,8 +391,19 @@ export class PublicPageService {
       throw new BadRequestException(validation.reason);
     }
 
-    if (profile.slug === validation.slug) {
-      return this.buildStatus(profile, state);
+    const currentSlug = profile.slug?.trim() || null;
+
+    // اسلاگ قبلاً ثبت شده است: فقط همان مقدار پذیرفته می‌شود (no-op) و هر
+    // مقدار دیگری با خطای صریح رد می‌شود.
+    if (currentSlug) {
+      if (currentSlug === validation.slug) {
+        return this.buildStatus(profile, state);
+      }
+
+      this.logger.warn(
+        `Rejected public page slug change for barber user ${userId} ("${currentSlug}" -> "${validation.slug}")`,
+      );
+      throw new ConflictException(PUBLIC_PAGE_SLUG_LOCKED_MESSAGE);
     }
 
     const existing = await this.profileRepo.findOne({
@@ -373,11 +417,20 @@ export class PublicPageService {
     }
 
     try {
-      await this.profileRepo.update(
-        { id: profile.id },
+      // شرط `slug IS NULL` تضمین می‌کند حتی در درخواست‌های هم‌زمان هم اسلاگ
+      // فقط یک بار نوشته شود (نوشتن دوم هیچ ردیفی را تغییر نمی‌دهد).
+      const result = await this.profileRepo.update(
+        { id: profile.id, slug: IsNull() },
         { slug: validation.slug },
       );
+
+      if (result?.affected === 0) {
+        throw new ConflictException(PUBLIC_PAGE_SLUG_LOCKED_MESSAGE);
+      }
     } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
       if (isDuplicateEntryError(error)) {
         throw new ConflictException(
           'این اسلاگ تکراری است و قبلاً توسط آرایشگر دیگری انتخاب شده است',
@@ -388,7 +441,7 @@ export class PublicPageService {
 
     profile.slug = validation.slug;
     this.logger.log(
-      `Public page slug updated to "${validation.slug}" for barber user ${userId}`,
+      `Public page slug set to "${validation.slug}" (one-time) for barber user ${userId}`,
     );
 
     return this.buildStatus(profile, state);

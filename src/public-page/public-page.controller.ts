@@ -28,7 +28,7 @@ import { PublicPageService } from './public-page.service';
  *   • `GET /public-page/barber/:identifier` → پروفایل عمومی بر اساس اسلاگ؛ در غیر این صورت ۴۰۴
  *   • `GET /public-page/me`                → وضعیت صفحهٔ عمومیِ آرایشگرِ جاری
  *   • `GET /public-page/slug/check`        → بررسی معتبر و غیرتکراری بودن اسلاگ
- *   • `PATCH /public-page/me/slug`         → ثبت یا تغییر اسلاگ صفحهٔ عمومی
+ *   • `PATCH /public-page/me/slug`         → ثبت **یک‌بارهٔ** اسلاگ صفحهٔ عمومی (غیرقابل تغییر)
  */
 @ApiTags('PublicPage')
 @Controller('public-page')
