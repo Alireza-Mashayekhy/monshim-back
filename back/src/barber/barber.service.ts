@@ -29,26 +29,20 @@ import { Service } from 'src/services/entities/service.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Brackets, EntityManager, In, Repository } from 'typeorm';
 
+import {
+  ACTIVITY_TYPE_ERROR_MESSAGE,
+  isActivityTypeValue,
+} from './activity-types';
 import { ReviewBarberDto } from './dto/review-barber.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 import {
+  BARBER_MODERATED_DIFF_KEYS,
   BARBER_MODERATED_FIELD_LABELS,
   BarberPendingChanges,
   BarberPendingStatus,
   BarberProfile,
   getBarberChangedFieldLabels,
 } from './entities/barber.entity';
-
-const MODERATED_DIFF_KEYS = [
-  'fullName',
-  'salonName',
-  'provinceId',
-  'cityId',
-  'address',
-  'bio',
-  'profileImage',
-  'portfolioImages',
-] as const;
 
 function stringArraysEqual(
   left: string[] | null | undefined,
@@ -526,7 +520,10 @@ export class BarberService implements OnModuleInit {
             pending?.profileImage !== undefined
               ? pending.profileImage
               : profile?.profileImage || null,
-          activityType: profile?.activityType || null,
+          activityType:
+            pending?.activityType !== undefined
+              ? pending.activityType
+              : (profile?.activityType ?? null),
           cityName: resolvedCity?.name || null,
           citySlug: resolvedCity?.slug || null,
           provinceName: resolvedProvince?.name || null,
@@ -799,6 +796,13 @@ export class BarberService implements OnModuleInit {
     }
 
     if (
+      next.activityType !== undefined &&
+      (next.activityType ?? null) === (profile.activityType ?? null)
+    ) {
+      delete next.activityType;
+    }
+
+    if (
       next.provinceId !== undefined &&
       (next.provinceId ?? null) === (profile.provinceId ?? null)
     ) {
@@ -837,7 +841,9 @@ export class BarberService implements OnModuleInit {
       delete next.portfolioImages;
     }
 
-    const hasDiff = MODERATED_DIFF_KEYS.some(key => next[key] !== undefined);
+    const hasDiff = BARBER_MODERATED_DIFF_KEYS.some(
+      key => next[key] !== undefined,
+    );
     if (!hasDiff) {
       return null;
     }
@@ -850,7 +856,7 @@ export class BarberService implements OnModuleInit {
     previousDraft: BarberPendingChanges,
     nextPruned: BarberPendingChanges,
   ): boolean {
-    return MODERATED_DIFF_KEYS.some(key => {
+    return BARBER_MODERATED_DIFF_KEYS.some(key => {
       if (key === 'portfolioImages') {
         if (
           (previousDraft.portfolioImages === undefined) !==
@@ -960,6 +966,10 @@ export class BarberService implements OnModuleInit {
       email: user.email,
       birthDate: user.birthDate || null,
       salonName: pending?.salonName ?? profile.salonName,
+      activityType:
+        pending?.activityType !== undefined
+          ? pending.activityType
+          : (profile.activityType ?? null),
       provinceId: location.provinceId,
       cityId: location.cityId,
       provinceName: location.province?.name || null,
@@ -1087,7 +1097,10 @@ export class BarberService implements OnModuleInit {
       birthDate: user.birthDate ?? null,
       isActive: user.isActive,
       salonName: pending?.salonName ?? profile.salonName,
-      activityType: profile.activityType,
+      activityType:
+        pending?.activityType !== undefined
+          ? (pending.activityType ?? null)
+          : (profile.activityType ?? null),
       province: location.province,
       provinceId: location.provinceId,
       city: location.city,
@@ -1120,6 +1133,7 @@ export class BarberService implements OnModuleInit {
         ? {
             fullName: user.fullName,
             salonName: profile.salonName,
+            activityType: profile.activityType ?? null,
             provinceName: profile.province?.name ?? null,
             cityName: profile.city?.name ?? null,
             address: profile.address,
@@ -1179,6 +1193,15 @@ export class BarberService implements OnModuleInit {
       );
     }
 
+    // نوع فعالیت هم مثل ثبت‌نام فقط می‌تواند یکی از سه مقدار استاندارد باشد؛
+    // `null` پذیرفته نمی‌شود تا این فیلد عمومی هرگز خالی نماند.
+    if (
+      dto.activityType !== undefined &&
+      !isActivityTypeValue(dto.activityType)
+    ) {
+      throw new BadRequestException(ACTIVITY_TYPE_ERROR_MESSAGE);
+    }
+
     // اعتبارسنجی و ذخیره فیلدهای خصوصی User که نیازی به تایید نمایش عمومی ندارند
     let userChanged = false;
     if (dto.birthDate !== undefined) {
@@ -1221,6 +1244,7 @@ export class BarberService implements OnModuleInit {
     const hasModeratedFieldInDto =
       dto.fullName !== undefined ||
       dto.salonName !== undefined ||
+      dto.activityType !== undefined ||
       dto.provinceId !== undefined ||
       dto.cityId !== undefined ||
       dto.address !== undefined ||
@@ -1243,6 +1267,14 @@ export class BarberService implements OnModuleInit {
           dto.salonName.trim() !== (profile.salonName ?? '').trim()
         ) {
           unapprovedChangedFields.push(BARBER_MODERATED_FIELD_LABELS.salonName);
+        }
+        if (
+          dto.activityType !== undefined &&
+          (dto.activityType ?? null) !== (profile.activityType ?? null)
+        ) {
+          unapprovedChangedFields.push(
+            BARBER_MODERATED_FIELD_LABELS.activityType,
+          );
         }
         if (
           dto.provinceId !== undefined &&
@@ -1282,6 +1314,9 @@ export class BarberService implements OnModuleInit {
         userChanged = true;
       }
       if (dto.salonName !== undefined) profile.salonName = dto.salonName;
+      if (dto.activityType !== undefined) {
+        profile.activityType = dto.activityType;
+      }
       if (dto.provinceId !== undefined) {
         profile.provinceId = dto.provinceId ?? null;
       }
@@ -1361,6 +1396,9 @@ export class BarberService implements OnModuleInit {
     }
     if (dto.salonName !== undefined) {
       draft.salonName = dto.salonName;
+    }
+    if (dto.activityType !== undefined) {
+      draft.activityType = dto.activityType;
     }
     if (dto.provinceId !== undefined) {
       draft.provinceId = dto.provinceId ?? null;
@@ -1578,6 +1616,10 @@ export class BarberService implements OnModuleInit {
 
         if (pending.salonName !== undefined) {
           barber.salonName = pending.salonName;
+        }
+
+        if (pending.activityType !== undefined) {
+          barber.activityType = pending.activityType ?? null;
         }
 
         if ('provinceId' in pending) {

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { getActivityTypeLabel } from '@/constants/activity-types';
 import { getFullImageUrl } from '@/lib/utils';
 import {
   useBarberApprovalDetail,
@@ -170,7 +171,24 @@ export function BarberReviewDialog({ barberId, open, onOpenChange }: Props) {
                 }
               />
 
-              <InfoItem label="نوع فعالیت" value={barber.activityType} />
+              <InfoItem
+                label="نوع فعالیت"
+                value={
+                  barber.activityType
+                    ? getActivityTypeLabel(barber.activityType) ||
+                      barber.activityType
+                    : null
+                }
+                previousValue={
+                  previous &&
+                  (previous.activityType ?? null) !==
+                    (barber.activityType ?? null)
+                    ? getActivityTypeLabel(previous.activityType) ||
+                      previous.activityType ||
+                      '—'
+                    : undefined
+                }
+              />
 
               <InfoItem
                 label="استان"

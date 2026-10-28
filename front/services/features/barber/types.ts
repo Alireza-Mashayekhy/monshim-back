@@ -1,3 +1,5 @@
+import { ActivityTypeValue } from '@/constants/activity-types';
+
 import { CityResponse, ProvinceResponse } from '../locations/types';
 
 export type BarberPendingStatus = 'none' | 'pending' | 'rejected';
@@ -5,6 +7,7 @@ export type BarberPendingStatus = 'none' | 'pending' | 'rejected';
 export interface ApprovedProfileSnapshot {
   fullName: string;
   salonName: string;
+  activityType: string | null;
   provinceName: string | null;
   cityName: string | null;
   address: string;
@@ -115,6 +118,8 @@ export interface UpdateBarberProfile {
   birthDate?: string | null;
   nationalCode?: string | null;
   salonName?: string;
+  /** نوع فعالیت سالن؛ همان گزینهٔ ثبت‌نام که در ویرایش پروفایل هم قابل تغییر است. */
+  activityType?: ActivityTypeValue;
   provinceId?: number | null;
   cityId?: number | null;
   address?: string;
