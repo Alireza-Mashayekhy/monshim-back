@@ -28,7 +28,7 @@ import {
 import { useLocationStore } from '@/store/useLocationStore';
 
 export default function Home() {
-  const { user } = useCurrentUser();
+  const { user, isLoading: userLoading } = useCurrentUser();
   const locationStore = useLocationStore();
 
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -36,16 +36,24 @@ export default function Home() {
   const effectiveCityId =
     user?.cityId ?? user?.city?.id ?? locationStore.cityId ?? undefined;
   const effectiveCityName = user?.city?.name || locationStore.cityName || '';
+  const gender =
+    user?.gender === 'male' || user?.gender === 'female'
+      ? user.gender
+      : undefined;
 
   // دریافت لیست نوبت‌های کاربر از دیتابیس
   const { data: myBookingsData, isLoading: bookingsLoading } = useMyBookings({
     limit: 5,
   });
 
-  const { data: barbersData, isLoading: barbersLoading } = useHomeBarberList({
-    cityId: effectiveCityId ? Number(effectiveCityId) : undefined,
-    limit: 6,
-  });
+  const { data: barbersData, isLoading: barbersLoading } = useHomeBarberList(
+    {
+      cityId: effectiveCityId ? Number(effectiveCityId) : undefined,
+      gender,
+      limit: 6,
+    },
+    { enabled: !userLoading },
+  );
 
   const cancelMutation = useCancelBooking();
 

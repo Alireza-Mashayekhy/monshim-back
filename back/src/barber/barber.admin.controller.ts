@@ -6,6 +6,7 @@ import {
   Get,
   Param,
   Patch,
+  ParseIntPipe,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { BarberService } from './barber.service';
 import { BarberQueryDto } from './dto/barber-query.dto';
 import { ReviewBarberDto } from './dto/review-barber.dto';
+import { SetBarberActiveDto } from './dto/set-barber-active.dto';
 import { UpdateBarberDto } from './dto/update-barber.dto';
 
 @UseGuards(AuthGuard, RolesGuard)
@@ -32,6 +34,12 @@ export class BarberAdminController {
       { cityId: cityId || query.cityId || undefined },
       true,
     );
+  }
+
+  /** همهٔ آرایشگرها برای مدیریت فعال/غیرفعال‌سازی و حذف */
+  @Get('management')
+  findAllForManagement(@Query() query: BarberQueryDto) {
+    return this.barberService.findAllForAdminManagement(query);
   }
 
   /**
@@ -56,9 +64,17 @@ export class BarberAdminController {
     return this.barberService.updateByProfileId(id, updateBarberDto);
   }
 
+  @Patch(':id/active')
+  setActive(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SetBarberActiveDto,
+  ) {
+    return this.barberService.setBarberActive(id, dto.isActive);
+  }
+
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.barberService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.barberService.remove(id);
   }
 
   @Patch(':id/review')

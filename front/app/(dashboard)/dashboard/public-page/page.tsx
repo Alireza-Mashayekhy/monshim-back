@@ -79,6 +79,8 @@ export default function PublicPagePage() {
   const paidBookings = status?.paidBookingsCount ?? 0;
   const progress = Math.min(100, Math.round((paidBookings / required) * 100));
   const price = status?.packagePriceTomans ?? 773000;
+  const hasReferralDiscount = Boolean(status?.hasReferralDiscount);
+  const referralDiscountAmount = Math.round(price / 2);
   const publicUrl = status?.publicUrl ?? '';
 
   // اسلاگ فقط یک بار ثبت می‌شود: بعد از ثبت، فرم انتخاب اسلاگ دیگر نمایش داده
@@ -361,8 +363,8 @@ export default function PublicPagePage() {
                   </span>
                   <span className="block">
                     بعد از ثبت، اسلاگ قفل می‌شود و امکان تغییر آن از پنل وجود
-                    ندارد؛ آدرس فعلی صفحهٔ شما در گوگل و لینک‌هایی که
-                    به‌اشتراک گذاشته‌اید به همین عبارت وابسته می‌شود.
+                    ندارد؛ آدرس فعلی صفحهٔ شما در گوگل و لینک‌هایی که به‌اشتراک
+                    گذاشته‌اید به همین عبارت وابسته می‌شود.
                   </span>
                   <span className="block">
                     اگر مطمئن نیستید، «انصراف» را بزنید و بعداً ثبت کنید.
@@ -395,12 +397,25 @@ export default function PublicPagePage() {
                 <div>
                   <p className="text-white/70">پکیج صفحهٔ اختصاصی</p>
                   <h3 className="mt-2 text-3xl font-black">
-                    {formatFaNumber(appliedDiscount?.amount ?? price)}
+                    {formatFaNumber(
+                      hasReferralDiscount
+                        ? referralDiscountAmount
+                        : (appliedDiscount?.amount ?? price),
+                    )}
                   </h3>
                   <p className="text-sm text-white/70">
                     تومان — پرداخت یک‌باره
                   </p>
-                  {appliedDiscount && (
+                  {hasReferralDiscount ? (
+                    <div className="mt-2 text-sm">
+                      <p className="text-white/70 line-through">
+                        {formatFaNumber(price)} تومان
+                      </p>
+                      <p className="mt-1 font-bold text-white">
+                        تخفیف ویژهٔ دعوت: ۵۰٪
+                      </p>
+                    </div>
+                  ) : appliedDiscount ? (
                     <div className="mt-2 text-sm">
                       <p className="text-white/70 line-through">
                         {formatFaNumber(appliedDiscount.originalAmount)} تومان
@@ -410,7 +425,7 @@ export default function PublicPagePage() {
                         {formatFaNumber(appliedDiscount.amount)} تومان
                       </p>
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <Sparkles size={30} className="text-white/60" />
               </div>
@@ -424,50 +439,57 @@ export default function PublicPagePage() {
                 <li>• فعال‌سازی آنی و مادام‌العمر بدون نیاز به تمدید</li>
               </ul>
 
-              <div className="mt-5 rounded-2xl border border-white/20 bg-white/10 p-3">
-                <label
-                  htmlFor="public-page-discount"
-                  className="mb-2 flex items-center gap-2 text-sm font-bold text-white"
-                >
-                  <Tag size={15} /> کد تخفیف دارید؟
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    id="public-page-discount"
-                    dir="ltr"
-                    value={discountCode}
-                    maxLength={32}
-                    autoComplete="off"
-                    placeholder="کد تخفیف"
-                    className="bg-white text-gray-900 placeholder:text-gray-400"
-                    onChange={event => {
-                      setDiscountCode(
-                        event.target.value.replace(/\s/g, '').toUpperCase(),
-                      );
-                      quoteDiscount.reset();
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={!discountCode.trim() || quoteDiscount.isPending}
-                    onClick={() => void handleApplyDiscount()}
+              {hasReferralDiscount ? (
+                <p className="mt-5 rounded-2xl border border-white/20 bg-white/10 p-3 text-sm leading-6 text-white">
+                  به‌دلیل ثبت‌نام با کد معرف، تخفیف ۵۰٪ خرید صفحهٔ عمومی به‌صورت
+                  خودکار اعمال شده است.
+                </p>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-white/20 bg-white/10 p-3">
+                  <label
+                    htmlFor="public-page-discount"
+                    className="mb-2 flex items-center gap-2 text-sm font-bold text-white"
                   >
-                    {quoteDiscount.isPending ? (
-                      <Loader2 size={15} className="animate-spin" />
-                    ) : (
-                      'اعمال'
-                    )}
-                  </Button>
+                    <Tag size={15} /> کد تخفیف دارید؟
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="public-page-discount"
+                      dir="ltr"
+                      value={discountCode}
+                      maxLength={32}
+                      autoComplete="off"
+                      placeholder="کد تخفیف"
+                      className="bg-white text-gray-900 placeholder:text-gray-400"
+                      onChange={event => {
+                        setDiscountCode(
+                          event.target.value.replace(/\s/g, '').toUpperCase(),
+                        );
+                        quoteDiscount.reset();
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={!discountCode.trim() || quoteDiscount.isPending}
+                      onClick={() => void handleApplyDiscount()}
+                    >
+                      {quoteDiscount.isPending ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        'اعمال'
+                      )}
+                    </Button>
+                  </div>
+                  {appliedDiscount && (
+                    <p className="mt-2 text-xs font-semibold text-white">
+                      {toPersianDigits(appliedDiscount.percentOff)}٪ تخفیف —
+                      صرفه‌جویی {formatFaNumber(appliedDiscount.discountAmount)}{' '}
+                      تومان
+                    </p>
+                  )}
                 </div>
-                {appliedDiscount && (
-                  <p className="mt-2 text-xs font-semibold text-white">
-                    {toPersianDigits(appliedDiscount.percentOff)}٪ تخفیف —
-                    صرفه‌جویی {formatFaNumber(appliedDiscount.discountAmount)}{' '}
-                    تومان
-                  </p>
-                )}
-              </div>
+              )}
 
               <Button
                 variant="secondary"
@@ -475,9 +497,17 @@ export default function PublicPagePage() {
                 disabled={
                   payPublicPage.isPending ||
                   quoteDiscount.isPending ||
-                  (Boolean(discountCode.trim()) && !appliedDiscount)
+                  (!hasReferralDiscount &&
+                    Boolean(discountCode.trim()) &&
+                    !appliedDiscount)
                 }
-                onClick={() => payPublicPage.mutate(appliedDiscount?.code)}
+                onClick={() =>
+                  payPublicPage.mutate(
+                    hasReferralDiscount
+                      ? undefined
+                      : (appliedDiscount?.code ?? undefined),
+                  )
+                }
               >
                 {payPublicPage.isPending ? (
                   <Loader2 size={16} className="animate-spin" />

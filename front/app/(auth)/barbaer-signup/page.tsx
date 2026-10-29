@@ -16,6 +16,13 @@ type BarberSignupPageProps = {
 export default async function BarberSignupPage({
   searchParams,
 }: BarberSignupPageProps) {
-  const callbackUrl = sanitizeCallbackUrl((await searchParams).callbackUrl);
-  return <BarberSignupFlow callbackUrl={callbackUrl} />;
+  const params = await searchParams;
+  const callbackUrl = sanitizeCallbackUrl(params.callbackUrl);
+  const referralCode = Array.isArray(params.referralCode)
+    ? params.referralCode[0]
+    : params.referralCode;
+
+  return (
+    <BarberSignupFlow callbackUrl={callbackUrl} referralCode={referralCode} />
+  );
 }

@@ -27,10 +27,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
 import { cn, formatFaNumber } from '@/lib/utils';
-import type { ApiListResponse } from '@/services/api/types';
 import { useCurrentUser } from '@/services/features/auth/hooks';
 import { useBarberList } from '@/services/features/barber/hooks';
-import type { BarberResponse } from '@/services/features/barber/types';
 import { useLocationStore } from '@/store/useLocationStore';
 
 /**
@@ -40,10 +38,6 @@ import { useLocationStore } from '@/store/useLocationStore';
  * فراخوانی (که کار سنگین ICU است) روی CPU و روانی رابط اثر می‌گذاشت.
  */
 const EN_NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
-
-interface ExploreClientProps {
-  initialResults?: ApiListResponse<BarberResponse> | null;
-}
 
 type SortOption =
   | 'createdAt:desc'
@@ -78,10 +72,8 @@ const normalizeDigits = (str: string): string => {
     .replace(/[^0-9]/g, '');
 };
 
-export default function ExploreClient({
-  initialResults = null,
-}: ExploreClientProps) {
-  const { user } = useCurrentUser();
+export default function ExploreClient() {
+  const { user, isLoading: userLoading } = useCurrentUser();
   const { cityName, cityId, defaultDismissed, resetLocation } =
     useLocationStore();
   const isMounted = useSyncExternalStore(
@@ -92,9 +84,12 @@ export default function ExploreClient({
 
   const userCityId = user?.cityId ?? user?.city?.id;
   const userCityName = user?.city?.name;
+  const gender =
+    user?.gender === 'male' || user?.gender === 'female'
+      ? user.gender
+      : undefined;
 
-  // Keep the first browser render identical to the server-rendered, unfiltered
-  // directory; apply saved/account location only after hydration.
+  // Apply saved/account location only after the client store has hydrated.
   const effectiveCityId = isMounted
     ? (cityId ?? (defaultDismissed ? undefined : userCityId))
     : undefined;
@@ -134,9 +129,11 @@ export default function ExploreClient({
       sort: selectedSort,
       minPrice: minPrice,
       maxPrice: maxPrice,
+      gender,
       limit: 10,
     },
-    initialResults,
+    undefined,
+    { enabled: !userLoading },
   );
 
   // Intersection Observer برای تشخیص انتهای لیست

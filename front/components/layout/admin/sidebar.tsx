@@ -8,6 +8,7 @@ import {
   LogOut,
   MessageSquareText,
   Settings,
+  Store,
   User,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -52,6 +53,11 @@ const items = [
     link: '/admin/approvals',
     icon: Check,
     name: 'تایید آرایشگر',
+  },
+  {
+    link: '/admin/barbers',
+    icon: Store,
+    name: 'مدیریت آرایشگرها',
   },
   {
     link: '/admin/reviews',

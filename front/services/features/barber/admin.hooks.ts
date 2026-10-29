@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { revalidatePublicBarberCache } from '@/lib/actions/public-page';
 
 import {
+  adminBarberManagementList,
   barberReviewListAdmin,
   deleteBarber,
   getBarberApprovalDetail,
@@ -11,6 +12,7 @@ import {
   moderateBarberReview,
   notApprovedBarberList,
   reviewBarber,
+  setBarberActive,
   updateBarber,
 } from './admin.api';
 import {
@@ -33,6 +35,23 @@ export const useBarberList = (params: {
         search: params.search,
       }),
     staleTime: 2 * 60 * 1000,
+  });
+};
+
+export const useAdminBarberManagementList = (params: {
+  page?: number;
+  search?: string;
+  limit?: number;
+}) => {
+  return useQuery({
+    queryKey: ['adminBarberManagement', params],
+    queryFn: () =>
+      adminBarberManagementList({
+        page: params.page ?? 1,
+        limit: params.limit ?? 10,
+        search: params.search,
+      }),
+    staleTime: 60 * 1000,
   });
 };
 
@@ -74,16 +93,52 @@ export const useUpdateBarberProfile = () => {
   });
 };
 
+export const useSetBarberActive = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      setBarberActive(id, isActive),
+    onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['adminBarberManagement'],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['adminBarbers'] });
+      void queryClient.invalidateQueries({ queryKey: ['barbers'] });
+      void queryClient.invalidateQueries({ queryKey: ['homeBarbers'] });
+      toast.success(
+        variables.isActive
+          ? 'آرایشگر دوباره فعال شد.'
+          : 'آرایشگر غیرفعال شد و از فهرست‌های کاربران پنهان می‌شود.',
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'تغییر وضعیت آرایشگر ناموفق بود.',
+      );
+    },
+  });
+};
+
 export const useDeleteBarberProfile = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => deleteBarber(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['adminBarbers'] });
+    mutationFn: ({ id }: { id: number; slug?: string | null }) =>
+      deleteBarber(id),
+    onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['adminBarberManagement'],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['adminBarbers'] });
+      void queryClient.invalidateQueries({ queryKey: ['barbers'] });
+      void queryClient.invalidateQueries({ queryKey: ['homeBarbers'] });
+      void revalidatePublicBarberCache({
+        userId: variables.id,
+        slugs: variables.slug ? [variables.slug] : [],
+      });
       toast.success('آرایشگر با موفقیت حذف شد.');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'خطا در حذف آرایشگر');
+      toast.error(error.response?.data?.message || 'حذف آرایشگر ناموفق بود.');
     },
   });
 };

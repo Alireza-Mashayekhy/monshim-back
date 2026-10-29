@@ -36,6 +36,7 @@ import { getActivityTypeLabel } from '@/constants/activity-types';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { isoToJalali } from '@/lib/date-utils';
 import { getImageUploadError, IMAGE_ACCEPT } from '@/lib/image-upload';
+import { siteConfig } from '@/lib/site-config';
 import { DefaultImage, getFullImageUrl, toPersianDigits } from '@/lib/utils';
 import { useLogout } from '@/services/features/auth/hooks';
 import {
@@ -69,6 +70,11 @@ export default function ProfilePage() {
     isError: referralsError,
     refetch: retryReferralQuery,
   } = useMyReferrals();
+
+  const referralCode = referralData?.data?.referralCode;
+  const referralLink = referralCode
+    ? `${siteConfig.url}${siteConfig.routes.barberSignup}?referralCode=${encodeURIComponent(referralCode)}`
+    : '';
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,13 +179,15 @@ export default function ProfilePage() {
   const pendingStatus = profileData?.pendingStatus ?? 'none';
   const hasPendingEdit = isApproved && pendingStatus === 'pending';
   const hasRejectedEdit = isApproved && pendingStatus === 'rejected';
-  const isInitialRejected = !isApproved && Boolean(profileData?.rejectionReason);
+  const isInitialRejected =
+    !isApproved && Boolean(profileData?.rejectionReason);
 
-  const statusTone = hasRejectedEdit || isInitialRejected
-    ? 'red'
-    : hasPendingEdit || !isApproved
-      ? 'yellow'
-      : 'green';
+  const statusTone =
+    hasRejectedEdit || isInitialRejected
+      ? 'red'
+      : hasPendingEdit || !isApproved
+        ? 'yellow'
+        : 'green';
 
   const statusCardClass =
     statusTone === 'green'
@@ -248,9 +256,9 @@ export default function ProfilePage() {
 
                 {hasPendingEdit && (
                   <p className="text-sm text-yellow-800">
-                    اطلاعات جدیدی که وارد کرده‌اید در پروفایل شما ذخیره شده و در حال
-                    بررسی است. تا زمان تایید، پروفایل تاییدشدهٔ قبلی شما بدون وقفه به
-                    کاربران نمایش داده می‌شود.
+                    اطلاعات جدیدی که وارد کرده‌اید در پروفایل شما ذخیره شده و در
+                    حال بررسی است. تا زمان تایید، پروفایل تاییدشدهٔ قبلی شما
+                    بدون وقفه به کاربران نمایش داده می‌شود.
                   </p>
                 )}
 
@@ -262,16 +270,17 @@ export default function ProfilePage() {
                       </p>
                     )}
                     <p className="text-sm text-red-600">
-                      پروفایل تاییدشدهٔ قبلی شما همچنان فعال است و به کاربران نمایش
-                      داده می‌شود. می‌توانید اطلاعات جدید را اصلاح و دوباره ذخیره کنید.
+                      پروفایل تاییدشدهٔ قبلی شما همچنان فعال است و به کاربران
+                      نمایش داده می‌شود. می‌توانید اطلاعات جدید را اصلاح و
+                      دوباره ذخیره کنید.
                     </p>
                   </>
                 )}
 
                 {isApproved && !hasPendingEdit && !hasRejectedEdit && (
                   <p className="text-sm text-green-700">
-                    اطلاعات فعلی پروفایل شما تایید شده و برای همهٔ کاربران قابل مشاهده
-                    است.
+                    اطلاعات فعلی پروفایل شما تایید شده و برای همهٔ کاربران قابل
+                    مشاهده است.
                   </p>
                 )}
 
@@ -433,7 +442,8 @@ export default function ProfilePage() {
               </h3>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              برای تغییر رمز عبور، رمز جدید را وارد کنید و با کد پیامکی تایید کنید.
+              برای تغییر رمز عبور، رمز جدید را وارد کنید و با کد پیامکی تایید
+              کنید.
             </p>
             <Button
               variant="outline"
@@ -447,17 +457,23 @@ export default function ProfilePage() {
           <AppCard>
             <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
               <Share2 size={18} className="text-primary-600" />
-              کد معرف شما
+              لینک دعوت شما
             </h3>
             <p className="text-sm text-gray-500 mb-3">
-              آرایشگرهای دیگر را دعوت کنید؛ با تکمیل ۵ رزرو موفق توسط هر آرایشگر
-              دعوت‌شده، ۳۰٬۰۰۰ تومان به کیف پول شما اضافه می‌شود.
+              این لینک را برای آرایشگرهای دیگر بفرستید؛ با باز کردن آن کد معرف
+              خودکار در فرم ثبت‌نام وارد می‌شود. پس از خرید صفحهٔ عمومی توسط شما
+              و ثبت ۵ رزرو موفقِ پرداخت‌شده، ۳۰۰٬۰۰۰ تومان به کیف پولتان اضافه
+              می‌شود. آرایشگر دعوت‌شده نیز برای خرید صفحهٔ عمومی ۵۰٪ تخفیف
+              می‌گیرد.
             </p>
-            {referralData?.data?.referralCode ? (
+            {referralLink ? (
               <div className="flex items-center gap-2">
-                <div className="flex-1 rounded-lg bg-gray-100 px-4 py-3 text-center">
-                  <span className="font-mono text-lg font-bold tracking-widest text-primary-700">
-                    {referralData.data.referralCode}
+                <div
+                  dir="ltr"
+                  className="min-w-0 flex-1 rounded-lg bg-gray-100 px-3 py-3 text-center"
+                >
+                  <span className="block break-all text-sm font-medium text-primary-700">
+                    {referralLink}
                   </span>
                 </div>
                 <button
@@ -469,20 +485,20 @@ export default function ProfilePage() {
                     }
 
                     void navigator.clipboard
-                      .writeText(referralData.data.referralCode)
-                      .then(() => toast.success('کد معرف کپی شد.'))
-                      .catch(() => toast.error('کپی کد معرف انجام نشد.'));
+                      .writeText(referralLink)
+                      .then(() => toast.success('لینک دعوت کپی شد.'))
+                      .catch(() => toast.error('کپی لینک دعوت انجام نشد.'));
                   }}
-                  className="rounded-lg bg-primary-100 p-3 text-primary-700 transition-colors hover:bg-primary-200"
-                  title="کپی کد معرف"
-                  aria-label="کپی کد معرف"
+                  className="shrink-0 rounded-lg bg-primary-100 p-3 text-primary-700 transition-colors hover:bg-primary-200"
+                  title="کپی لینک دعوت"
+                  aria-label="کپی لینک دعوت"
                 >
                   <Copy size={18} />
                 </button>
               </div>
             ) : (
               <p className="text-sm text-gray-400">
-                کد معرف هنوز در دسترس نیست.
+                لینک دعوت هنوز در دسترس نیست.
               </p>
             )}
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -586,10 +602,11 @@ export default function ProfilePage() {
                         <div className="w-full sm:max-w-64">
                           <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                             <span className="font-medium text-gray-600">
-                              {toPersianDigits(completedCount)} رزرو موفق
+                              {toPersianDigits(completedCount)} رزرو موفقِ
+                              پرداخت‌شدهٔ شما
                             </span>
                             <span className="text-gray-400">
-                              شرط پاداش: ۵ رزرو
+                              شرط: ۵ رزرو + خرید صفحه
                             </span>
                           </div>
                           <div
@@ -607,6 +624,12 @@ export default function ProfilePage() {
                               }}
                             />
                           </div>
+                          <p className="mt-1 text-[11px] text-gray-400">
+                            {referralsData?.data?.eligibility
+                              .hasPurchasedPublicPage
+                              ? 'صفحهٔ عمومی شما خریداری شده است'
+                              : 'برای دریافت پاداش، صفحهٔ عمومی خود را هم بخرید'}
+                          </p>
                         </div>
 
                         <span
@@ -619,7 +642,7 @@ export default function ProfilePage() {
                           {rewardPaid ? (
                             <>
                               <CheckCircle2 size={14} />
-                              پاداش ۳۰٬۰۰۰ تومانی واریز شد
+                              پاداش ۳۰۰٬۰۰۰ تومانی واریز شد
                             </>
                           ) : (
                             <>

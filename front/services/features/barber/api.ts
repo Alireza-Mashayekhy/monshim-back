@@ -27,6 +27,7 @@ export async function barberList(query?: {
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
+  gender?: 'male' | 'female';
 }) {
   const { data } = await api.get<ApiListResponse<BarberResponse>>(
     endpoints.barber.list,

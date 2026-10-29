@@ -45,6 +45,7 @@ export interface UserResponse {
   phone: string;
   roles: string[];
   birthDate: string;
+  gender?: string | null;
   isActive: boolean;
   provinceId?: number | null;
   cityId?: number | null;
