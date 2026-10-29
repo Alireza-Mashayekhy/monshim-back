@@ -27,11 +27,13 @@ import {
   NOT_REFUNDED_PARAMS,
   notRefundedCondition,
 } from 'src/payment/payment-ledger';
+import { Referral } from 'src/referral/entities/referral.entity';
 import { Brackets, In, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 
 import {
   PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
   PUBLIC_PAGE_REQUIRED_PAID_BOOKINGS,
+  REFERRAL_PUBLIC_PAGE_DISCOUNT_PERCENT,
   PublicPageActivationReason,
 } from './constants';
 import { CreatePublicPageDiscountDto } from './dto/create-public-page-discount.dto';
@@ -65,6 +67,8 @@ export interface PublicPageStatus {
    * زمانی که پروفایل تایید نشده باشد در دسترس عموم نیست (۴۰۴ می‌دهد).
    */
   isApproved: boolean;
+  /** آیا خرید صفحه برای این آرایشگر مشمول تخفیف ویژهٔ ثبت‌نام با کد معرف است؟ */
+  hasReferralDiscount: boolean;
 }
 
 export interface SlugAvailabilityResult {
@@ -125,6 +129,9 @@ export class PublicPageService {
 
     @InjectRepository(Booking)
     private readonly bookingRepo: Repository<Booking>,
+
+    @InjectRepository(Referral)
+    private readonly referralRepo: Repository<Referral>,
 
     private readonly barberService: BarberService,
     private readonly configService: ConfigService,
@@ -225,12 +232,57 @@ export class PublicPageService {
   }
 
   /** تعداد رزروهای موفقِ پرداخت‌شده در درگاه برای یک آرایشگر (تجمعی). */
-  private async countPaidBookings(barberProfileId: string) {
+  /** تعداد رزروهای موفقِ پرداخت‌شده برای مصرف در منطق پاداش معرف نیز استفاده می‌شود. */
+  async countSuccessfulPaidBookings(barberProfileId: string) {
     const qb = this.bookingRepo
       .createQueryBuilder('booking')
       .where('booking.barberId = :barberProfileId', { barberProfileId });
 
     return this.applySuccessfulGatewayPaidBookingsFilter(qb).getCount();
+  }
+
+  private countPaidBookings(barberProfileId: string) {
+    return this.countSuccessfulPaidBookings(barberProfileId);
+  }
+
+  /** صفحه باید واقعاً خریداری شده باشد؛ فعال‌شدن رایگان با رزرو جای خرید را نمی‌گیرد. */
+  async hasPurchasedPackageByUserId(userId: number): Promise<boolean> {
+    const profile = await this.profileRepo.findOne({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!profile) return false;
+
+    return Boolean(
+      await this.purchaseRepo.findOne({
+        where: { barberProfileId: profile.id },
+        select: { id: true },
+      }),
+    );
+  }
+
+  /** فقط حساب‌هایی که واقعاً با کد معرف ثبت شده‌اند، مشمول تخفیف هستند. */
+  async hasReferralDiscount(userId: number): Promise<boolean> {
+    return (
+      (await this.referralRepo.count({ where: { referredUserId: userId } })) > 0
+    );
+  }
+
+  async getReferralDiscountQuote(userId: number) {
+    if (!(await this.hasReferralDiscount(userId))) return null;
+
+    const discountAmount = Math.round(
+      (PUBLIC_PAGE_PACKAGE_PRICE_TOMANS *
+        REFERRAL_PUBLIC_PAGE_DISCOUNT_PERCENT) /
+        100,
+    );
+    return {
+      code: null,
+      percentOff: REFERRAL_PUBLIC_PAGE_DISCOUNT_PERCENT,
+      originalAmount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+      discountAmount,
+      amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS - discountAmount,
+    };
   }
 
   /**
@@ -275,11 +327,15 @@ export class PublicPageService {
       isSlugLocked: false,
       publicUrl: null,
       isApproved: false,
+      hasReferralDiscount: false,
     };
 
     if (!profile) return base;
 
-    const state = precomputedState ?? (await this.computeState(profile.id));
+    const [state, hasReferralDiscount] = await Promise.all([
+      precomputedState ?? this.computeState(profile.id),
+      this.hasReferralDiscount(profile.userId),
+    ]);
     const slug = profile.slug?.trim() || null;
 
     return {
@@ -294,6 +350,7 @@ export class PublicPageService {
       isSlugLocked: Boolean(slug),
       publicUrl: state.isActive && slug ? this.publicUrl(slug) : null,
       isApproved: Boolean(profile.isApproved),
+      hasReferralDiscount,
     };
   }
 

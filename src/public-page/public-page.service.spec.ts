@@ -68,6 +68,18 @@ describe('PublicPageService', () => {
     });
   });
 
+  it('برای کاربری که واقعاً با کد معرف ثبت‌نام کرده، تخفیف ۵۰٪ خودکار می‌دهد', async () => {
+    const { service } = createService({ hasReferral: true });
+
+    await expect(service.getReferralDiscountQuote(20)).resolves.toEqual({
+      code: null,
+      percentOff: 50,
+      originalAmount: 773_000,
+      discountAmount: 386_500,
+      amount: 386_500,
+    });
+  });
+
   it('کد تخفیف صددرصدی خرید را رایگان می‌کند و کد نامعتبر رد می‌شود', async () => {
     const { service } = createService({
       discount: { code: 'FREE100', percentOff: 100, isActive: true },
@@ -124,6 +136,7 @@ describe('PublicPageService', () => {
     duplicateDbError?: boolean;
     updateAffected?: number;
     discount?: any;
+    hasReferral?: boolean;
   }) {
     const bookingQb = createMockBookingQb({
       count: params?.paidBookingsCount ?? 0,
@@ -206,11 +219,15 @@ describe('PublicPageService', () => {
     const discountRepo: any = {
       findOne: jest.fn().mockResolvedValue(params?.discount ?? null),
     };
+    const referralRepo: any = {
+      count: jest.fn().mockResolvedValue(params?.hasReferral ? 1 : 0),
+    };
     const service = new PublicPageService(
       purchaseRepo,
       discountRepo,
       profileRepo,
       bookingRepo,
+      referralRepo,
       barberService,
       configService,
     );

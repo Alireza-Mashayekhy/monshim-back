@@ -1098,7 +1098,7 @@ export class BookingsService {
 
     if (newStatus === BookingStatus.COMPLETED) {
       const savedBooking = await this.bookingRepo.save(booking);
-      await this.referralService.onBookingCompleted(booking.barberId);
+      await this.referralService.onReferrerBookingActivity(booking.barberId);
       await this.clubService.addFromSuccessfulBooking({
         barberId: booking.barberId,
         customerId: booking.customerId,
@@ -1796,7 +1796,7 @@ export class BookingsService {
 
         booking.status = BookingStatus.COMPLETED;
 
-        await this.referralService.onBookingCompleted(booking.barberId);
+        await this.referralService.onReferrerBookingActivity(booking.barberId);
         await this.clubService.addFromSuccessfulBooking({
           barberId: booking.barberId,
           customerId: booking.customerId,

@@ -37,6 +37,7 @@ const buildService = (env: Record<string, string | undefined>) => {
     repository, // workHoursRepo
     {} as never, // bookingSmsService
     {} as never, // publicPageService
+    {} as never, // referralService
     {} as never, // walletService
     configService,
     {} as never, // dataSource
@@ -113,7 +114,9 @@ describe('PaymentService — آدرس ریدایرکت پرداخت', () => {
     const redirect = await service.getDepositRedirectUrl(
       'a1b2c3d4e5f60718293a4b5c:1',
     );
-    expect(redirect).toBe('https://monshiim.ir/deposit/a1b2c3d4e5f60718293a4b5c');
+    expect(redirect).toBe(
+      'https://monshiim.ir/deposit/a1b2c3d4e5f60718293a4b5c',
+    );
   });
 
   it('توکن نامعتبر بیعانه را به صفحه خطای پرداخت می‌فرستد', async () => {
@@ -122,6 +125,8 @@ describe('PaymentService — آدرس ریدایرکت پرداخت', () => {
     const service = buildService({ FRONTEND_URL: 'https://monshiim.ir' });
 
     const redirect = await service.getDepositRedirectUrl('bad%token');
-    expect(redirect).toContain('https://monshiim.ir/panel/payment/callback?status=failed');
+    expect(redirect).toContain(
+      'https://monshiim.ir/panel/payment/callback?status=failed',
+    );
   });
 });

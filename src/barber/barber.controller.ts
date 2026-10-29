@@ -67,6 +67,7 @@ export class BarberController {
     @Query('minPrice') minPrice?: number | string,
     @Query('maxPrice') maxPrice?: number | string,
     @Query('minRating') minRating?: number | string,
+    @Query('gender') gender?: string,
   ) {
     const parseOptNum = (val?: number | string): number | undefined => {
       if (val === undefined || val === '') return undefined;
@@ -82,7 +83,9 @@ export class BarberController {
       minPrice: parseOptNum(minPrice) ?? query.minPrice ?? undefined,
       maxPrice: parseOptNum(maxPrice) ?? query.maxPrice ?? undefined,
       minRating: parseOptNum(minRating) ?? query.minRating ?? undefined,
-      gender: req.user?.gender ?? null,
+      // در endpoint عمومی، req.user الزاماً توسط AuthGuard پر نمی‌شود؛ صفحات
+      // داخل پنل جنسیت جاری را صریح می‌فرستند تا فیلتر برای آن‌ها اعمال شود.
+      gender: req.user?.gender ?? gender ?? null,
     });
   }
 
