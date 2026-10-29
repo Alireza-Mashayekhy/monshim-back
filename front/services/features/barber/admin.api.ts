@@ -26,6 +26,18 @@ export async function notApprovedBarberList(query?: {
   return data;
 }
 
+export async function adminBarberManagementList(query?: {
+  page: number;
+  limit: number;
+  search?: string;
+}) {
+  const { data } = await api.get<ApiListResponse<BarberResponse>>(
+    endpoints.barber.admin.managementList,
+    { params: query },
+  );
+  return data;
+}
+
 export const getBarberById = async (id: string) => {
   const url = endpoints.barber.admin.detail(id);
   const { data } = await api.get<ApiSingleResponse<BarberProfile>>(url);
@@ -51,9 +63,16 @@ export const updateBarber = async (dto: UpdateBarberProfile) => {
   return data;
 };
 
-export const deleteBarber = async () => {
-  const { data } = await api.delete<ApiSingleResponse<BarberProfile>>(
-    endpoints.barber.admin.remove,
+export const setBarberActive = async (id: number, isActive: boolean) => {
+  const { data } = await api.patch<
+    ApiSingleResponse<{ id: number; isActive: boolean }>
+  >(endpoints.barber.admin.setActive(id), { isActive });
+  return data;
+};
+
+export const deleteBarber = async (id: number) => {
+  const { data } = await api.delete<ApiSingleResponse<{ id: number }>>(
+    endpoints.barber.admin.remove(id),
   );
   return data;
 };

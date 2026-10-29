@@ -111,6 +111,7 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
       findOne: jest.fn(({ where }: any) =>
         Promise.resolve(bookings.find(item => item.id === where.id)),
       ),
+      find: jest.fn(async () => bookings),
       save: jest.fn(async (rows: Booking[]) => rows),
     };
 
@@ -200,6 +201,10 @@ describe('PaymentService deposit invoice & gateway payment flow', () => {
       {} as any,
       bookingSmsService,
       {} as any,
+      {
+        onReferrerBookingActivity: jest.fn().mockResolvedValue(undefined),
+        onPublicPagePurchased: jest.fn().mockResolvedValue(undefined),
+      } as any,
       walletService,
       configService,
       dataSource,

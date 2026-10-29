@@ -25,10 +25,12 @@ export interface PublicPageStatus {
   publicUrl: string | null;
   /** آیا پروفایل آرایشگر تایید شده است؟ (بدون تایید، صفحه عمومی نمایش داده نمی‌شود) */
   isApproved: boolean;
+  /** فقط آرایشگرانی که با کد معرف ثبت‌نام کرده‌اند تخفیف ویژهٔ خرید دارند. */
+  hasReferralDiscount: boolean;
 }
 
 export interface PublicPageDiscountQuote {
-  code: string;
+  code: string | null;
   percentOff: number;
   originalAmount: number;
   discountAmount: number;

@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 
 export enum ReferralStatus {
-  PENDING = 'PENDING', // در انتظار تکمیل شدن شرط (۵ رزرو)
+  PENDING = 'PENDING', // در انتظار ۵ رزرو موفقِ پرداخت‌شده و خرید صفحه توسط دعوت‌کننده
   COMPLETED = 'COMPLETED', // پاداش دریافت شده
 }
 
@@ -34,11 +34,11 @@ export class Referral {
   })
   status: ReferralStatus;
 
-  // تعداد رزروهای تکمیل شده توسط دعوت‌شده
+  // تعداد رزروهای موفقِ پرداخت‌شدهٔ دعوت‌کننده (ستون قدیمی برای سازگاری حفظ شده)
   @Column({ default: 0 })
   completedBookingsCount: number;
 
-  // آیا پاداش (۵۰,۰۰۰ تومان) پرداخت شده؟
+  // آیا پاداش (۳۰۰٬۰۰۰ تومان) پرداخت شده است؟
   @Column({ default: false })
   rewardPaid: boolean;
 

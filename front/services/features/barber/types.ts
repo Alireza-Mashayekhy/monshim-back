@@ -23,6 +23,7 @@ export interface BarberResponse {
   citySlug?: string | null;
   provinceName: string | null;
   fullName?: string;
+  phone?: string;
   profileImage: string | null;
   salonName: string;
   activityType?: string | null;
@@ -31,6 +32,9 @@ export interface BarberResponse {
   rating?: number | null;
   reviewCount?: number | null;
   isApproved?: boolean;
+  isActive?: boolean;
+  slug?: string | null;
+  createdAt?: string;
   hasPendingChanges?: boolean;
   isEditReview?: boolean;
 }
@@ -145,6 +149,11 @@ export interface MyReferral {
 
 export interface MyReferralsInfo {
   referrals: MyReferral[];
+  eligibility: {
+    completedPaidBookingsCount: number;
+    requiredPaidBookings: number;
+    hasPurchasedPublicPage: boolean;
+  };
   stats: {
     total: number;
     completed: number;

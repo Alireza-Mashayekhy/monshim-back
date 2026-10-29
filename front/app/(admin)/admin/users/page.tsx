@@ -3,6 +3,7 @@
 import { MoreHorizontalIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import CustomPagination from '@/components/shared/custom-pagination';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,12 +23,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useUsersList } from '@/services/features/users/hooks';
+import { useDeleteUser, useUsersList } from '@/services/features/users/hooks';
 import { UserResponse } from '@/services/features/users/types';
 
 export default function Users() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [userToDelete, setUserToDelete] = useState<UserResponse | null>(null);
+  const deleteUser = useDeleteUser();
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -79,7 +82,10 @@ export default function Users() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       {/* <DropdownMenuItem>ویرایش</DropdownMenuItem> */}
-                      <DropdownMenuItem variant="destructive">
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setUserToDelete(user)}
+                      >
                         حذف
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -101,6 +107,29 @@ export default function Users() {
           </TableFooter>
         </Table>
       </div>
+      <ConfirmDialog
+        open={Boolean(userToDelete)}
+        onOpenChange={open => {
+          if (!open) setUserToDelete(null);
+        }}
+        title="حذف کاربر"
+        description={
+          userToDelete ? (
+            <>
+              آیا از حذف کاربر «{userToDelete.fullName}» با شمارهٔ{' '}
+              {userToDelete.phone} مطمئن هستید؟ این عملیات قابل بازگشت نیست.
+            </>
+          ) : null
+        }
+        confirmLabel="حذف کاربر"
+        pendingLabel="در حال حذف..."
+        onConfirm={async () => {
+          if (!userToDelete) return;
+          await deleteUser.mutateAsync(userToDelete.id);
+          setUserToDelete(null);
+        }}
+        isPending={deleteUser.isPending}
+      />
     </div>
   );
 }

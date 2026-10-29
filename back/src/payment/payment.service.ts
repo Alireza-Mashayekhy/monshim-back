@@ -25,6 +25,7 @@ import {
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { PUBLIC_PAGE_PACKAGE_PRICE_TOMANS } from 'src/public-page/constants';
 import { PublicPageService } from 'src/public-page/public-page.service';
+import { ReferralService } from 'src/referral/referral.service';
 import { Service } from 'src/services/entities/service.entity';
 import { SiteSettings } from 'src/settings/entities/setting.entity';
 import { SubscriptionPlan } from 'src/subscription/entities/subscription-plan.entity';
@@ -37,6 +38,7 @@ import { WalletService } from 'src/wallet/wallet.service';
 import {
   DataSource,
   EntityManager,
+  In,
   IsNull,
   LessThan,
   MoreThan,
@@ -105,6 +107,7 @@ export class PaymentService {
 
     private readonly bookingSmsService: BookingSmsService,
     private readonly publicPageService: PublicPageService,
+    private readonly referralService: ReferralService,
     private readonly walletService: WalletService,
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
@@ -440,23 +443,33 @@ export class PaymentService {
       );
     }
 
-    const quote = discountCode
-      ? await this.publicPageService.getDiscountQuote(discountCode)
-      : {
-          code: null,
-          percentOff: 0,
-          originalAmount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
-          discountAmount: 0,
-          amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
-        };
+    // تخفیف دعوت خودکار است و فقط برای ثبت‌نام‌هایی اعمال می‌شود که رکورد
+    // referral دارند؛ این پیشنهاد با کد تخفیف دیگری جمع نمی‌شود.
+    const referralQuote =
+      await this.publicPageService.getReferralDiscountQuote(userId);
+    const quote =
+      referralQuote ??
+      (discountCode
+        ? await this.publicPageService.getDiscountQuote(discountCode)
+        : {
+            code: null,
+            percentOff: 0,
+            originalAmount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+            discountAmount: 0,
+            amount: PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
+          });
 
     const orderId = `PAGE-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const discountDescription = quote.code
-      ? ` (کد ${quote.code}، تخفیف ${quote.percentOff}٪)`
+    const discountDescription = quote.percentOff
+      ? quote.code
+        ? ` (کد ${quote.code}، تخفیف ${quote.percentOff}٪)`
+        : ` (تخفیف ویژهٔ معرفی، ${quote.percentOff}٪)`
       : '';
-    const discountMetadata = quote.code
+    const discountMetadata = quote.percentOff
       ? JSON.stringify({
-          discountCode: quote.code,
+          ...(quote.code
+            ? { discountCode: quote.code }
+            : { referralDiscount: true }),
           discountPercent: quote.percentOff,
           originalAmount: quote.originalAmount,
           discountAmount: quote.discountAmount,
@@ -479,6 +492,7 @@ export class PaymentService {
         }),
       );
       await this.publicPageService.activateAfterPayment(complimentaryPayment);
+      await this.referralService.onPublicPagePurchased(userId);
       return {
         free: true,
         amount: 0,
@@ -1562,11 +1576,39 @@ export class PaymentService {
     }
 
     if (payment.purpose === PaymentPurpose.BOOKING) {
-      return this.completeBookingPayment(payment);
+      const result = await this.completeBookingPayment(payment);
+      if (!result.refunded) {
+        const bookingIds = new Set<string>();
+        if (payment.purposeId) bookingIds.add(payment.purposeId);
+        try {
+          const metadata = payment.metadata ? JSON.parse(payment.metadata) : {};
+          if (metadata.bookingId) bookingIds.add(String(metadata.bookingId));
+          if (Array.isArray(metadata.bookingIds)) {
+            for (const id of metadata.bookingIds) bookingIds.add(String(id));
+          }
+        } catch {
+          // purposeId همچنان برای پرداخت‌های عادی قابل استفاده است.
+        }
+        if (bookingIds.size > 0) {
+          const bookings = await this.bookingRepo.find({
+            where: { id: In([...bookingIds]) },
+            select: { barberId: true },
+          });
+          for (const barberProfileId of new Set(
+            bookings.map(row => row.barberId),
+          )) {
+            await this.referralService.onReferrerBookingActivity(
+              barberProfileId,
+            );
+          }
+        }
+      }
+      return result;
     }
 
     if (payment.purpose === PaymentPurpose.PUBLIC_PAGE) {
       await this.publicPageService.activateAfterPayment(payment);
+      await this.referralService.onPublicPagePurchased(payment.userId);
       void this.baleNotificationService?.notifyPublicPagePurchased(payment);
 
       return { refunded: false };

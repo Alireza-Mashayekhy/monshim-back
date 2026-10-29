@@ -435,7 +435,9 @@ export default function BarbaerStep5({
           <h3 className="font-bold text-sm">کد معرف (اختیاری)</h3>
         </div>
         <p className="text-xs text-gray-500 mb-3">
-          اگر کد معرف آرایشگری را دارید، در اینجا وارد کنید.
+          {referralCode
+            ? 'کد معرف از لینک دعوت وارد شده است؛ در صورت نیاز می‌توانید آن را ویرایش کنید.'
+            : 'اگر کد معرف آرایشگری را دارید، در اینجا وارد کنید.'}
         </p>
         <input
           type="text"

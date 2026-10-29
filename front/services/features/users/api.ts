@@ -15,6 +15,11 @@ export async function usersList(query: { page: number; search: string }) {
   return data;
 }
 
+export async function deleteUser(id: number) {
+  const { data } = await api.delete(endpoints.users.remove(id));
+  return data;
+}
+
 export async function editUser(dto: {
   fullName?: string;
   birthDate?: string | null;

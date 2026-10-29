@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaleNotificationService } from 'src/bale/bale-notification.service';
+import { Booking } from 'src/booking/entities/booking.entity';
 import {
   isAllowedSlotIntervalMinutes,
   normalizeSlotIntervalMinutes,
@@ -16,6 +17,11 @@ import {
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
 import { FrontendRevalidationService } from 'src/common/services/frontend-revalidation.service';
+import { BarberPublicPagePurchase } from 'src/public-page/entities/barber-public-page-purchase.entity';
+import { Payment } from 'src/payment/entities/payment.entity';
+import { Referral } from 'src/referral/entities/referral.entity';
+import { Transaction } from 'src/wallet/entities/transaction.entity';
+import { Wallet } from 'src/wallet/entities/wallet.entity';
 import {
   isValidIranianNationalCode,
   normalizeNationalCode,
@@ -556,6 +562,59 @@ export class BarberService implements OnModuleInit {
 
     return {
       data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /** فهرست مدیریتی همهٔ آرایشگرها، شامل حساب‌های غیرفعال و تاییدنشده. */
+  async findAllForAdminManagement(query: QueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const qb = this.userRepo
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.barberProfile', 'profile')
+      .leftJoinAndSelect('profile.city', 'city')
+      .leftJoinAndSelect('profile.province', 'province')
+      .where('user.roles LIKE :barberRole', { barberRole: '%Barber%' });
+
+    if (query.search?.trim()) {
+      const search = `%${query.search.trim()}%`;
+      qb.andWhere(
+        new Brackets(searchQb => {
+          searchQb
+            .where('user.fullName LIKE :search', { search })
+            .orWhere('user.phone LIKE :search', { search })
+            .orWhere('profile.salonName LIKE :search', { search })
+            .orWhere('city.name LIKE :search', { search })
+            .orWhere('province.name LIKE :search', { search });
+        }),
+      );
+    }
+
+    const { skip, take } = getPagination(page, limit);
+    const [users, total] = await qb
+      .orderBy('user.createdAt', 'DESC')
+      .skip(skip)
+      .take(take)
+      .getManyAndCount();
+
+    return {
+      data: users.map(user => ({
+        id: user.id,
+        fullName: user.fullName,
+        phone: user.phone,
+        salonName: user.barberProfile?.salonName ?? null,
+        cityName: user.barberProfile?.city?.name ?? null,
+        isApproved: Boolean(user.barberProfile?.isApproved),
+        isActive: Boolean(user.isActive),
+        slug: user.barberProfile?.slug ?? null,
+        createdAt: user.createdAt,
+      })),
       pagination: {
         page,
         limit,
@@ -1545,8 +1604,63 @@ export class BarberService implements OnModuleInit {
     };
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} barber`;
+  async setBarberActive(userId: number, isActive: boolean) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: { barberProfile: true },
+    });
+    if (!user || !user.roles?.includes(Role.Barber) || !user.barberProfile) {
+      throw new NotFoundException('آرایشگر یافت نشد');
+    }
+
+    if (user.isActive !== isActive) {
+      user.isActive = isActive;
+      await this.userRepo.save(user);
+      this.notifyPublicProfileChanged(userId, user.barberProfile.slug);
+    }
+
+    return { id: userId, isActive: user.isActive };
+  }
+
+  async remove(id: number) {
+    const user = await this.userRepo.findOne({
+      where: { id },
+      relations: { barberProfile: true },
+    });
+    if (!user || !user.roles?.includes(Role.Barber) || !user.barberProfile) {
+      throw new NotFoundException('آرایشگر یافت نشد');
+    }
+
+    const manager = this.userRepo.manager;
+    const [bookings, payments, transactions, referrals, pagePurchases] =
+      await Promise.all([
+        manager
+          .getRepository(Booking)
+          .count({ where: { barberId: user.barberProfile.id } }),
+        manager.getRepository(Payment).count({ where: { userId: id } }),
+        manager
+          .getRepository(Transaction)
+          .createQueryBuilder('transaction')
+          .innerJoin('transaction.wallet', 'wallet')
+          .where('wallet.userId = :userId', { userId: id })
+          .getCount(),
+        manager
+          .getRepository(Referral)
+          .count({ where: [{ referrerUserId: id }, { referredUserId: id }] }),
+        manager
+          .getRepository(BarberPublicPagePurchase)
+          .count({ where: { userId: id } }),
+      ]);
+
+    if (bookings || payments || transactions || referrals || pagePurchases) {
+      throw new ConflictException(
+        'این آرایشگر سابقهٔ رزرو، پرداخت یا تراکنش دارد و برای حفظ سوابق قابل حذف نیست؛ می‌توانید او را غیرفعال کنید.',
+      );
+    }
+
+    this.notifyPublicProfileChanged(id, user.barberProfile.slug);
+    await this.userRepo.delete(id);
+    return { id };
   }
 
   async reviewBarber(

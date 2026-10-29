@@ -46,9 +46,11 @@ export const useBarberList = (
     minPrice?: number;
     maxPrice?: number;
     minRating?: number;
+    gender?: 'male' | 'female';
     limit?: number;
   },
   initialPage?: ApiListResponse<BarberResponse> | null,
+  options?: { enabled?: boolean },
 ) => {
   return useInfiniteQuery({
     queryKey: ['barbers', params],
@@ -63,7 +65,9 @@ export const useBarberList = (
         minPrice: params?.minPrice,
         maxPrice: params?.maxPrice,
         minRating: params?.minRating,
+        gender: params?.gender,
       }),
+    enabled: options?.enabled ?? true,
     getNextPageParam: lastPage => {
       // اگر پاسخ API ساختار لیست استاندارد را نداشته باشد (مثلاً یک صفحه‌ی
       // HTML خطا با کد ۲۰۰ از سمت پروکسی/CDN بیاید)، نبودِ `pagination`
@@ -83,16 +87,20 @@ export const useBarberList = (
   });
 };
 
-export const useHomeBarberList = (params?: {
-  cityId?: number;
-  provinceId?: number;
-  search?: string;
-  sort?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  minRating?: number;
-  limit?: number;
-}) => {
+export const useHomeBarberList = (
+  params?: {
+    cityId?: number;
+    provinceId?: number;
+    search?: string;
+    sort?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    minRating?: number;
+    gender?: 'male' | 'female';
+    limit?: number;
+  },
+  options?: { enabled?: boolean },
+) => {
   return useQuery({
     queryKey: ['homeBarbers', params],
     queryFn: () =>
@@ -106,9 +114,10 @@ export const useHomeBarberList = (params?: {
         minPrice: params?.minPrice,
         maxPrice: params?.maxPrice,
         minRating: params?.minRating,
+        gender: params?.gender,
       }),
     staleTime: 2 * 60 * 1000,
-    enabled: true,
+    enabled: options?.enabled ?? true,
   });
 };
 

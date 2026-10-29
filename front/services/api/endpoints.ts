@@ -16,6 +16,7 @@ export const endpoints = {
   users: {
     list: '/users',
     detail: (id: number) => `/users/${id}`,
+    remove: (id: number) => `/users/${id}`,
     edit: `/users/me`,
   },
 
@@ -45,10 +46,12 @@ export const endpoints = {
     myReviews: '/barber-reviews/my',
     admin: {
       list: '/admin/barber',
+      managementList: '/admin/barber/management',
+      setActive: (id: number) => `/admin/barber/${id}/active`,
       detail: (id: string) => `/admin/barber/${id}`,
       approvalDetail: (id: string) => `/admin/barber/${id}/approval`,
       update: '/admin/barber',
-      remove: '/admin/barber',
+      remove: (id: number) => `/admin/barber/${id}`,
       review: (id: string) => `/admin/barber/${id}/review`,
     },
     adminReviews: {

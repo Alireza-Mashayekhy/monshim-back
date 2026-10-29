@@ -8,6 +8,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 import BarberSignupLayout from '@/components/pages/auth/barbaer/barber-signup-layout';
 import BarbaerStep1 from '@/components/pages/auth/barbaer/step-1';
@@ -16,6 +17,7 @@ import BarbaerStep3 from '@/components/pages/auth/barbaer/step-3';
 import BarbaerStep4 from '@/components/pages/auth/barbaer/step-4';
 import BarbaerStep5 from '@/components/pages/auth/barbaer/step-5';
 import { buildAuthHref, CallbackUrlValue } from '@/lib/auth';
+import { toEnglishDigits } from '@/lib/digits';
 import { useBarberSignupStore } from '@/store/useBarberSignupStore';
 
 const STEP_META = [
@@ -51,11 +53,22 @@ const STEP_META = [
 
 export default function BarberSignupFlow({
   callbackUrl,
+  referralCode,
 }: {
   callbackUrl?: CallbackUrlValue;
+  referralCode?: string;
 }) {
   const router = useRouter();
   const { step, updateData, nextStep, prevStep } = useBarberSignupStore();
+
+  useEffect(() => {
+    const normalizedReferralCode = toEnglishDigits(
+      referralCode?.trim() ?? '',
+    ).toUpperCase();
+    if (normalizedReferralCode) {
+      updateData({ referralCode: normalizedReferralCode });
+    }
+  }, [referralCode, updateData]);
 
   const meta = STEP_META[Math.min(step, STEP_META.length) - 1] ?? STEP_META[0];
 
