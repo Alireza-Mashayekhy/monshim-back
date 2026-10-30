@@ -13,11 +13,27 @@ import {
   InternalServerErrorException,
   Logger,
   PayloadTooLargeException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { SentryExceptionCaptured } from '@sentry/nestjs';
 
-import { getDriverError, isDuplicateEntryError } from '../utils/db-error.util';
+import {
+  getDriverError,
+  isDuplicateEntryError,
+  isSchemaNotReadyError,
+} from '../utils/db-error.util';
+
+/**
+ * پیام خطای «اسکیمای پایگاه داده آماده نیست».
+ *
+ * این حالت وقتی رخ می‌دهد که جدول/ستون مورد نیاز یک قابلیت در پایگاه داده وجود
+ * ندارد (در production `synchronize` خاموش است و باید فایل‌های `sql/` اجرا
+ * شوند). پیش از این، چنین خطایی به یک ۵۰۰ مبهم تبدیل می‌شد که نه برای کاربر
+ * قابل فهم بود و نه برای اپراتور؛ حالا با ۵۰۳ و لاگِ دقیق برگردانده می‌شود.
+ */
+const SCHEMA_NOT_READY_MESSAGE =
+  'زیرساخت پایگاه داده برای این بخش آماده نیست. لطفاً کمی دیگر دوباره تلاش کنید و در صورت تکرار، به تیم فنی اطلاع دهید.';
 
 const MULTER_MESSAGES: Record<string, string> = {
   LIMIT_FILE_SIZE: 'حجم فایل ارسالی بیشتر از حد مجاز است',
@@ -111,6 +127,10 @@ export function mapToHttpException(exception: unknown): HttpException | null {
     return new ConflictException('این اطلاعات قبلاً ثبت شده است');
   }
 
+  if (isSchemaNotReadyError(exception)) {
+    return new ServiceUnavailableException(SCHEMA_NOT_READY_MESSAGE);
+  }
+
   if (getDriverError(exception)) {
     return new InternalServerErrorException(
       'خطا در پردازش اطلاعات. لطفاً دوباره تلاش کنید',
@@ -133,7 +153,12 @@ export class AllExceptionsFilter extends BaseExceptionFilter {
       return;
     }
 
-    if (getDriverError(exception)) {
+    if (isSchemaNotReadyError(exception)) {
+      this.logger.error(
+        `database schema is not ready (a required table/column is missing — ` +
+          `run the files in back/sql or let the schema guard create them): ${String(exception)}`,
+      );
+    } else if (getDriverError(exception)) {
       this.logger.error(`database error: ${String(exception)}`);
     } else {
       this.logger.warn(`request rejected: ${String(exception)}`);
