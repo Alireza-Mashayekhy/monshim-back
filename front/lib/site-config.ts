@@ -8,16 +8,16 @@ export const siteConfig = {
   locale: 'fa_IR',
   routes: {
     home: '/',
-    barberManagement: '/barber-management',
-    onlineBooking: '/online-barber-booking',
+    providerManagement: '/provider-management',
+    onlineBooking: '/online-provider-booking',
     pricing: '/pricing',
     explore: '/panel/explore',
     privacy: '/privacy',
     terms: '/terms',
     login: '/login',
     register: '/register',
-    barberSignup: '/barbaer-signup',
-    publicBarber: (id: number | string) => `/barber/${id}`,
+    providerSignup: '/provider-signup',
+    publicProvider: (id: number | string) => `/provider/${id}`,
   },
   /** مسیرهای داخل پنل کاربر (نیازمند ورود) */
   panel: {
@@ -26,8 +26,11 @@ export const siteConfig = {
     appointments: '/panel/appointments',
     profile: '/panel/profile',
     support: '/panel/support',
-    barber: (id: number | string) => `/panel/barber/${id}`,
+    provider: (id: number | string) => `/panel/provider/${id}`,
   },
 } as const;
 
-export type SiteRoute = Exclude<keyof typeof siteConfig.routes, 'publicBarber'>;
+export type SiteRoute = Exclude<
+  keyof typeof siteConfig.routes,
+  'publicProvider'
+>;

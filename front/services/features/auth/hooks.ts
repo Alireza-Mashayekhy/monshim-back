@@ -39,8 +39,17 @@ export const useMe = (options?: { enabled?: boolean }) =>
     enabled: options?.enabled,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: true,
-    retry: (count, error) =>
-      count < 1 && ![400, 401, 403, 429].includes(getErrorStatus(error) ?? 0),
+    /**
+     * خطاهای احراز هویت (۴۰۰/۴۰۱/۴۰۳) با تلاشِ مجدد درست نمی‌شوند؛ بقیهٔ
+     * حالت‌ها گذرا هستند: ۴۲۹ (محدودیت نرخ)، ۵xx، قطعی شبکه و timeout.
+     * قبلاً ۴۲۹ هم مستقیماً به صفحهٔ «بررسی نشست انجام نشد» می‌رفت، در حالی
+     * که یک ثانیه بعد همان درخواست موفق می‌شد.
+     */
+    retry: (count, error) => {
+      const status = getErrorStatus(error);
+      if (status === 400 || status === 401 || status === 403) return false;
+      return count < 2;
+    },
   });
 
 export function useCurrentUser() {

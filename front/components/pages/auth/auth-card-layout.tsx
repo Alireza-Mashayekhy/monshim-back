@@ -79,7 +79,7 @@ export default function AuthCardLayout({
         {/* Barber registration card */}
         <div className="w-full mt-6">
           <Link
-            href={buildAuthHref('/barbaer-signup', callbackUrl)}
+            href={buildAuthHref('/provider-signup', callbackUrl)}
             className="block group"
           >
             {' '}

@@ -122,7 +122,7 @@ export default function OnlineBarberBookingPage() {
       <Breadcrumbs
         items={[
           { href: '/', label: 'منشیم' },
-          { href: '/online-barber-booking', label: 'رزرو آنلاین آرایشگاه' },
+          { href: '/online-provider-booking', label: 'رزرو آنلاین آرایشگاه' },
         ]}
       />
 
@@ -159,7 +159,7 @@ export default function OnlineBarberBookingPage() {
                 پیدا کردن آرایشگاه
               </a>
               <a
-                href="/barbaer-signup"
+                href="/provider-signup"
                 title="ثبت رایگان آرایشگاه در سامانه نوبت دهی منشیم"
                 className="inline-flex h-10.5 items-center justify-center rounded-lg border border-primary-300 bg-white px-5 text-sm font-medium text-foreground transition-colors hover:bg-primary-2"
               >

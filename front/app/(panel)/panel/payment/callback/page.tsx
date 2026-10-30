@@ -90,7 +90,7 @@ function PaymentCallbackContent() {
 
   const destination = getDestinationLink();
 
-  // خرید موفقِ پکیج صفحهٔ عمومی: کشِ صفحهٔ `/barber/[id]` همان لحظه پاک شود تا
+  // خرید موفقِ پکیج صفحهٔ عمومی: کشِ صفحهٔ `/provider/[id]` همان لحظه پاک شود تا
   // آرایشگر بعد از پرداخت، صفحهٔ فعال خودش را ببیند (و در sitemap بیاید).
   const revalidateRan = useRef(false);
   useEffect(() => {

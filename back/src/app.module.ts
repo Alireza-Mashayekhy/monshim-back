@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerGuard } from '@nestjs/throttler';
@@ -14,6 +15,7 @@ import { BaleModule } from './bale/bale.module';
 import { BarberModule } from './barber/barber.module';
 import { BookingModule } from './booking/booking.module';
 import { ClubModule } from './club/club.module';
+import { createThrottlerOptions } from './common/config/throttler.config';
 import { TypeOrmConfigService } from './common/config/typeorm.config';
 import { FilesModule } from './files/files.module';
 import { LocationsModule } from './locations/locations.module';
@@ -29,20 +31,6 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { TicketModule } from './ticket/ticket.module';
 import { UsersModule } from './users/users.module';
 import { WalletModule } from './wallet/wallet.module';
-
-/**
- * محدودیت نرخ سراسری.
- *
- * مقدار قبلی (۱۰ درخواست در دقیقه برای هر IP) عملاً کل سایت را قفل می‌کرد:
- * یک کاربر با باز کردن چند صفحه و چند درخواست هم‌زمان به سقف می‌خورد.
- * مقدار پیش‌فرض ۱۲۰ در دقیقه است و از محیط قابل تنظیم است.
- *
- * نکتهٔ مهم: اگر سرویس پشت reverse proxy است، باید `TRUST_PROXY=true`
- * تنظیم شود تا IP واقعی کاربر دیده شود؛ در غیر این صورت همهٔ کاربران
- * یک IP مشترک دارند و این سقف بین همه تقسیم می‌شود.
- */
-const THROTTLE_TTL_MS = Number(process.env.THROTTLE_TTL_MS ?? 60_000);
-const THROTTLE_LIMIT = Number(process.env.THROTTLE_LIMIT ?? 120);
 
 @Module({
   imports: [
@@ -66,12 +54,13 @@ const THROTTLE_LIMIT = Number(process.env.THROTTLE_LIMIT ?? 120);
     //     }),
     //   }),
     // }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: THROTTLE_TTL_MS,
-        limit: THROTTLE_LIMIT,
-      },
-    ]),
+    // `JwtService` به‌صورت global در `AuthModule` ثبت شده و برای شناسایی
+    // کاربرِ احراز هویت‌شده در محدودیت نرخ استفاده می‌شود (جلوگیری از
+    // ۴۲۹ شدن `/auth/refresh` و لاگ‌اوت شدن کاربرها).
+    ThrottlerModule.forRootAsync({
+      inject: [{ token: JwtService, optional: true }],
+      useFactory: createThrottlerOptions,
+    }),
     FilesModule,
     UsersModule,
     AuthModule,

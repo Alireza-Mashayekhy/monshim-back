@@ -123,7 +123,7 @@ export default function PricingPage() {
           title: 'ثبت‌نام رایگان نرم افزار مدیریت آرایشگاه منشیم',
         }}
         secondaryCta={{
-          href: '/barber-management',
+          href: '/provider-management',
           label: 'امکانات مدیریت سالن',
           title: 'نرم افزار مدیریت آرایشگاه و امکانات منشیم',
         }}

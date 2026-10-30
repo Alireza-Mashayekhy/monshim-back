@@ -147,7 +147,7 @@ export const endpoints = {
     status: (trackId: number | string) => `/payment/status/${trackId}`,
   },
 
-  /** صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[slug]`) */
+  /** صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/provider/[slug]`) */
   publicPage: {
     /** فقط آرایشگرهایی که صفحه‌شان فعال است و اسلاگ ثبت کرده‌اند — مبنای sitemap */
     directory: '/public-page/directory',

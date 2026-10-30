@@ -11,8 +11,50 @@ import {
 } from './lib/auth';
 import { normalizeRoles } from './lib/roles';
 
+/**
+ * مسیرهای قدیمیِ «barber» → «provider».
+ *
+ * چرا ۳۰۱ و چرا اینجا؟
+ * ---------------------
+ * نامِ مسیرها عمومی شد تا بعداً بتوان شغل‌های دیگری غیر از آرایشگر هم اضافه
+ * کرد. لینک‌های قدیمی در گوگل ایندکس شده‌اند، در پیامک/ربات بله/QR و صفحهٔ
+ * اشتراک‌گذاری پخش شده‌اند و `sitemap` قبلی هم به آن‌ها اشاره می‌کرد؛ بدون
+ * ریدایرکت، همهٔ آن‌ها ۴۰۴ (یا بدتر: ۳۰۷ به `/login`) می‌شدند و سئوی صفحهٔ
+ * عمومی هر آرایشگر از بین می‌رفت.
+ *
+ * ریدایرکت عمداً در این لایه است و نه `redirects()` در `next.config`: آنجا با
+ * `permanent: true` کد **۳۰۸** برمی‌گردد، ولی اینجا ۳۰۱ واقعی ارسال می‌شود و
+ * query string هم عیناً حفظ می‌شود. همچنین چون **پیش از** منطقِ احراز هویت
+ * اجرا می‌شود، مسیر خصوصیِ قدیمی (مثل `/panel/barber/42`) به‌جای پریدن به
+ * صفحهٔ ورود، به مسیر جدید می‌رود و آنجا به‌صورت طبیعی بررسی می‌شود.
+ *
+ * نکته: `/barber-management` با قاعدهٔ `/barber` اشتباه گرفته نمی‌شود، چون
+ * تطبیق فقط روی خودِ مسیر یا زیرمسیرِ آن (`/barber/...`) انجام می‌شود.
+ */
+const LEGACY_PATH_REDIRECTS = [
+  { from: '/panel/barber', to: '/panel/provider' },
+  { from: '/admin/barbers', to: '/admin/providers' },
+  { from: '/barber-management', to: '/provider-management' },
+  { from: '/online-barber-booking', to: '/online-provider-booking' },
+  { from: '/barbaer-signup', to: '/provider-signup' },
+  { from: '/barber', to: '/provider' },
+] as const;
+
+function legacyPathRedirect(request: NextRequest, pathname: string) {
+  for (const { from, to } of LEGACY_PATH_REDIRECTS) {
+    if (pathname !== from && !pathname.startsWith(`${from}/`)) continue;
+    const url = request.nextUrl.clone();
+    url.pathname = to + pathname.slice(from.length);
+    return NextResponse.redirect(url, 301);
+  }
+  return null;
+}
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  const legacyRedirect = legacyPathRedirect(request, pathname);
+  if (legacyRedirect) return legacyRedirect;
 
   // Fast path: public pages (everything except the auth pages) are reachable by
   // everyone, so there is no need to read cookies or verify a JWT for them.

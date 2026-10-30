@@ -22,7 +22,7 @@ const flows = {
   },
   barber: {
     label: 'آرایشگر',
-    href: '/barbaer-signup',
+    href: '/provider-signup',
     cta: 'شروع رایگان برای سالن',
     steps: [
       ['ثبت‌نام کنید', 'اطلاعات اصلی خود و سالن را وارد کنید.'],

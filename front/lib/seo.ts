@@ -92,7 +92,7 @@ export function faqPageSchema(
 
 export const JSONLD_URLS = {
   home: siteConfig.url,
-  management: siteConfig.url + siteConfig.routes.barberManagement,
+  management: siteConfig.url + siteConfig.routes.providerManagement,
   booking: siteConfig.url + siteConfig.routes.onlineBooking,
   pricing: siteConfig.url + siteConfig.routes.pricing,
 };

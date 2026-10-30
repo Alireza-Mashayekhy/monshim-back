@@ -65,7 +65,7 @@ function BarberCard({ barber }: BarberCardProps) {
     <article className="group relative aspect-square w-full overflow-hidden rounded-[28px] border border-black/5 bg-slate-900 shadow-[0_14px_34px_-12px_rgba(15,23,42,0.28)] transition-all duration-300 hover:shadow-[0_20px_44px_-12px_rgba(15,23,42,0.38)]">
       {/* لینک تمام‌کارت برای ناوبری و سئو بدون تداخل با دکمه علاقه‌مندی */}
       <Link
-        href={`/panel/barber/${barber.id}`}
+        href={`/panel/provider/${barber.id}`}
         aria-label={`مشاهده و رزرو نوبت ${barber.salonName || 'آرایشگاه'}`}
         className="absolute inset-0 z-10 rounded-[28px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       />

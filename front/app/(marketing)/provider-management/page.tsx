@@ -13,7 +13,7 @@ export const metadata: Metadata = buildPageMetadata({
   title: 'نرم افزار مدیریت آرایشگاه | مدیریت حرفه‌ای سالن',
   description:
     'نرم افزار مدیریت آرایشگاه منشیم؛ تقویم نوبت‌ها، پرونده و باشگاه مشتریان، مدیریت مالی و گزارش درآمد آرایشگاه را یکجا داشته باشید. مدیریت آرایشگاه خود را هوشمند و بدون دفتر و کاغذ انجام دهید.',
-  path: siteConfig.routes.barberManagement,
+  path: siteConfig.routes.providerManagement,
   imageUrl: `${siteConfig.url}/landing/og-management.png`,
 });
 
@@ -129,7 +129,7 @@ export default function BarberManagementPage() {
       <Breadcrumbs
         items={[
           { href: '/', label: 'منشیم' },
-          { href: '/barber-management', label: 'نرم افزار مدیریت آرایشگاه' },
+          { href: '/provider-management', label: 'نرم افزار مدیریت آرایشگاه' },
         ]}
       />
 
@@ -145,7 +145,7 @@ export default function BarberManagementPage() {
         imageSrc="/landing/hero-management.png"
         imageAlt="نرم افزار مدیریت آرایشگاه و سالن زیبایی منشیم با داشبورد گزارش و مدیریت نوبت‌ها"
         primaryCta={{
-          href: '/barbaer-signup',
+          href: '/provider-signup',
           label: 'شروع رایگان مدیریت آرایشگاه',
           title: 'ثبت‌نام رایگان نرم افزار مدیریت آرایشگاه منشیم',
         }}

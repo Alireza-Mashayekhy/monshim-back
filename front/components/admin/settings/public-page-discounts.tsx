@@ -20,7 +20,7 @@ import {
 export default function PublicPageDiscounts() {
   const [code, setCode] = useState('');
   const [percentOff, setPercentOff] = useState('');
-  const { data, isLoading } = usePublicPageDiscounts();
+  const { data, isLoading, isError, error, refetch } = usePublicPageDiscounts();
   const create = useCreatePublicPageDiscount();
   const update = useUpdatePublicPageDiscount();
   const remove = useDeletePublicPageDiscount();
@@ -131,6 +131,26 @@ export default function PublicPageDiscounts() {
           <div className="space-y-3 p-4">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
+          </div>
+        ) : isError ? (
+          /**
+           * اگر دریافت فهرست کدها شکست بخورد، نباید وضعیت «خالی» نمایش داده شود؛
+           * پیش‌تر خطای بک‌اند پشت پیام «هنوز کد تخفیفی ساخته نشده است» پنهان
+           * می‌شد و مدیر فقط هنگام «افزودن کد» با خطای ۵۰۰ مواجه می‌شد.
+           */
+          <div className="p-6 text-center">
+            <p className="text-sm font-semibold text-rose-700">
+              {getApiErrorMessage(error, 'دریافت کدهای تخفیف ناموفق بود.')}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => void refetch()}
+            >
+              تلاش دوباره
+            </Button>
           </div>
         ) : discounts.length === 0 ? (
           <p className="p-8 text-center text-sm text-gray-400">

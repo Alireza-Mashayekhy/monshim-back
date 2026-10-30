@@ -17,11 +17,10 @@ export default function AuthLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <QueryProvider>
-      <AuthProvider>
-        <SessionHydration>
-          {children}
-        </SessionHydration>
-      </AuthProvider>
+      {/* ترتیب مهم است: SessionHydration باید بالاتر از AuthProvider باشد. */}
+      <SessionHydration>
+        <AuthProvider>{children}</AuthProvider>
+      </SessionHydration>
     </QueryProvider>
   );
 }

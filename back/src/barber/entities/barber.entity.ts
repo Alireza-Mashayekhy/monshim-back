@@ -202,7 +202,7 @@ export class BarberProfile {
   })
   referralCode: string | null;
 
-  // اسلاگ یکتای آدرس صفحهٔ اختصاصی عمومی (/barber/[slug])
+  // اسلاگ یکتای آدرس صفحهٔ اختصاصی عمومی (/provider/[slug])
   @Column({
     type: 'varchar',
     length: 80,

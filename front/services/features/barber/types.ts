@@ -85,7 +85,7 @@ export interface BarberProfile {
   id: number;
   /** شناسهٔ پروفایل (uuid) که مسیرهای ادمین با آن کار می‌کنند. */
   barberProfileId?: string;
-  /** اسلاگ صفحهٔ عمومی آرایشگر (`/barber/[slug]`) در صورت فعال بودن. */
+  /** اسلاگ صفحهٔ عمومی آرایشگر (`/provider/[slug]`) در صورت فعال بودن. */
   slug?: string | null;
   fullName: string;
   phone: string;

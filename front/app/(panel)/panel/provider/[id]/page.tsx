@@ -11,8 +11,8 @@ import type { Barber, BarberReview } from '@/services/features/barber/types';
 
 /**
  * این همان صفحهٔ رزرو نوبت آرایشگاه است که **داخل پنل کاربر** نمایش داده
- * می‌شود (`/panel/barber/[id]`). صفحهٔ عمومی و سئوشدهٔ آرایشگاه مسیر
- * مستقلِ خودش (`/barber/[id]`) را دارد و با این صفحه اشتباه گرفته نشود.
+ * می‌شود (`/panel/provider/[id]`). صفحهٔ عمومی و سئوشدهٔ آرایشگاه مسیر
+ * مستقلِ خودش (`/provider/[id]`) را دارد و با این صفحه اشتباه گرفته نشود.
  */
 
 /**
@@ -31,7 +31,7 @@ type BarberPageProps = {
 };
 
 function barberPath(id: number) {
-  return `/panel/barber/${id}`;
+  return `/panel/provider/${id}`;
 }
 
 async function getBarber(id: string) {
@@ -54,7 +54,7 @@ export async function generateMetadata({
   const path =
     Number.isInteger(numericId) && numericId > 0
       ? barberPath(numericId)
-      : `/panel/barber/${encodeURIComponent(id)}`;
+      : `/panel/provider/${encodeURIComponent(id)}`;
 
   // صفحهٔ خصوصی است؛ ایندکس نمی‌شود و کنونیکال به مسیر عمومی اشاره نمی‌کند.
   return buildPageMetadata({

@@ -11,7 +11,7 @@ const privatePaths = [
   '/login',
   '/login-otp',
   '/register',
-  '/barbaer-signup',
+  '/provider-signup',
   '/test',
 ];
 

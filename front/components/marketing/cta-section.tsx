@@ -20,7 +20,7 @@ interface CtaSectionProps {
 export default function CtaSection({
   title,
   description,
-  primaryHref = '/barbaer-signup',
+  primaryHref = '/provider-signup',
   primaryLabel = 'رایگان شروع کنید',
   primaryTitle = 'ثبت‌نام رایگان نوبت دهی آنلاین آرایشگاه در منشیم',
   secondaryLabel = 'مشاهده تعرفه‌ها',

@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic';
 
 const staticPaths = [
   '/',
-  '/barber-management',
-  '/online-barber-booking',
+  '/provider-management',
+  '/online-provider-booking',
   '/pricing',
   '/privacy',
   '/terms',
@@ -20,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // اکنون هر دو صفحهٔ private محسوب می‌شوند (ورود به سامانه لازم است)، پس
   // اینجا اضافه نمی‌شوند تا در نتایج جستجو نمایش داده نشوند.
   //
-  // صفحات عمومی آرایشگاه (`/barber/[slug]`) فقط وقتی وارد sitemap می‌شوند که
+  // صفحات عمومی آرایشگاه (`/provider/[slug]`) فقط وقتی وارد sitemap می‌شوند که
   // واقعاً فعال باشند و آرایشگر اسلاگ یکتای سالن خود را ثبت کرده باشد. بک‌اند
   // همین فهرست را برمی‌گرداند، بنابراین نه شناسهٔ عددی در URL قرار می‌گیرد و نه
   // صفحه‌ای که قرار است ۴۰۴ بدهد اینجا می‌آید.
@@ -37,7 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       entry => typeof entry?.slug === 'string' && entry.slug.trim().length > 0,
     )
     .map(entry => ({
-      url: `${siteConfig.url}/barber/${encodeURIComponent(entry.slug.trim())}`,
+      url: `${siteConfig.url}/provider/${encodeURIComponent(entry.slug.trim())}`,
       ...(entry.updatedAt ? { lastModified: new Date(entry.updatedAt) } : {}),
     }));
 

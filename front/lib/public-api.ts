@@ -17,7 +17,7 @@ let loggedMissingBaseUrl = false;
  * `API_URL` first, then the public API URL — relative values like `/api`
  * are resolved against the site origin in production).
  *
- * ⚠️ برگرداندن `null` از اینجا برای صفحه‌هایی مثل `/panel/barber/[id]`
+ * ⚠️ برگرداندن `null` از اینجا برای صفحه‌هایی مثل `/panel/provider/[id]`
  * یعنی اجرای `notFound()` و نمایش ۴۰۴ به کاربر. پس هر سه حالت خطا
  * (کانفیگ نامعتبر، پاسخ غیرموفق بک‌اند، خطای شبکه) لاگ می‌شوند؛ قبلاً
  * این خطاها بی‌صدا بلعیده می‌شدند و ۴۰۴ کاذبِ ناشی از کانفیگ سرور از

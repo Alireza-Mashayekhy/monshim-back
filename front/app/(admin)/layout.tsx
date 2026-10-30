@@ -31,8 +31,9 @@ export default function AdminLayout({
 }>) {
   return (
     <QueryProvider>
-      <AuthProvider>
-        <SessionHydration>
+      {/* ترتیب مهم است: SessionHydration باید بالاتر از AuthProvider باشد. */}
+      <SessionHydration>
+        <AuthProvider>
           <TooltipProvider>
             <SidebarProvider>
               <AdminSidebar />
@@ -54,8 +55,8 @@ export default function AdminLayout({
               </SidebarInset>
             </SidebarProvider>
           </TooltipProvider>
-        </SessionHydration>
-      </AuthProvider>
+        </AuthProvider>
+      </SessionHydration>
     </QueryProvider>
   );
 }

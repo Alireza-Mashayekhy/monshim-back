@@ -35,12 +35,12 @@ const AUDIENCES: Record<
     tagline:
       'مدیریت سالن، بدون دردسر. نوبت‌ها، مشتری‌ها و درآمدت همه در یک پنل؛ مشتری‌ها ۲۴ ساعته آنلاین رزرو می‌کنند و تو فقط تأیید می‌کنی.',
     primary: {
-      href: '/barbaer-signup',
+      href: '/provider-signup',
       label: 'شروع رایگان برای آرایشگاه',
       title: 'ثبت‌نام رایگان نرم افزار مدیریت آرایشگاه منشیم',
     },
     secondary: {
-      href: '/barber-management',
+      href: '/provider-management',
       label: 'امکانات مدیریت سالن',
       title: 'نرم افزار مدیریت آرایشگاه منشیم',
     },
@@ -56,7 +56,7 @@ const AUDIENCES: Record<
       title: 'جست‌وجو و رزرو آنلاین آرایشگاه در منشیم',
     },
     secondary: {
-      href: '/online-barber-booking',
+      href: '/online-provider-booking',
       label: 'رزرو آنلاین چطور کار می‌کند؟',
       title: 'رزرو آنلاین آرایشگاه و نوبت دهی اینترنتی در منشیم',
     },

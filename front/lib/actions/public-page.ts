@@ -10,7 +10,7 @@ import { isAdmin, isBarber, normalizeRoles } from '@/lib/roles';
  * پاک‌سازیِ on-demand کشِ صفحه‌های عمومی آرایشگر.
  *
  * مسئله‌ای که این فایل حل می‌کند:
- *   صفحهٔ عمومی `/barber/[slug]` (و فهرست‌ها و sitemap) با ISR پویا کش می‌شود
+ *   صفحهٔ عمومی `/provider/[slug]` (و فهرست‌ها و sitemap) با ISR پویا کش می‌شود
  *   (`revalidate = 300`). وقتی ادمین در پنل، پروفایلِ آرایشگر را تایید می‌کند،
  *   دیتابیس همان لحظه به‌روز می‌شود ولی تا پایانِ آن بازه صفحهٔ عمومی همان
  *   اطلاعاتِ قدیمی (یا برای آرایشگرِ تازه‌تاییدشده، ۴۰۴) را نشان می‌داد.
@@ -66,7 +66,7 @@ async function readActor() {
  *
  * @param userId شناسهٔ کاربری آرایشگر (`User.id`)
  * @param slugs  اسلاگ‌های صفحهٔ عمومی آرایشگر (اختیاری؛ مسیر داینامیک
- *               `/barber/[id]` بدون آن هم پاک می‌شود)
+ *               `/provider/[id]` بدون آن هم پاک می‌شود)
  */
 export async function revalidatePublicBarberCache(input?: {
   userId?: number | string | null;
