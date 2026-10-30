@@ -11,6 +11,7 @@ import { PublicPageDiscount } from './entities/public-page-discount.entity';
 import { PublicPageController } from './public-page.controller';
 import { PublicPageService } from './public-page.service';
 import { PublicPageDiscountAdminController } from './public-page-discount.admin.controller';
+import { PublicPageSchemaService } from './public-page-schema.service';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { PublicPageDiscountAdminController } from './public-page-discount.admin.
     BarberModule,
   ],
   controllers: [PublicPageController, PublicPageDiscountAdminController],
-  providers: [PublicPageService],
+  providers: [PublicPageService, PublicPageSchemaService],
   exports: [PublicPageService],
 })
 export class PublicPageModule {}

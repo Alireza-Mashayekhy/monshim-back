@@ -33,8 +33,8 @@ import { Brackets, In, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import {
   PUBLIC_PAGE_PACKAGE_PRICE_TOMANS,
   PUBLIC_PAGE_REQUIRED_PAID_BOOKINGS,
-  REFERRAL_PUBLIC_PAGE_DISCOUNT_PERCENT,
   PublicPageActivationReason,
+  REFERRAL_PUBLIC_PAGE_DISCOUNT_PERCENT,
 } from './constants';
 import { CreatePublicPageDiscountDto } from './dto/create-public-page-discount.dto';
 import { UpdatePublicPageDiscountDto } from './dto/update-public-page-discount.dto';
@@ -664,9 +664,33 @@ export class PublicPageService {
     return this.discountRepo.find({ order: { createdAt: 'DESC' } });
   }
 
+  /**
+   * بررسی تکراری نبودن کد تخفیف **پیش از** نوشتن در پایگاه داده.
+   *
+   * این بررسی باعث می‌شود پاسخِ «کد تکراری» همیشه یک ۴۰۹ با پیام فارسی باشد،
+   * حتی اگر ایندکس یکتای `code` در پایگاه داده وجود نداشته باشد (جدولی که دستی
+   * و بدون آن فایل SQL ساخته شده باشد). قفل یکتایی دیتابیس هم سر جایش می‌ماند
+   * تا شرط رقابتی (race) پوشش داده شود.
+   */
+  private async assertDiscountCodeIsFree(
+    code: string,
+    ignoreId?: string,
+  ): Promise<void> {
+    const existing = await this.discountRepo.findOne({
+      where: { code },
+      select: { id: true },
+    });
+    if (existing && existing.id !== ignoreId) {
+      throw new ConflictException('این کد تخفیف از قبل ثبت شده است');
+    }
+  }
+
   async createDiscountCode(dto: CreatePublicPageDiscountDto) {
+    const code = this.normalizeDiscountCode(dto.code);
+    await this.assertDiscountCodeIsFree(code);
+
     const discount = this.discountRepo.create({
-      code: this.normalizeDiscountCode(dto.code),
+      code,
       percentOff: dto.percentOff,
       isActive: true,
     });
@@ -684,7 +708,11 @@ export class PublicPageService {
     const discount = await this.discountRepo.findOne({ where: { id } });
     if (!discount) throw new NotFoundException('کد تخفیف یافت نشد');
     if (dto.code !== undefined) {
-      discount.code = this.normalizeDiscountCode(dto.code);
+      const code = this.normalizeDiscountCode(dto.code);
+      if (code !== discount.code) {
+        await this.assertDiscountCodeIsFree(code, discount.id);
+      }
+      discount.code = code;
     }
     if (dto.percentOff !== undefined) discount.percentOff = dto.percentOff;
     if (dto.isActive !== undefined) discount.isActive = dto.isActive;

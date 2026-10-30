@@ -58,5 +58,10 @@
   می‌شود؛ اگر پرداخت انجام نشود، خودبه‌خود آزاد می‌شود.
 - `slot_holds` و ستون `bookings.deposit_requested_at` در production باید با
   `sql/deposit-link-and-slot-holds.sql` ساخته شوند (در توسعه `synchronize` خودکار است).
-- برای کدهای تخفیف صفحهٔ عمومی، در production جدول `public_page_discounts` را با
-  `sql/public-page-discounts.sql` بسازید؛ در محیط توسعه TypeORM آن را خودکار ایجاد می‌کند.
+- جدول `public_page_discounts` (کدهای تخفیف صفحهٔ عمومی) هنگام بالا آمدن بک‌اند
+  به‌صورت خودکار و idempotent بررسی/ساخته می‌شود (`PublicPageSchemaService`)؛ یعنی
+  در production دیگر نیازی به اجرای دستی `sql/public-page-discounts.sql` نیست، اما
+  آن فایل همچنان برای ساخت دستی در دسترس است. اگر این گارد به دلیل نبودِ دسترسی
+  `CREATE` شکست بخورد، فقط لاگ خطا ثبت می‌شود و سرویس بالا می‌آید؛ در آن حالت
+  درخواست‌های این بخش به‌جای ۵۰۰ مبهم، ۵۰۳ با پیام «زیرساخت پایگاه داده آماده
+  نیست» برمی‌گردانند.
