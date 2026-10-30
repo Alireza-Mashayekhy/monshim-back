@@ -22,8 +22,9 @@ export const metadata: Metadata = {
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <QueryProvider>
-      <AuthProvider>
-        <SessionHydration>
+      {/* ترتیب مهم است: SessionHydration باید بالاتر از AuthProvider باشد. */}
+      <SessionHydration>
+        <AuthProvider>
           <div className="min-h-screen bg-primary-3">
             <DesktopSidebar />
 
@@ -33,8 +34,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <main className="p-4 lg:p-5 pb-28 lg:pb-8">{children}</main>
             </div>
           </div>
-        </SessionHydration>
-      </AuthProvider>
+        </AuthProvider>
+      </SessionHydration>
     </QueryProvider>
   );
 }

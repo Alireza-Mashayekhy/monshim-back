@@ -29,11 +29,13 @@ export default function UserLayout({
 }: UserLayoutProps) {
   return (
     <QueryProvider>
-      <AuthProvider>
-        <SessionHydration>
+      {/* ترتیب مهم است: دادهٔ نشست باید **پیش از** AuthProvider در کش باشد تا
+          صفحهٔ خصوصی SSR شود و درخواست تکراری /auth/me ارسال نشود. */}
+      <SessionHydration>
+        <AuthProvider>
           <UserLayoutClient showNav={showNav}>{children}</UserLayoutClient>
-        </SessionHydration>
-      </AuthProvider>
+        </AuthProvider>
+      </SessionHydration>
     </QueryProvider>
   );
 }

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build && node scripts/inline-critical-css.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:session-refresh": "node --test services/api/session-refresh.test.ts"
   },
   "browserslist": [
     "chrome >= 111",
