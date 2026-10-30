@@ -148,7 +148,7 @@ export class BarberService implements OnModuleInit {
 
   /**
    * اعلام تغییر دادهٔ عمومی آرایشگر به فرانت، تا کشِ SSR صفحه‌های عمومی
-   * (`/barber/[slug]`، فهرست آرایشگرها و sitemap) همان لحظه تازه شود.
+   * (`/provider/[slug]`، فهرست آرایشگرها و sitemap) همان لحظه تازه شود.
    *
    * این کار «کمربند ایمنی» است: پنل ادمین/آرایشگر خودشان هم بعد از موفقیت
    * درخواست، Server Actionِ پاک‌سازی کش را صدا می‌زنند؛ اما اگر تایید از مسیر
@@ -1147,7 +1147,7 @@ export class BarberService implements OnModuleInit {
       id: user.id,
       barberProfileId: profile.id,
       // اسلاگ صفحهٔ عمومی؛ پنل ادمین بعد از تایید از همین مقدار برای
-      // پاک‌سازی دقیق کشِ `/barber/[slug]` استفاده می‌کند.
+      // پاک‌سازی دقیق کشِ `/provider/[slug]` استفاده می‌کند.
       slug: profile.slug ?? null,
       fullName: pending?.fullName ?? user.fullName,
       phone: user.phone ?? null,

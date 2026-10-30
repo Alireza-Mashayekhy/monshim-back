@@ -42,7 +42,7 @@ export class PaymentController {
     );
   }
 
-  // ۱.۱. خرید پکیج «صفحهٔ عمومی آرایشگاه» (یک‌باره، مادام‌العمر)
+  // ۱.۱. خرید پکیج «صفحهٔ عمومی آرایشگاه» (یک‌باره)
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(Role.Barber, Role.Admin)
   @Post('public-page')

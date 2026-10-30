@@ -1,7 +1,7 @@
--- «صفحهٔ عمومی آرایشگاه» — آدرس عمومی و سئوشدهٔ هر آرایشگاه: /barber/[slug]
+-- «صفحهٔ عمومی آرایشگاه» — آدرس عمومی و سئوشدهٔ هر آرایشگاه: /provider/[slug]
 --
 -- فعال‌سازی این صفحه دو شرط دارد:
---   1. خرید پکیج ۷۹۹٫۰۰۰ تومانی (یک‌باره، مادام‌العمر)؛
+--   1. خرید پکیج ۷۹۹٫۰۰۰ تومانی (یک‌باره)؛
 --   2. یا رسیدن به ۳۰۰ رزرو موفقِ پرداخت‌شده در درگاه (بدون لغو یا بازپرداخت) —
 --      به‌صورت تجمعی و بدون محدودیت زمانی.
 --
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS barber_public_page_purchases (
     FOREIGN KEY (barber_profile_id) REFERENCES barber_profiles (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ۳. اسلاگ یکتای آدرس صفحهٔ عمومی آرایشگاه (/barber/[slug])
+-- ۳. اسلاگ یکتای آدرس صفحهٔ عمومی آرایشگاه (/provider/[slug])
 ALTER TABLE barber_profile
   ADD COLUMN slug VARCHAR(80) NULL,
   ADD UNIQUE KEY uq_barber_profile_slug (slug);

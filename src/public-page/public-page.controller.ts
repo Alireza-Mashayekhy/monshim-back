@@ -20,7 +20,7 @@ import { ValidatePublicPageDiscountDto } from './dto/validate-public-page-discou
 import { PublicPageService } from './public-page.service';
 
 /**
- * «صفحهٔ عمومی آرایشگاه» — پروفایل سئوشده با آدرس `/barber/[slug]` در فرانت.
+ * «صفحهٔ عمومی آرایشگاه» — پروفایل سئوشده با آدرس `/provider/[slug]` در فرانت.
  *
  * این کنترلر مستقل است تا منطقِ فعال‌سازی (خرید پکیج یا حد نصاب رزروهای موفق
  * پرداخت‌شده در درگاه) با بقیهٔ مسیرهای آرایشگر قاطی نشود:
