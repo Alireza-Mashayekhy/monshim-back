@@ -78,7 +78,7 @@ export default function MarketingHeader() {
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <Button asChild size="sm" variant="outline" className="px-5">
-            <Link href="/barbaer-signup" title="ثبت نام به عنوان آرایشگر">
+            <Link href="/provider-signup" title="ثبت نام به عنوان آرایشگر">
               ثبت نام آرایشگر
             </Link>
           </Button>

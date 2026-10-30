@@ -47,7 +47,7 @@ export default function HomeRoleSummary() {
             به‌اشتراک بگذارید و نوبت‌ها و اطلاعات مالی را از پنل مدیریت کنید.
           </p>
           <Link
-            href="/barber-management"
+            href="/provider-management"
             className="mt-4 inline-flex text-sm font-bold text-primary underline-offset-4 hover:underline"
           >
             آشنایی با امکانات مدیریت سالن

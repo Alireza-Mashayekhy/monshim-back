@@ -100,7 +100,7 @@ export default function HomeFeatures() {
 
         <div className="mt-10 text-center">
           <Link
-            href="/barber-management"
+            href="/provider-management"
             title="آشنایی کامل با نرم افزار مدیریت آرایشگاه منشیم"
             className="text-sm font-bold text-primary underline-offset-8 hover:underline"
           >

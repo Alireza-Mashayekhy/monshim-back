@@ -333,7 +333,7 @@ export function AppointmentCard({ booking }: AppointmentCardProps) {
           )}
         >
           {salonId != null && (
-            <Link href={`/panel/barber/${salonId}`} className="contents">
+            <Link href={`/panel/provider/${salonId}`} className="contents">
               <Button className="w-full gap-1.5">
                 <Eye size={15} />
                 مشاهده جزئیات

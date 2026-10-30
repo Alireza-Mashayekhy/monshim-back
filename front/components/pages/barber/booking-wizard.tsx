@@ -62,7 +62,7 @@ export default function BookingWizard({
       return;
     if (!user) {
       toast.info('برای نهایی‌کردن رزرو ابتدا وارد حساب کاربری شوید.');
-      router.push(buildAuthHref('/login', `/panel/barber/${id}`));
+      router.push(buildAuthHref('/login', `/panel/provider/${id}`));
       return;
     }
 

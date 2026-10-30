@@ -11,7 +11,7 @@ const PERSONAS = [
     description:
       'می‌خواهم بدون تماس تلفنی، قیمت خدمات را ببینم و روز و ساعت دلخواهم را آنلاین رزرو کنم؛ یادآوری پیامکی هم پیش از موعد نوبتم می‌رسد.',
     link: {
-      href: '/online-barber-booking',
+      href: '/online-provider-booking',
       label: 'رزرو آنلاین آرایشگاه',
       title: 'رزرو اینترنتی آرایشگاه در منشیم',
     },
@@ -23,7 +23,7 @@ const PERSONAS = [
     description:
       'می‌خواهم نوبت‌ها را آنلاین و بدون تداخل بگیرم، مشتریانم را مدیریت کنم و پرداخت‌ها را در کیف پولم ببینم.',
     link: {
-      href: '/barber-management',
+      href: '/provider-management',
       label: 'نرم افزار مدیریت آرایشگاه',
       title: 'صفحه نرم افزار مدیریت آرایشگاه منشیم',
     },

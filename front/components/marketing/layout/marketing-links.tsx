@@ -19,7 +19,7 @@ export const NAV_LINKS: NavLink[] = [
     hint: 'پیدا کردن آرایشگاه و رزرو آنلاین',
   },
   {
-    href: siteConfig.routes.barberManagement,
+    href: siteConfig.routes.providerManagement,
     label: 'برای آرایشگران',
     title: 'نرم افزار مدیریت آرایشگاه منشیم',
     hint: 'مدیریت سالن، نوبت‌ها و درآمد',
@@ -45,7 +45,7 @@ export const SEO_LINKS: NavLink[] = [
     title: 'منشیم | سامانه رزرو آنلاین آرایشگاه',
   },
   {
-    href: siteConfig.routes.barberManagement,
+    href: siteConfig.routes.providerManagement,
     label: 'نرم افزار مدیریت آرایشگاه',
     title: 'نرم افزار مدیریت آرایشگاه منشیم',
   },

@@ -16,10 +16,10 @@ import { validatePublicPageSlug } from './public-page-slug';
  *     می‌بندد تا تغییرات «همان لحظه» در همه‌جا دیده شوند.
  *
  * چه چیزی پاک می‌شود؟
- *   ۱. الگوی مسیر داینامیکِ `/barber/[id]` و `/panel/barber/[id]` (نسخهٔ
- *      شناسهٔ عددی مثل `/barber/42`).
- *   ۲. مسیرهای صریحِ همان آرایشگر: `/barber/[slug]` (وقتی اسلاگ معلوم است)،
- *      `/barber/<id>` و `/panel/barber/<id>`.
+ *   ۱. الگوی مسیر داینامیکِ `/provider/[id]` و `/panel/provider/[id]` (نسخهٔ
+ *      شناسهٔ عددی مثل `/provider/42`).
+ *   ۲. مسیرهای صریحِ همان آرایشگر: `/provider/[slug]` (وقتی اسلاگ معلوم است)،
+ *      `/provider/<id>` و `/panel/provider/<id>`.
  *   ۳. صفحهٔ اصلی، جست‌وجوی آرایشگرها و sitemap که فهرستِ آرایشگرها را نشان
  *      می‌دهند.
  *   ۴. تگِ مشترکِ دادهٔ عمومی؛ این تگ همهٔ صفحه‌هایی را که از `fetchPublicApi`
@@ -41,7 +41,10 @@ export interface BarberPublicCacheTarget {
 const SHARED_PATHS = ['/', '/panel/explore', '/sitemap.xml'] as const;
 
 /** مسیرهای داینامیکِ پروفایل که با الگو پاک می‌شوند (بدون نیاز به اسلاگ). */
-const DYNAMIC_ROUTE_PATTERNS = ['/barber/[id]', '/panel/barber/[id]'] as const;
+const DYNAMIC_ROUTE_PATTERNS = [
+  '/provider/[id]',
+  '/panel/provider/[id]',
+] as const;
 
 function normalizeUserId(value: number | string | null | undefined) {
   if (value === null || value === undefined) return null;
@@ -90,11 +93,11 @@ export function revalidateBarberPublicCache(
 
   for (const path of SHARED_PATHS) explicitPaths.add(path);
   if (userId) {
-    explicitPaths.add(`/barber/${userId}`);
-    explicitPaths.add(`/panel/barber/${userId}`);
+    explicitPaths.add(`/provider/${userId}`);
+    explicitPaths.add(`/panel/provider/${userId}`);
   }
   for (const slug of normalizeSlugs(target.slugs)) {
-    explicitPaths.add(`/barber/${slug}`);
+    explicitPaths.add(`/provider/${slug}`);
   }
   for (const path of target.extraPaths ?? []) {
     if (typeof path === 'string' && path.startsWith('/'))
@@ -108,7 +111,7 @@ export function revalidateBarberPublicCache(
   // تگِ مشترکِ دادهٔ عمومی؛ پوششِ نهایی برای صفحه‌های ناشناخته (مثل نسخهٔ
   // اسلاگِ صفحه‌های عمومی وقتی اسلاگ در اختیار نیست).
   //
-  // نکتهٔ مهم (اندازه‌گیری‌شده): `revalidatePath('/barber/[id]', 'page')`
+  // نکتهٔ مهم (اندازه‌گیری‌شده): `revalidatePath('/provider/[id]', 'page')`
   // نسخهٔ اسلاگ را پاک نمی‌کند و `revalidateTag(tag, 'max')` هم
   // stale-while-revalidate است؛ یعنی اولین بازدیدِ بعد از تایید ممکن بود هنوز
   // نسخهٔ قدیمی را ببیند. با `expire: 0` تگ فوراً منقضی می‌شود و همان

@@ -23,22 +23,22 @@ const SOCIAL_LINKS = [
 
 const FEATURE_LINKS = [
   {
-    href: '/barber-management#calendar',
+    href: '/provider-management#calendar',
     label: 'تقویم هوشمند نوبت‌ها',
     title: 'تقویم هوشمند نوبت دهی آرایشگاه در منشیم',
   },
   {
-    href: '/barber-management#customers',
+    href: '/provider-management#customers',
     label: 'باشگاه مشتریان',
     title: 'باشگاه مشتریان و مدیریت مشتریان آرایشگاه',
   },
   {
-    href: '/barber-management#finance',
+    href: '/provider-management#finance',
     label: 'گزارش مالی و درآمد',
     title: 'گزارش مالی و درآمد آرایشگاه در منشیم',
   },
   {
-    href: '/online-barber-booking',
+    href: '/online-provider-booking',
     label: 'نوبت دهی آنلاین ۲۴ ساعته',
     title: 'نوبت دهی آنلاین و رزرو آرایشگاه ۲۴ ساعته',
   },

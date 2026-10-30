@@ -73,7 +73,7 @@ export default function ProfilePage() {
 
   const referralCode = referralData?.data?.referralCode;
   const referralLink = referralCode
-    ? `${siteConfig.url}${siteConfig.routes.barberSignup}?referralCode=${encodeURIComponent(referralCode)}`
+    ? `${siteConfig.url}${siteConfig.routes.providerSignup}?referralCode=${encodeURIComponent(referralCode)}`
     : '';
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);

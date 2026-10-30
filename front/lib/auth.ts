@@ -8,7 +8,7 @@ const AUTH_PAGE_PATHS = [
   '/login',
   '/login-otp',
   '/register',
-  '/barbaer-signup',
+  '/provider-signup',
 ];
 
 export type CallbackUrlValue = string | string[] | null | undefined;
@@ -81,17 +81,17 @@ export function isPublicAuthPath(pathname: string) {
     // اما `/explore` و `/cities/*` اکنون **خصوصی** هستند و نیاز به ورود دارند.
     isPathWithin(pathname, '/privacy') ||
     isPathWithin(pathname, '/terms') ||
-    // صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/barber/[id]`) برای همه در دسترس است.
-    // مسیرِ مشابه داخل پنل (`/panel/barber/[id]`) خصوصی می‌ماند چون با
+    // صفحهٔ عمومی و سئوشدهٔ آرایشگاه (`/provider/[id]`) برای همه در دسترس است.
+    // مسیرِ مشابه داخل پنل (`/panel/provider/[id]`) خصوصی می‌ماند چون با
     // پیشوند `/panel/` شروع می‌شود.
-    isPathWithin(pathname, '/barber') ||
+    isPathWithin(pathname, '/provider') ||
     // صفحهٔ صورت‌حساب لینک بیعانه (`/deposit/[token]`) و بازگشت از درگاه پرداخت
     // باید برای مشتریان مهمان (بدون نیاز به لاگین) در دسترس باشند.
     isPathWithin(pathname, '/deposit') ||
     isPathWithin(pathname, '/panel/payment/callback') ||
     // Public marketing pages.
-    isPathWithin(pathname, '/barber-management') ||
-    isPathWithin(pathname, '/online-barber-booking') ||
+    isPathWithin(pathname, '/provider-management') ||
+    isPathWithin(pathname, '/online-provider-booking') ||
     isPathWithin(pathname, '/pricing')
   );
 }

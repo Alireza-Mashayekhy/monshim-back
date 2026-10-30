@@ -46,12 +46,12 @@ import {
   useUpdatePublicPageSlug,
 } from '@/services/features/public-page/hooks';
 
-const URL_HOST_PREFIX = `${siteConfig.url.replace(/^https?:\/\//, '')}/barber/`;
+const URL_HOST_PREFIX = `${siteConfig.url.replace(/^https?:\/\//, '')}/provider/`;
 
 /**
  * صفحهٔ اختصاصی (عمومی) آرایشگاه در داشبورد.
  *
- * صفحهٔ عمومی با آدرس `/barber/[slug]` وقتی فعال می‌شود که یکی از این دو شرط
+ * صفحهٔ عمومی با آدرس `/provider/[slug]` وقتی فعال می‌شود که یکی از این دو شرط
  * برقرار باشد:
  *   • خرید یک‌بارهٔ پکیج ۷۷۳ هزار تومانی (مادام‌العمر)؛
  *   • یا ثبت ۳۰۰ رزرو موفق که پرداخت آن‌ها در درگاه انجام شده و لغو نشده باشند

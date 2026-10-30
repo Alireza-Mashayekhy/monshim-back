@@ -153,7 +153,7 @@ export const useReviewBarber = () => {
     }: {
       id: string;
       dto: ReviewBarberDto;
-      /** اسلاگ صفحهٔ عمومی (اختیاری) برای پاک‌سازی دقیق مسیر `/barber/[slug]` */
+      /** اسلاگ صفحهٔ عمومی (اختیاری) برای پاک‌سازی دقیق مسیر `/provider/[slug]` */
       slug?: string | null;
     }) => reviewBarber(id, dto),
 

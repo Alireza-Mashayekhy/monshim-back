@@ -55,7 +55,7 @@ const items = [
     name: 'تایید آرایشگر',
   },
   {
-    link: '/admin/barbers',
+    link: '/admin/providers',
     icon: Store,
     name: 'مدیریت آرایشگرها',
   },
