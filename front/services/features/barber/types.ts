@@ -153,6 +153,8 @@ export interface MyReferralsInfo {
     completedPaidBookingsCount: number;
     requiredPaidBookings: number;
     hasPurchasedPublicPage: boolean;
+    /** تحقق یکی از دو شرط (۳۰ رزرو موفق یا خرید صفحهٔ اختصاصی) */
+    isEligible?: boolean;
   };
   stats: {
     total: number;
