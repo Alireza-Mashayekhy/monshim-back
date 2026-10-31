@@ -26,6 +26,24 @@ const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   both: 'مردانه و زنانه',
 };
 
+const TICKET_DEPARTMENT_LABELS: Record<string, string> = {
+  GENERAL: 'عمومی',
+  PAYMENT: 'مالی و پرداخت',
+  TECHNICAL: 'فنی',
+  COMPLAINT: 'شکایت',
+  SUGGESTION: 'پیشنهاد',
+};
+
+const TICKET_PRIORITY_LABELS: Record<string, string> = {
+  LOW: 'کم',
+  NORMAL: 'معمولی',
+  HIGH: 'زیاد',
+  URGENT: 'فوری',
+};
+
+/** حداکثر طول متن پیام تیکت که در اعلان بله نمایش داده می‌شود */
+const TICKET_MESSAGE_PREVIEW_LENGTH = 1_000;
+
 @Injectable()
 export class BaleNotificationService {
   private readonly logger = new Logger(BaleNotificationService.name);
@@ -486,6 +504,70 @@ export class BaleNotificationService {
     } catch (error: unknown) {
       this.logger.warn(
         `ارسال اعلان ویرایش پروفایل آرایشگر به بله ناموفق بود: ${this.describeError(error)}`,
+      );
+    }
+  }
+
+  /**
+   * ۹) اعلان ثبت تیکت پشتیبانی جدید توسط کاربر
+   */
+  async notifyTicketCreated(params: {
+    ticketId: string;
+    userId: number;
+    subject: string;
+    department?: string | null;
+    priority?: string | null;
+    message?: string | null;
+    createdAt?: Date | string | null;
+  }): Promise<void> {
+    if (!this.baleClient.isEnabled() || !params?.ticketId) return;
+
+    try {
+      const user = params.userId
+        ? await this.userRepo.findOne({
+            where: { id: params.userId },
+            relations: { barberProfile: true },
+          })
+        : null;
+
+      const userName =
+        user?.fullName?.trim() ||
+        (params.userId ? `کاربر #${params.userId}` : 'کاربر مهمان');
+      const phone = user?.phone || '—';
+      const salonName = user?.barberProfile?.salonName?.trim() || '—';
+      const department =
+        TICKET_DEPARTMENT_LABELS[String(params.department ?? '')] || 'عمومی';
+      const priority =
+        TICKET_PRIORITY_LABELS[String(params.priority ?? '')] || 'معمولی';
+
+      const rawMessage = String(params.message ?? '').trim();
+      const messagePreview =
+        rawMessage.length > TICKET_MESSAGE_PREVIEW_LENGTH
+          ? `${rawMessage.slice(0, TICKET_MESSAGE_PREVIEW_LENGTH).trimEnd()}…`
+          : rawMessage;
+
+      const lines = [
+        '🎫 تیکت پشتیبانی جدید ثبت شد',
+        DIVIDER,
+        `👤 کاربر: ${userName}`,
+        `📱 موبایل: ${phone}`,
+        `💈 سالن: ${salonName}`,
+        '',
+        `📌 موضوع: ${String(params.subject ?? '').trim() || '—'}`,
+        `🗂 دپارتمان: ${department}`,
+        `⚡ اولویت: ${priority}`,
+        ...(messagePreview ? ['', `💬 متن پیام: ${messagePreview}`] : []),
+        '',
+        `🆔 شناسه تیکت: ${params.ticketId}`,
+        `🕒 زمان ثبت: ${formatTehranDateTime(params.createdAt ?? new Date())}`,
+        '',
+        '⚠️ جهت بررسی و پاسخ به پنل مدیریت مراجعه کنید.',
+      ];
+
+      await this.baleClient.broadcastToAdmins(lines.join('\n'));
+    } catch (error: unknown) {
+      this.logger.warn(
+        `ارسال اعلان تیکت جدید به بله ناموفق بود: ${this.describeError(error)}`,
       );
     }
   }

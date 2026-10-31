@@ -3,8 +3,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { toEnglishDigits } from 'src/common/utils/digits.util';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
@@ -28,6 +30,10 @@ export class TicketService {
     private readonly ticketRepo: Repository<Ticket>,
     @InjectRepository(TicketMessage)
     private readonly messageRepo: Repository<TicketMessage>,
+
+    // اعلان به ادمین در بله (اختیاری تا در نبودِ ماژول بله هم سرویس کار کند)
+    @Optional()
+    private readonly baleNotificationService?: BaleNotificationService,
   ) {}
 
   // ============ کاربر ============
@@ -55,6 +61,19 @@ export class TicketService {
     );
 
     const messages = await this.loadMessages(saved.id);
+
+    // اعلان ثبت تیکت جدید برای ادمین در ربات بله (خطا در ارسال، جریان اصلی را نمی‌شکند)
+    const baleNotification =
+      this.baleNotificationService?.notifyTicketCreated?.({
+        ticketId: saved.id,
+        userId,
+        subject: saved.subject,
+        department: saved.department,
+        priority: saved.priority,
+        message: dto.message,
+        createdAt: saved.createdAt,
+      });
+    void baleNotification?.catch?.(() => undefined);
 
     return {
       message: 'تیکت با موفقیت ایجاد شد',
