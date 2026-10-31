@@ -33,6 +33,7 @@ import FadeIn from '@/components/shared/fade-in';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getActivityTypeLabel } from '@/constants/activity-types';
+import { REFERRAL_REQUIRED_PAID_BOOKINGS } from '@/constants/referral';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { isoToJalali } from '@/lib/date-utils';
 import { getImageUploadError, IMAGE_ACCEPT } from '@/lib/image-upload';
@@ -208,6 +209,10 @@ export default function ProfilePage() {
 
   const myReferrals = referralsData?.data?.referrals ?? [];
   const referralStats = referralsData?.data?.stats;
+  const referralEligibility = referralsData?.data?.eligibility;
+  const requiredPaidBookings =
+    referralEligibility?.requiredPaidBookings ??
+    REFERRAL_REQUIRED_PAID_BOOKINGS;
 
   return (
     <DashboardShell>
@@ -461,10 +466,11 @@ export default function ProfilePage() {
             </h3>
             <p className="text-sm text-gray-500 mb-3">
               این لینک را برای آرایشگرهای دیگر بفرستید؛ با باز کردن آن کد معرف
-              خودکار در فرم ثبت‌نام وارد می‌شود. پس از خرید صفحهٔ عمومی توسط شما
-              و ثبت ۵ رزرو موفقِ پرداخت‌شده، ۳۰۰٬۰۰۰ تومان به کیف پولتان اضافه
-              می‌شود. آرایشگر دعوت‌شده نیز برای خرید صفحهٔ عمومی ۵۰٪ تخفیف
-              می‌گیرد.
+              خودکار در فرم ثبت‌نام وارد می‌شود. با خرید صفحهٔ اختصاصی توسط شما
+              یا ثبت {toPersianDigits(requiredPaidBookings)} رزرو موفقِ
+              پرداخت‌شده، ۳۰۰٬۰۰۰ تومان به کیف پولتان اضافه می‌شود (هر کدام
+              زودتر محقق شود). آرایشگر دعوت‌شده نیز برای خرید صفحهٔ اختصاصی ۵۰٪
+              تخفیف می‌گیرد.
             </p>
             {referralLink ? (
               <div className="flex items-center gap-2">
@@ -606,7 +612,8 @@ export default function ProfilePage() {
                               پرداخت‌شدهٔ شما
                             </span>
                             <span className="text-gray-400">
-                              شرط: ۵ رزرو + خرید صفحه
+                              شرط: {toPersianDigits(requiredPaidBookings)} رزرو
+                              یا خرید صفحه
                             </span>
                           </div>
                           <div
@@ -614,21 +621,32 @@ export default function ProfilePage() {
                             role="progressbar"
                             aria-label={`پیشرفت رزروهای ${title}`}
                             aria-valuemin={0}
-                            aria-valuemax={5}
-                            aria-valuenow={Math.min(completedCount, 5)}
+                            aria-valuemax={requiredPaidBookings}
+                            aria-valuenow={Math.min(
+                              completedCount,
+                              requiredPaidBookings,
+                            )}
                           >
                             <div
                               className="h-full rounded-full bg-primary transition-all"
                               style={{
-                                width: `${Math.min(completedCount / 5, 1) * 100}%`,
+                                width: `${
+                                  Math.min(
+                                    completedCount / requiredPaidBookings,
+                                    1,
+                                  ) * 100
+                                }%`,
                               }}
                             />
                           </div>
                           <p className="mt-1 text-[11px] text-gray-400">
-                            {referralsData?.data?.eligibility
-                              .hasPurchasedPublicPage
-                              ? 'صفحهٔ عمومی شما خریداری شده است'
-                              : 'برای دریافت پاداش، صفحهٔ عمومی خود را هم بخرید'}
+                            {rewardPaid
+                              ? 'پاداش این دعوت واریز شده است'
+                              : referralEligibility?.hasPurchasedPublicPage
+                                ? 'صفحهٔ اختصاصی شما خریداری شده است؛ پاداش به‌زودی واریز می‌شود'
+                                : `برای دریافت پاداش، ${toPersianDigits(
+                                    requiredPaidBookings,
+                                  )} رزرو موفق یا خرید صفحهٔ اختصاصی کافی است`}
                           </p>
                         </div>
 

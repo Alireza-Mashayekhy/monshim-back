@@ -11,7 +11,8 @@ import { Referral, ReferralStatus } from './entities/referral.entity';
 @Injectable()
 export class ReferralService {
   private readonly logger = new Logger(ReferralService.name);
-  private readonly REQUIRED_BOOKINGS = 5;
+  /** حد نصاب رزروهای موفقِ پرداخت‌شده برای دریافت پاداش (شرط «یا» با خرید صفحه) */
+  private readonly REQUIRED_BOOKINGS = 30;
   private readonly REWARD_AMOUNT = 300_000; // تومان
 
   constructor(
@@ -73,7 +74,9 @@ export class ReferralService {
 
   /**
    * فراخوانی پس از تکمیل رزرو یا پرداخت موفق رزروِ آرایشگر.
-   * پاداش برای دعوت‌کننده است و به پنج رزرو پرداخت‌شدهٔ خود او نیاز دارد.
+   * پاداش برای دعوت‌کننده است و با تحقق **یکی** از دو شرط زیر پرداخت می‌شود:
+   *   ۱. رسیدن به ۳۰ رزرو موفقِ پرداخت‌شده (تجمعی)؛
+   *   ۲. خرید صفحهٔ اختصاصی (پکیج صفحهٔ عمومی) توسط دعوت‌کننده.
    */
   async onReferrerBookingActivity(referrerProfileId: string): Promise<void> {
     try {
@@ -100,7 +103,39 @@ export class ReferralService {
     }
   }
 
-  /** ارزیابی دوبارهٔ شرط‌ها پس از خرید صفحهٔ عمومی توسط دعوت‌کننده */
+  /**
+   * ارزیابی فوری دعوت‌های در انتظار، بلافاصله پس از ثبت یک دعوت جدید.
+   *
+   * لازم است چون دعوت‌کننده ممکن است **پیش از** این دعوت، یکی از دو شرط
+   * (۳۰ رزرو موفق یا خرید صفحهٔ اختصاصی) را محقق کرده باشد؛ در این حالت
+   * پاداش نباید تا رزرو بعدیِ او معلق بماند.
+   */
+  async onReferralCreated(referrerUserId: number): Promise<void> {
+    try {
+      const referrals = await this.referralRepo.find({
+        where: { referrerUserId, status: ReferralStatus.PENDING },
+      });
+      if (referrals.length === 0) return;
+
+      const [paidBookingsCount, hasPurchasedPage] = await Promise.all([
+        this.publicPageService.countSuccessfulPaidBookings(
+          referrals[0].referrerProfileId,
+        ),
+        this.publicPageService.hasPurchasedPackageByUserId(referrerUserId),
+      ]);
+      await this.updateProgressAndAward(
+        referrals,
+        paidBookingsCount,
+        hasPurchasedPage,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to evaluate referrals after a new referral for user ${referrerUserId}: ${String(error)}`,
+      );
+    }
+  }
+
+  /** ارزیابی دوبارهٔ شرط‌ها پس از خرید صفحهٔ عمومی توسط دعوت‌کننده (شرط «یا») */
   async onPublicPagePurchased(referrerUserId: number): Promise<void> {
     try {
       const referrals = await this.referralRepo.find({
@@ -128,11 +163,10 @@ export class ReferralService {
   ) {
     for (const referral of referrals) {
       referral.completedBookingsCount = paidBookingsCount;
-      if (
-        paidBookingsCount >= this.REQUIRED_BOOKINGS &&
-        hasPurchasedPage &&
-        !referral.rewardPaid
-      ) {
+      // شرط «یا»: یا ۳۰ رزرو موفقِ پرداخت‌شده، یا خرید صفحهٔ اختصاصی
+      const isEligible =
+        paidBookingsCount >= this.REQUIRED_BOOKINGS || hasPurchasedPage;
+      if (isEligible && !referral.rewardPaid) {
         await this.awardReward(referral);
       } else {
         await this.referralRepo.save(referral);
@@ -160,7 +194,8 @@ export class ReferralService {
         await this.walletService.depositOnceWithManager(manager, {
           userId: lockedReferral.referrerUserId,
           amount: this.REWARD_AMOUNT,
-          description: 'پاداش دعوت آرایشگر - ۵ رزرو موفق و خرید صفحهٔ عمومی',
+          description:
+            'پاداش دعوت آرایشگر - ۳۰ رزرو موفق یا خرید صفحهٔ اختصاصی',
           paymentId: `referral-${lockedReferral.id}`,
           legacyReference: lockedReferral.id,
         });
@@ -192,6 +227,7 @@ export class ReferralService {
           completedPaidBookingsCount: 0,
           requiredPaidBookings: this.REQUIRED_BOOKINGS,
           hasPurchasedPublicPage: false,
+          isEligible: false,
         },
       };
     }
@@ -231,6 +267,10 @@ export class ReferralService {
         completedPaidBookingsCount,
         requiredPaidBookings: this.REQUIRED_BOOKINGS,
         hasPurchasedPublicPage,
+        // شرط «یا»: تحقق یکی از دو مسیر (۳۰ رزرو موفق یا خرید صفحه) کافی است
+        isEligible:
+          completedPaidBookingsCount >= this.REQUIRED_BOOKINGS ||
+          hasPurchasedPublicPage,
       },
     };
   }

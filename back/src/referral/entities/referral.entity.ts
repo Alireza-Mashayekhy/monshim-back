@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 
 export enum ReferralStatus {
-  PENDING = 'PENDING', // در انتظار ۵ رزرو موفقِ پرداخت‌شده و خرید صفحه توسط دعوت‌کننده
+  PENDING = 'PENDING', // در انتظار ۳۰ رزرو موفقِ پرداخت‌شده **یا** خرید صفحهٔ اختصاصی توسط دعوت‌کننده
   COMPLETED = 'COMPLETED', // پاداش دریافت شده
 }
 

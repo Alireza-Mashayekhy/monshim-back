@@ -319,4 +319,65 @@ describe('BaleNotificationService', () => {
       } as any),
     ).resolves.toBeUndefined();
   });
+
+  it('اعلان ثبت تیکت پشتیبانی جدید را با جزئیات کاربر، موضوع، دپارتمان و اولویت ارسال می‌کند', async () => {
+    const { service, baleClient } = buildSetup(true);
+
+    await service.notifyTicketCreated({
+      ticketId: 'ticket-123',
+      userId: 10,
+      subject: 'مشکل در پرداخت رزرو',
+      department: 'PAYMENT',
+      priority: 'HIGH',
+      message: 'سلام، موقع پرداخت رزرو با خطا مواجه شدم.',
+      createdAt: new Date('2026-10-23T12:00:00.000Z'),
+    });
+
+    expect(baleClient.broadcastToAdmins).toHaveBeenCalledTimes(1);
+    const sentText = baleClient.broadcastToAdmins.mock.calls[0][0] as string;
+
+    expect(sentText).toContain('تیکت پشتیبانی جدید ثبت شد');
+    expect(sentText).toContain('علی رضایی');
+    expect(sentText).toContain('09121112233');
+    expect(sentText).toContain('پیرایش رویال');
+    expect(sentText).toContain('موضوع: مشکل در پرداخت رزرو');
+    expect(sentText).toContain('دپارتمان: مالی و پرداخت');
+    expect(sentText).toContain('اولویت: زیاد');
+    expect(sentText).toContain('سلام، موقع پرداخت رزرو با خطا مواجه شدم.');
+    expect(sentText).toContain('شناسه تیکت: ticket-123');
+    expect(sentText).toContain('پنل مدیریت');
+  });
+
+  it('برای تیکت بدون دپارتمان/اولویت، مقادیر پیش‌فرض را نمایش می‌دهد و متن طولانی را کوتاه می‌کند', async () => {
+    const { service, baleClient } = buildSetup(true);
+
+    await service.notifyTicketCreated({
+      ticketId: 'ticket-456',
+      userId: 10,
+      subject: 'سوال عمومی',
+      department: null,
+      priority: undefined,
+      message: 'ا'.repeat(2_000),
+    });
+
+    const sentText = baleClient.broadcastToAdmins.mock.calls[0][0] as string;
+    expect(sentText).toContain('دپارتمان: عمومی');
+    expect(sentText).toContain('اولویت: معمولی');
+    expect(sentText).toContain('…');
+    // متن اعلان نباید از سقف پیام بله بیشتر شود
+    expect(sentText.length).toBeLessThan(4_000);
+  });
+
+  it('وقتی ربات بله غیرفعال است، اعلان تیکت ارسال نمی‌شود', async () => {
+    const { service, baleClient } = buildSetup(false);
+
+    await service.notifyTicketCreated({
+      ticketId: 'ticket-789',
+      userId: 10,
+      subject: 'موضوع تست',
+      message: 'متن تست',
+    });
+
+    expect(baleClient.broadcastToAdmins).not.toHaveBeenCalled();
+  });
 });
