@@ -1,10 +1,8 @@
 'use server';
 
-import { jwtVerify } from 'jose';
-import { cookies } from 'next/headers';
-
 import { revalidateBarberPublicCache } from '@/lib/public-cache';
-import { isAdmin, isBarber, normalizeRoles } from '@/lib/roles';
+import { extractUser, isAdmin, isBarber } from '@/lib/roles';
+import { getMe } from '@/services/features/auth/server.api';
 
 /**
  * پاک‌سازیِ on-demand کشِ صفحه‌های عمومی آرایشگر.
@@ -16,46 +14,27 @@ import { isAdmin, isBarber, normalizeRoles } from '@/lib/roles';
  *   اطلاعاتِ قدیمی (یا برای آرایشگرِ تازه‌تاییدشده، ۴۰۴) را نشان می‌داد.
  *
  * امنیت:
- *   این Server Actionها از کوکیِ `access_token` استفاده می‌کنند و JWT را با
- *   `JWT_ACCESS_SECRET` اعتبارسنجی می‌کنند؛ بنابراین هر کاربری نمی‌تواند با
- *   فراخوانیِ مستقیم، کشِ صفحات را پاک کند:
+ *   هویت و نقش‌های جاری از `/auth/me` بررسی می‌شوند؛ امضای JWT به‌تنهایی
+ *   کافی نیست، چون حساب ممکن است غیرفعال، نشست باطل یا نقش تغییر کرده باشد.
  *     • ادمین → هر آرایشگری را می‌تواند تازه کند.
  *     • آرایشگر → فقط صفحهٔ عمومی خودش.
+ *   اگر کوکی روی هاست دیگری است، Server Action آن را دریافت نمی‌کند و
+ *   وبهوک برای تغییرات پشتیبانی‌شده، یا بازهٔ revalidate، کش را تازه می‌کند.
  */
-
-let warnedMissingSecret = false;
-
 async function readActor() {
-  const token = (await cookies()).get('access_token')?.value;
-  const secret = process.env.JWT_ACCESS_SECRET;
-
-  if (!secret && !warnedMissingSecret) {
-    warnedMissingSecret = true;
-    console.warn(
-      '[public-cache] JWT_ACCESS_SECRET تنظیم نشده است؛ پاک‌سازی on-demand ' +
-        'کشِ صفحهٔ عمومی انجام نمی‌شود و تغییرات پس از پایان بازهٔ کش ' +
-        '(۵ دقیقه) دیده می‌شوند.',
-    );
-  }
-
-  if (!token || !secret) return null;
-
   try {
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(secret),
-    );
-    const roles = normalizeRoles(payload.roles);
-    const id = Number(payload.id ?? payload.sub);
+    const user = extractUser(await getMe());
+    if (!user) return null;
+    const id = Number(user.id);
+    if (!Number.isInteger(id) || id <= 0) return null;
     return {
-      roles,
-      userId: Number.isInteger(id) && id > 0 ? id : null,
-      isAdmin: isAdmin({ roles }),
-      isBarber: isBarber({ roles }),
+      userId: id,
+      isAdmin: isAdmin(user),
+      isBarber: isBarber(user),
     };
   } catch {
-    // توکن نامعتبر/منقضی: کاری انجام نمی‌دهیم؛ کش بعد از revalidate خودکار
-    // به‌روز می‌شود.
+    // The API rejects invalid/expired/revoked sessions and may be temporarily
+    // unavailable. Fail closed; the backend webhook or ISR can refresh later.
     return null;
   }
 }

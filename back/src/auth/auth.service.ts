@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { Response } from 'express';
 import { BaleNotificationService } from 'src/bale/bale-notification.service';
 import { BarberService } from 'src/barber/barber.service';
@@ -33,6 +34,10 @@ import {
 import { normalizeRoles } from 'src/common/utils/roles.util';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { OtpService } from 'src/otp/otp.service';
+import {
+  isSessionId,
+  SessionRevocationService,
+} from 'src/redis/session-revocation.service';
 import { ReferralService } from 'src/referral/referral.service';
 import { ServicesService } from 'src/services/services.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
@@ -63,6 +68,7 @@ export class AuthService {
     private readonly servicesService: ServicesService,
     private readonly referralService: ReferralService,
     private readonly dataSource: DataSource,
+    private readonly sessionRevocations: SessionRevocationService,
     @Optional()
     private readonly baleNotificationService?: BaleNotificationService,
     @Optional()
@@ -367,20 +373,24 @@ export class AuthService {
     return { message: 'ثبت‌نام با موفقیت انجام شد' };
   }
 
+  // Failed refreshes must not send clearing Set-Cookie headers: a delayed
+  // response could otherwise erase a newer login in another tab. Invalid tokens
+  // are still rejected; explicit logout is responsible for clearing cookies.
   async refresh(refreshToken: string | undefined, response: Response) {
     if (!refreshToken) {
-      clearAuthCookies(response);
       throw new UnauthorizedException('توکن تازه‌سازی ارسال نشده است');
     }
 
-    let payload: { sub?: number | string };
+    // A missing server secret is a configuration failure, not an invalid user
+    // session. Let it propagate as a 500 so the browser can retry later.
+    const refreshSecret = getRefreshTokenSecret();
+    let payload: { sub?: number | string; sid?: unknown };
     try {
       payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: getRefreshTokenSecret(),
+        secret: refreshSecret,
       });
     } catch (error) {
       this.logger.debug(`refresh token rejected: ${String(error)}`);
-      clearAuthCookies(response);
 
       const isExpired =
         (error as { name?: string })?.name === 'TokenExpiredError';
@@ -391,33 +401,87 @@ export class AuthService {
 
     const userId = Number(payload?.sub);
 
-    if (!Number.isInteger(userId) || userId <= 0) {
-      clearAuthCookies(response);
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      (payload.sid !== undefined && !isSessionId(payload.sid))
+    ) {
       throw new UnauthorizedException(INVALID_REFRESH_TOKEN_MESSAGE);
     }
+
+    // Tokens issued before session IDs were introduced remain valid for their
+    // existing lifetime and are upgraded on successful refresh.
+    const sessionId = isSessionId(payload.sid) ? payload.sid : undefined;
+    const revoked = sessionId
+      ? await this.sessionRevocations.isSessionRevoked(sessionId)
+      : await this.sessionRevocations.isLegacyTokenRevoked(refreshToken);
+    if (revoked) throw new UnauthorizedException(EXPIRED_SESSION_MESSAGE);
 
     const user = await this.usersService.findOne(userId);
 
     if (!user) {
-      clearAuthCookies(response);
       throw new UnauthorizedException('کاربر یافت نشد');
     }
 
     if (!user.isActive) {
-      clearAuthCookies(response);
       throw new ForbiddenException(
         'حساب کاربری شما غیرفعال است. با پشتیبانی تماس بگیرید',
       );
     }
 
-    await this.issueTokens(user, response);
+    await this.issueTokens(user, response, sessionId);
 
     return { message: 'نشست شما با موفقیت تازه‌سازی شد' };
   }
 
-  logout(response: Response) {
-    clearAuthCookies(response);
+  async logout(
+    refreshToken: string | undefined,
+    response: Response,
+    accessToken?: string,
+  ) {
+    let sessionRevoked = false;
+    if (refreshToken) {
+      const secret = getRefreshTokenSecret();
+      let payload: { sid?: unknown } | undefined;
+      try {
+        // A prior token for the same sliding session may have expired while a
+        // newer one is still valid. Verify its signature before revoking the ID.
+        payload = await this.jwtService.verifyAsync(refreshToken, {
+          secret,
+          ignoreExpiration: true,
+        });
+      } catch {
+        // An invalid token cannot identify a session, but cookies can be cleared.
+      }
+      if (payload) {
+        if (isSessionId(payload.sid)) {
+          await this.sessionRevocations.revokeSession(payload.sid);
+          sessionRevoked = true;
+        } else if (payload.sid === undefined) {
+          await this.sessionRevocations.revokeLegacyToken(refreshToken);
+        }
+      }
+    }
 
+    // If the refresh cookie is missing/invalid, a signed access token can still
+    // identify and revoke the session (including Bearer-token clients).
+    if (!sessionRevoked && accessToken) {
+      const secret = getAccessTokenSecret();
+      let payload: { sid?: unknown; id?: unknown } | undefined;
+      try {
+        payload = await this.jwtService.verifyAsync(accessToken, {
+          secret,
+          ignoreExpiration: true,
+        });
+      } catch {
+        // An invalid access token cannot identify a session either.
+      }
+      if (payload && Number(payload.id) > 0 && isSessionId(payload.sid)) {
+        await this.sessionRevocations.revokeSession(payload.sid);
+      }
+    }
+
+    clearAuthCookies(response);
     return { message: 'خروج با موفقیت انجام شد' };
   }
 
@@ -437,17 +501,22 @@ export class AuthService {
     });
   }
 
-  private async issueTokens(user: User, response: Response) {
-    const accessToken = await this.generateAccessToken(user);
-    const refreshToken = await this.generateRefreshToken(user);
+  private async issueTokens(
+    user: User,
+    response: Response,
+    sessionId: string = randomUUID(),
+  ) {
+    const accessToken = await this.generateAccessToken(user, sessionId);
+    const refreshToken = await this.generateRefreshToken(user, sessionId);
 
     setAuthCookies(response, accessToken, refreshToken);
   }
 
-  private async generateAccessToken(user: User) {
+  private async generateAccessToken(user: User, sessionId: string) {
     return this.jwtService.signAsync(
       {
         id: user.id,
+        sid: sessionId,
         fullName: user.fullName,
         phone: user.phone,
         email: user.email,
@@ -463,9 +532,9 @@ export class AuthService {
     );
   }
 
-  private async generateRefreshToken(user: User) {
+  private async generateRefreshToken(user: User, sessionId: string) {
     return this.jwtService.signAsync(
-      { sub: user.id },
+      { sub: user.id, sid: sessionId },
       {
         secret: getRefreshTokenSecret(),
         expiresIn: REFRESH_TOKEN_EXPIRES_IN,

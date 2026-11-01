@@ -10,6 +10,7 @@ import { City } from '../locations/entities/city.entity';
 import { Province } from '../locations/entities/province.entity';
 import { BookingSmsService } from '../notification/booking-sms.service';
 import { SMS_TEMPLATES } from '../notification/sms-templates';
+import { SessionRevocationService } from '../redis/session-revocation.service';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { BarberAdminController } from './barber.admin.controller';
@@ -726,6 +727,7 @@ describe('Barber profile approval SMS (172833) & non-disruptive profile editing'
         WorkHoursService,
         BarberReviewService,
         UsersService,
+        { provide: SessionRevocationService, useValue: {} },
         { provide: getRepositoryToken(BarberProfile), useValue: emptyRepo },
         { provide: getRepositoryToken(User), useValue: emptyRepo },
         { provide: getRepositoryToken(Booking), useValue: emptyRepo },

@@ -3,8 +3,7 @@ export interface sendOtpDto {
 }
 
 export interface sendOtpResponse {
-  code: string;
-  newUser?: boolean;
+  newUser: boolean;
 }
 
 export interface VerifyOtpDto {
@@ -36,7 +35,8 @@ export interface SignUpDto {
 }
 
 export interface LoginResponse {
-  user: string[];
+  newUser: boolean;
+  phone?: string;
 }
 
 export interface UserResponse {

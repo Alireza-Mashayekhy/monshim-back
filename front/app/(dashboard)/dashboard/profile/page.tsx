@@ -177,6 +177,7 @@ export default function ProfilePage() {
 
   const profileData = profile?.data;
   const isApproved = Boolean(profileData?.isApproved);
+  const isPubliclyHidden = profileData?.isPubliclyVisible === false;
   const pendingStatus = profileData?.pendingStatus ?? 'none';
   const hasPendingEdit = isApproved && pendingStatus === 'pending';
   const hasRejectedEdit = isApproved && pendingStatus === 'rejected';
@@ -263,7 +264,7 @@ export default function ProfilePage() {
                   <p className="text-sm text-yellow-800">
                     اطلاعات جدیدی که وارد کرده‌اید در پروفایل شما ذخیره شده و در
                     حال بررسی است. تا زمان تایید، پروفایل تاییدشدهٔ قبلی شما
-                    بدون وقفه به کاربران نمایش داده می‌شود.
+                    محفوظ می‌ماند.
                   </p>
                 )}
 
@@ -275,17 +276,26 @@ export default function ProfilePage() {
                       </p>
                     )}
                     <p className="text-sm text-red-600">
-                      پروفایل تاییدشدهٔ قبلی شما همچنان فعال است و به کاربران
-                      نمایش داده می‌شود. می‌توانید اطلاعات جدید را اصلاح و
-                      دوباره ذخیره کنید.
+                      پروفایل تاییدشدهٔ قبلی شما محفوظ است. می‌توانید اطلاعات
+                      جدید را اصلاح و دوباره ذخیره کنید.
                     </p>
                   </>
                 )}
 
-                {isApproved && !hasPendingEdit && !hasRejectedEdit && (
-                  <p className="text-sm text-green-700">
-                    اطلاعات فعلی پروفایل شما تایید شده و برای همهٔ کاربران قابل
-                    مشاهده است.
+                {isApproved &&
+                  !isPubliclyHidden &&
+                  !hasPendingEdit &&
+                  !hasRejectedEdit && (
+                    <p className="text-sm text-green-700">
+                      اطلاعات فعلی پروفایل شما تایید شده و برای همهٔ کاربران
+                      قابل مشاهده است.
+                    </p>
+                  )}
+
+                {isPubliclyHidden && (
+                  <p className="text-sm font-medium text-amber-800">
+                    نمایش عمومی سالن شما توسط مدیریت غیرفعال شده است. ورود به
+                    حساب و دسترسی به پنل همچنان برقرار است.
                   </p>
                 )}
 

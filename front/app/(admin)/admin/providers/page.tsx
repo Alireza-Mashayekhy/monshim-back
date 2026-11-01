@@ -1,6 +1,6 @@
 'use client';
 
-import { Pause, Play, Search, Trash2 } from 'lucide-react';
+import { KeyRound, Pause, Play, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
@@ -17,14 +17,16 @@ import {
 } from '@/components/ui/table';
 import { useDebounce } from '@/hooks/use-debounce';
 import {
-  useDeleteBarberProfile,
-  useSetBarberActive,
   useAdminBarberManagementList,
+  useDeleteBarberProfile,
+  useRestoreBarberAccount,
+  useSetBarberActive,
 } from '@/services/features/barber/admin.hooks';
 import type { BarberResponse } from '@/services/features/barber/types';
 
 type BarberAction =
   | { type: 'deactivate' | 'activate'; barber: BarberResponse }
+  | { type: 'restore-account'; barber: BarberResponse }
   | { type: 'delete'; barber: BarberResponse };
 
 export default function AdminBarbersPage() {
@@ -39,12 +41,15 @@ export default function AdminBarbersPage() {
     search: debouncedSearch,
   });
   const setBarberActive = useSetBarberActive();
+  const restoreBarberAccount = useRestoreBarberAccount();
   const deleteBarber = useDeleteBarberProfile();
   const barbers = data?.data ?? [];
   const actionPending =
     action?.type === 'delete'
       ? deleteBarber.isPending
-      : setBarberActive.isPending;
+      : action?.type === 'restore-account'
+        ? restoreBarberAccount.isPending
+        : setBarberActive.isPending;
 
   const handleConfirm = async () => {
     if (!action) return;
@@ -53,10 +58,16 @@ export default function AdminBarbersPage() {
         id: action.barber.id,
         slug: action.barber.slug,
       });
+    } else if (action.type === 'restore-account') {
+      await restoreBarberAccount.mutateAsync({
+        id: action.barber.id,
+        slug: action.barber.slug,
+      });
     } else {
       await setBarberActive.mutateAsync({
         id: action.barber.id,
         isActive: action.type === 'activate',
+        slug: action.barber.slug,
       });
     }
     setAction(null);
@@ -65,16 +76,20 @@ export default function AdminBarbersPage() {
   const dialogTitle =
     action?.type === 'delete'
       ? 'حذف دائمی آرایشگر'
-      : action?.type === 'deactivate'
-        ? 'غیرفعال‌کردن آرایشگر'
-        : 'فعال‌کردن آرایشگر';
+      : action?.type === 'restore-account'
+        ? 'بازکردن ورود حساب'
+        : action?.type === 'deactivate'
+          ? 'غیرفعال‌کردن نمایش آرایشگر'
+          : 'فعال‌کردن نمایش آرایشگر';
 
   const dialogDescription = action
     ? action.type === 'delete'
-      ? `آیا از حذف دائمی «${action.barber.fullName || action.barber.salonName}» مطمئن هستید؟ اگر سابقهٔ رزرو، پرداخت یا تراکنش داشته باشد، برای حفظ سوابق امکان حذف وجود ندارد و باید آن را غیرفعال کنید.`
-      : action.type === 'deactivate'
-        ? `آرایشگاه «${action.barber.salonName}» از فهرست‌های کاربران و صفحه‌های عمومی پنهان می‌شود؛ اطلاعات و سوابق آن حفظ می‌شود و هر زمان می‌توانید دوباره فعالش کنید.`
-        : `آرایشگاه «${action.barber.salonName}» دوباره در فهرست‌ها و صفحه‌های عمومی نمایش داده خواهد شد.`
+      ? `آیا از حذف دائمی «${action.barber.fullName || action.barber.salonName}» مطمئن هستید؟ اگر سابقهٔ رزرو، پرداخت یا تراکنش داشته باشد، برای حفظ سوابق امکان حذف وجود ندارد و باید نمایش آن را غیرفعال کنید.`
+      : action.type === 'restore-account'
+        ? `فقط پس از بررسی علت غیرفعال‌شدن حساب «${action.barber.fullName || action.barber.salonName}»، ورود همهٔ نقش‌های این حساب و نشست‌های معتبر قبلی دوباره مجاز می‌شود${action.barber.isAdminAccount ? '؛ این حساب نقش مدیر نیز دارد' : ''}. سالن همچنان پنهان می‌ماند و نمایش آن جداگانه فعال می‌شود.`
+        : action.type === 'deactivate'
+          ? `آرایشگاه «${action.barber.salonName}» از فهرست‌ها و صفحه‌های عمومی پنهان می‌شود؛ ورود به حساب، تأیید پروفایل و سوابق تغییری نمی‌کنند.`
+          : `نمایش آرایشگاه «${action.barber.salonName}» فعال می‌شود؛ نمایش در فهرست‌ها همچنان به تأیید پروفایل و شرایط معمول وابسته است.`
     : undefined;
 
   return (
@@ -183,10 +198,28 @@ export default function AdminBarbersPage() {
                     >
                       {barber.isActive ? 'فعال' : 'غیرفعال'}
                     </span>
+                    {barber.isAccountActive === false && (
+                      <p className="mt-2 text-xs font-medium text-red-700">
+                        ورود حساب غیرفعال است؛ نیازمند بررسی
+                        {barber.isAdminAccount ? ' (دارای نقش مدیر)' : ''}
+                      </p>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-2">
-                      {barber.isActive ? (
+                      {barber.isAccountActive === false ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setAction({ type: 'restore-account', barber })
+                          }
+                        >
+                          <KeyRound className="ml-1 size-3.5" />
+                          بررسی و بازکردن ورود
+                        </Button>
+                      ) : barber.isActive ? (
                         <Button
                           type="button"
                           size="sm"
@@ -245,9 +278,11 @@ export default function AdminBarbersPage() {
         confirmLabel={
           action?.type === 'delete'
             ? 'حذف دائمی'
-            : action?.type === 'deactivate'
-              ? 'غیرفعال‌کردن'
-              : 'فعال‌کردن'
+            : action?.type === 'restore-account'
+              ? 'بازکردن ورود'
+              : action?.type === 'deactivate'
+                ? 'غیرفعال‌کردن'
+                : 'فعال‌کردن'
         }
         pendingLabel="در حال انجام…"
         onConfirm={handleConfirm}

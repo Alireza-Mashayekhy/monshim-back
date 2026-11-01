@@ -32,7 +32,10 @@ export interface BarberResponse {
   rating?: number | null;
   reviewCount?: number | null;
   isApproved?: boolean;
+  /** Public visibility toggle, independent of account login. */
   isActive?: boolean;
+  isAccountActive?: boolean;
+  isAdminAccount?: boolean;
   slug?: string | null;
   createdAt?: string;
   hasPendingChanges?: boolean;
@@ -108,6 +111,7 @@ export interface BarberProfile {
   workEndTime?: string | null;
   slotIntervalMinutes?: SlotIntervalMinutes;
   isApproved: boolean;
+  isPubliclyVisible?: boolean;
   rejectionReason?: string | null;
   pendingStatus?: BarberPendingStatus;
   hasPendingChanges?: boolean;

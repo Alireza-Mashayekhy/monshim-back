@@ -7,7 +7,10 @@
     "build": "next build && node scripts/inline-critical-css.mjs",
     "start": "next start",
     "lint": "eslint",
-    "test:session-refresh": "node --test services/api/session-refresh.test.ts"
+    "test:session-refresh": "node --test services/api/session-refresh.test.ts",
+    "test:session": "node --test services/api/client.test.mjs services/api/session-refresh.test.ts services/api/session-coordination.test.ts lib/session-policy.test.ts",
+    "test:session:e2e": "node tests/session/run-e2e.mjs",
+    "test:session:e2e:cross-host": "node tests/session/run-e2e.mjs --cross-host"
   },
   "browserslist": [
     "chrome >= 111",
@@ -49,6 +52,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -58,7 +62,6 @@
     "eslint-config-next": "16.2.6",
     "postcss": "^8.5.29",
     "tailwindcss": "^4",
-    "postcss": "^8.5.29",
     "typescript": "^5"
   }
 }

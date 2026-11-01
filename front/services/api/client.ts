@@ -1,7 +1,14 @@
-import axios, { InternalAxiosRequestConfig } from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 
 import { SESSION_EXPIRED_EVENT } from '@/lib/auth';
 
+import {
+  getSessionVersion,
+  isCurrentSessionVersion,
+  SessionChangedError,
+  SessionVerificationError,
+  withSessionMutation,
+} from './session-coordination';
 import {
   createSessionRefresher,
   resolveUnauthorizedOutcome,
@@ -12,10 +19,16 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+interface AuthRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  _sessionVersion?: string;
+}
+
 const noRefreshPaths = new Set([
   '/auth/login',
   '/auth/login-with-password',
   '/auth/send-otp',
+  '/auth/verify-otp',
   '/auth/sign-up',
   '/auth/register-barber',
   '/auth/refresh',
@@ -28,55 +41,71 @@ function notifySessionExpired() {
   }
 }
 
-/** مهلتِ تازه‌سازی: بدون آن، یک پاسخِ معلّق همهٔ درخواست‌ها را قفل می‌کرد. */
 const REFRESH_TIMEOUT_MS = 10_000;
 
-/**
- * تازه‌سازی نشست، مشترک بین ۴۰۱های هم‌زمان و فراخوانی‌های صریح.
- *
- * دو تفاوت مهم با نسخهٔ قبلی:
- *  ۱. **فقط** ۴۰۱/۴۰۳ از `/auth/refresh` یعنی «نشست تمام شده». قبلاً هر
- *     پاسخِ زیر ۵۰۰ (مثل ۴۲۹ محدودیت نرخ، ۴۰۰، ۴۰۴ یا صفحهٔ خطای پروکسی)
- *     کاربر را با رفرش‌توکنِ کاملاً معتبر لاگ‌اوت می‌کرد.
- *  ۲. خطاهای گذرا (۴۲۹/۴۰۸/۵xx/قطعی شبکه) با فاصلهٔ زمانی دوباره تلاش
- *     می‌شوند و اگر باز هم نشد، نشست **دست‌نخورده** می‌ماند تا کاربر با یک
- *     «تلاش مجدد» برگردد.
- */
+/** One refresh per tab; cookie-writing requests are also serialized across tabs. */
 const sessionRefresher = createSessionRefresher(
-  /**
-   * عمداً `signal` پاس نمی‌دهیم: رفرش یک عملیاتِ **مشترک** است (چند کوئری و چند
-   * تب به همان یک درخواست تکیه می‌کنند). اگر با signalِ یکی از فراخوان‌ها لغو
-   * شود، بقیهٔ فراخوان‌ها هم بی‌دلیل شکست می‌خورند.
-   */
-  () => api.post('/auth/refresh', undefined, { timeout: REFRESH_TIMEOUT_MS }),
+  () => {
+    const version = getSessionVersion();
+    return withSessionMutation(() => {
+      // A queued refresh must not run after another tab logged in or out.
+      if (version !== getSessionVersion()) throw new SessionChangedError();
+      return api.post('/auth/refresh', undefined, {
+        timeout: REFRESH_TIMEOUT_MS,
+      });
+    });
+  },
   {
-    onExpired: notifySessionExpired,
+    onExpired: error => {
+      const config = axios.isAxiosError(error)
+        ? (error.config as AuthRequestConfig | undefined)
+        : undefined;
+      // A late 401 belonging to an older account must not clear the new one.
+      if (
+        config?._sessionVersion === undefined ||
+        config._sessionVersion === getSessionVersion()
+      ) {
+        notifySessionExpired();
+      }
+    },
     onUnrecoverable: () => {
-      // عمداً خالی: هیچ کش/کوکی/رویدادی پاک نمی‌شود (توضیح در session-refresh).
+      // Network, rate-limit and server errors leave the session untouched.
     },
   },
 );
 
-/** تازه‌سازی صریح نشست؛ در صورت شکست خطا پرتاب می‌شود (همان قرارداد قبلی). */
 export async function refreshSessionRequest(): Promise<void> {
+  const version = getSessionVersion();
   const result = await sessionRefresher.refresh();
+  if (version !== getSessionVersion()) throw new SessionChangedError();
   if (!result.ok) throw result.error ?? new Error('session refresh failed');
 }
 
-/**
- * منتظرِ تازه‌سازیِ در جریان می‌ماند (بدون شروعِ یکی جدید) تا لاگین/خروج
- * هم‌زمان با آن، کوکی‌ها را خراب نکند.
- */
-export async function waitForSessionRefresh() {
-  await sessionRefresher.getInflight()?.catch(() => undefined);
-}
+api.interceptors.request.use(config => {
+  const request = config as AuthRequestConfig;
+  const version = getSessionVersion();
+  // Never replay a request made for a previous account under a new account.
+  if (request._retry && request._sessionVersion !== version) {
+    throw new SessionChangedError();
+  }
+  request._sessionVersion ??= version;
+  return request;
+});
 
 api.interceptors.response.use(
-  response => response,
+  response => {
+    const request = response.config as AuthRequestConfig;
+    if (!isCurrentSessionVersion(request._sessionVersion)) {
+      throw new SessionChangedError();
+    }
+    return response;
+  },
   async (error: unknown) => {
     if (!axios.isAxiosError(error)) return Promise.reject(error);
-    const original = error.config as
-      (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+    const original = error.config as AuthRequestConfig | undefined;
+    if (!isCurrentSessionVersion(original?._sessionVersion)) {
+      return Promise.reject(new SessionChangedError());
+    }
     const path = original?.url?.split('?')[0].replace(/\/+$/, '');
     if (
       !original ||
@@ -85,18 +114,22 @@ api.interceptors.response.use(
     ) {
       return Promise.reject(error);
     }
+    if (original._sessionVersion !== getSessionVersion()) {
+      return Promise.reject(new SessionChangedError());
+    }
     if (original._retry) {
-      // یک‌بار با توکنِ تازه تلاش کردیم و باز هم ۴۰۱ گرفتیم: نشست واقعاً تمام است.
-      notifySessionExpired();
-      return Promise.reject(error);
+      // A 401 from an individual endpoint after a successful refresh does not
+      // prove the refresh token expired (e.g. a proxy/cookie configuration
+      // issue). Do not turn it into a logout or a cached anonymous /me result.
+      return Promise.reject(new SessionVerificationError());
     }
     original._retry = true;
 
-    // تصمیمِ اصلی (چه خطایی یعنی خروج از نشست) در session-refresh تست شده است.
-    const outcome = resolveUnauthorizedOutcome(
-      await sessionRefresher.refresh(),
-      error,
-    );
+    const result = await sessionRefresher.refresh();
+    if (original._sessionVersion !== getSessionVersion()) {
+      return Promise.reject(new SessionChangedError());
+    }
+    const outcome = resolveUnauthorizedOutcome(result, error);
     return outcome.type === 'retry'
       ? api(original)
       : Promise.reject(outcome.error);

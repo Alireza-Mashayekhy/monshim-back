@@ -70,6 +70,7 @@ describe('AuthService.registerBarber — پیامک «پروفایل در حال
       servicesService,
       referralService,
       dataSource,
+      {} as any, // session revocation is not used during registration
       baleNotificationService,
       bookingSmsService,
     );

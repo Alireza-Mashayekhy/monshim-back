@@ -269,6 +269,7 @@ describe('BaleNotificationService', () => {
         { create: jest.fn().mockResolvedValue({ id: 'svc-1' }) } as any,
         { createReferral: jest.fn() } as any,
         { transaction: transactionMock } as any,
+        {} as any, // session revocation is not used during registration
         { notifyBarberRegistered } as any,
       );
 
