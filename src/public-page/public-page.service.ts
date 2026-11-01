@@ -67,6 +67,8 @@ export interface PublicPageStatus {
    * زمانی که پروفایل تایید نشده باشد در دسترس عموم نیست (۴۰۴ می‌دهد).
    */
   isApproved: boolean;
+  /** وضعیت نمایش عمومی مستقل از خرید صفحه و تأیید پروفایل است. */
+  isPubliclyVisible: boolean;
   /** آیا خرید صفحه برای این آرایشگر مشمول تخفیف ویژهٔ ثبت‌نام با کد معرف است؟ */
   hasReferralDiscount: boolean;
 }
@@ -100,7 +102,7 @@ export const PUBLIC_PAGE_SLUG_LOCKED_MESSAGE =
 
 type PublicPageProfileRow = Pick<
   BarberProfile,
-  'id' | 'userId' | 'isApproved' | 'salonName' | 'slug'
+  'id' | 'userId' | 'isApproved' | 'isPubliclyVisible' | 'salonName' | 'slug'
 >;
 
 function toDate(value: unknown): Date | null {
@@ -159,6 +161,7 @@ export class PublicPageService {
         id: true,
         userId: true,
         isApproved: true,
+        isPubliclyVisible: true,
         salonName: true,
         slug: true,
       },
@@ -175,6 +178,7 @@ export class PublicPageService {
         id: true,
         userId: true,
         isApproved: true,
+        isPubliclyVisible: true,
         salonName: true,
         slug: true,
       },
@@ -327,6 +331,7 @@ export class PublicPageService {
       isSlugLocked: false,
       publicUrl: null,
       isApproved: false,
+      isPubliclyVisible: true,
       hasReferralDiscount: false,
     };
 
@@ -350,6 +355,7 @@ export class PublicPageService {
       isSlugLocked: Boolean(slug),
       publicUrl: state.isActive && slug ? this.publicUrl(slug) : null,
       isApproved: Boolean(profile.isApproved),
+      isPubliclyVisible: profile.isPubliclyVisible !== false,
       hasReferralDiscount,
     };
   }

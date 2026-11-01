@@ -146,6 +146,9 @@ export class BarberReviewService implements OnModuleInit {
       })
       .where('profile.id = :profileId', { profileId: profile.id })
       .andWhere('profile.isApproved = :isApproved', { isApproved: true })
+      .andWhere('profile.isPubliclyVisible = :isPubliclyVisible', {
+        isPubliclyVisible: true,
+      })
       .getOne();
 
     if (!publicProfile) {

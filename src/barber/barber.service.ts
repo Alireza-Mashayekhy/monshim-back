@@ -17,11 +17,6 @@ import {
 import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/query';
 import { FrontendRevalidationService } from 'src/common/services/frontend-revalidation.service';
-import { BarberPublicPagePurchase } from 'src/public-page/entities/barber-public-page-purchase.entity';
-import { Payment } from 'src/payment/entities/payment.entity';
-import { Referral } from 'src/referral/entities/referral.entity';
-import { Transaction } from 'src/wallet/entities/transaction.entity';
-import { Wallet } from 'src/wallet/entities/wallet.entity';
 import {
   isValidIranianNationalCode,
   normalizeNationalCode,
@@ -31,8 +26,12 @@ import { FilesService } from 'src/files/files.service';
 import { City } from 'src/locations/entities/city.entity';
 import { Province } from 'src/locations/entities/province.entity';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
+import { Payment } from 'src/payment/entities/payment.entity';
+import { BarberPublicPagePurchase } from 'src/public-page/entities/barber-public-page-purchase.entity';
+import { Referral } from 'src/referral/entities/referral.entity';
 import { Service } from 'src/services/entities/service.entity';
 import { User } from 'src/users/entities/user.entity';
+import { Transaction } from 'src/wallet/entities/transaction.entity';
 import { Brackets, EntityManager, In, Repository } from 'typeorm';
 
 import {
@@ -93,8 +92,8 @@ export class BarberService implements OnModuleInit {
 
   /**
    * در محیط پروداکشن `synchronize` غیرفعال است؛ این متد به شکل idempotent
-   * ستون‌های مربوط به پیش‌نویس ویرایش پروفایل را در جدول `barber_profile`
-   * ایجاد می‌کند تا بدون نیاز به اجرای دستی SQL کار کند.
+   * ستون نمایش عمومی و ستون‌های پیش‌نویس ویرایش را در جدول `barber_profile`
+   * بررسی و در صورت نیاز ایجاد می‌کند، بدون تغییر وضعیت حساب‌های موجود.
    */
   async onModuleInit() {
     if (
@@ -109,6 +108,7 @@ export class BarberService implements OnModuleInit {
       return;
     }
 
+    let visibilityColumnReady = false;
     try {
       const rows: Array<{ COLUMN_NAME?: string; column_name?: string }> =
         await this.profileRepository.query(
@@ -121,6 +121,21 @@ export class BarberService implements OnModuleInit {
           String(row.COLUMN_NAME ?? row.column_name ?? '').toLowerCase(),
         ),
       );
+
+      if (!existing.has('is_publicly_visible')) {
+        try {
+          await this.profileRepository.query(
+            `ALTER TABLE \`${tableName}\` ADD COLUMN \`is_publicly_visible\` TINYINT(1) NOT NULL DEFAULT 1`,
+          );
+        } catch (error) {
+          // Another instance may have added the column after our schema check.
+          const code =
+            (error as { code?: string; driverError?: { code?: string } })
+              ?.driverError?.code ?? (error as { code?: string })?.code;
+          if (code !== 'ER_DUP_FIELDNAME') throw error;
+        }
+      }
+      visibilityColumnReady = true;
 
       if (!existing.has('pending_changes')) {
         await this.profileRepository.query(
@@ -140,6 +155,12 @@ export class BarberService implements OnModuleInit {
         );
       }
     } catch (error) {
+      if (!visibilityColumnReady) {
+        this.logger.error(
+          `ستون نمایش عمومی آرایشگر آماده نیست؛ فایل sql/barber-visibility.sql را اجرا کنید: ${String(error)}`,
+        );
+        throw error;
+      }
       this.logger.warn(
         `بررسی/ایجاد ستون‌های pending پروفایل آرایشگر ناموفق بود: ${String(error)}`,
       );
@@ -306,6 +327,9 @@ export class BarberService implements OnModuleInit {
         isApproved: true,
       })
         .andWhere('user.isActive = :userActive', { userActive: true })
+        .andWhere('profile.isPubliclyVisible = :isPubliclyVisible', {
+          isPubliclyVisible: true,
+        })
         .andWhere('services.id IS NOT NULL');
     }
 
@@ -611,7 +635,12 @@ export class BarberService implements OnModuleInit {
         salonName: user.barberProfile?.salonName ?? null,
         cityName: user.barberProfile?.city?.name ?? null,
         isApproved: Boolean(user.barberProfile?.isApproved),
-        isActive: Boolean(user.isActive),
+        // `isActive` remains the management API's display toggle, not login.
+        isActive: Boolean(
+          user.isActive && user.barberProfile?.isPubliclyVisible,
+        ),
+        isAccountActive: Boolean(user.isActive),
+        isAdminAccount: user.roles?.includes(Role.Admin) ?? false,
         slug: user.barberProfile?.slug ?? null,
         createdAt: user.createdAt,
       })),
@@ -648,6 +677,9 @@ export class BarberService implements OnModuleInit {
       })
       .andWhere('user.isActive = :userActive', { userActive: true })
       .andWhere('profile.isApproved = :isApproved', { isApproved: true })
+      .andWhere('profile.isPubliclyVisible = :isPubliclyVisible', {
+        isPubliclyVisible: true,
+      })
       .getOne();
 
     if (!user?.barberProfile) {
@@ -712,6 +744,9 @@ export class BarberService implements OnModuleInit {
       .leftJoin('profile.province', 'province')
       .where('profile.isApproved = :isApproved', { isApproved: true })
       .andWhere('user.isActive = :userActive', { userActive: true })
+      .andWhere('profile.isPubliclyVisible = :isPubliclyVisible', {
+        isPubliclyVisible: true,
+      })
       .select('profile.userId', 'userId')
       .addSelect('city.slug', 'citySlug')
       .addSelect('city.name', 'cityName')
@@ -1046,6 +1081,7 @@ export class BarberService implements OnModuleInit {
       workStartTime: profile.workStartTime,
       workEndTime: profile.workEndTime,
       isApproved: profile.isApproved,
+      isPubliclyVisible: profile.isPubliclyVisible,
       rejectionReason: profile.rejectionReason || null,
       pendingStatus,
       hasPendingChanges: pendingStatus === 'pending',
@@ -1613,13 +1649,63 @@ export class BarberService implements OnModuleInit {
       throw new NotFoundException('آرایشگر یافت نشد');
     }
 
-    if (user.isActive !== isActive) {
-      user.isActive = isActive;
-      await this.userRepo.save(user);
-      this.notifyPublicProfileChanged(userId, user.barberProfile.slug);
+    if (isActive && !user.isActive) {
+      throw new ConflictException(
+        'حساب این آرایشگر غیرفعال است؛ ابتدا وضعیت ورود را جداگانه بررسی کنید.',
+      );
     }
 
-    return { id: userId, isActive: user.isActive };
+    const profile = user.barberProfile;
+    if (profile.isPubliclyVisible !== isActive) {
+      const result = await this.profileRepository.update(
+        { id: profile.id },
+        { isPubliclyVisible: isActive },
+      );
+      if (result.affected === 0) {
+        throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+      }
+      this.notifyPublicProfileChanged(userId, profile.slug);
+    }
+
+    return { id: userId, isActive: isActive && user.isActive };
+  }
+
+  /**
+   * Explicit, admin-reviewed repair for accounts disabled by the old switch.
+   * All roles regain access, but the profile stays hidden until a separate
+   * visibility action. Never do this automatically during schema migration.
+   */
+  async restoreBarberAccount(userId: number) {
+    const result = await this.userRepo.manager.transaction(async manager => {
+      const users = manager.getRepository(User);
+      const profiles = manager.getRepository(BarberProfile);
+      const user = await users.findOne({
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user || !user.roles?.includes(Role.Barber)) {
+        throw new NotFoundException('آرایشگر یافت نشد');
+      }
+      const profile = await profiles.findOne({
+        where: { userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!profile) throw new NotFoundException('پروفایل آرایشگر یافت نشد');
+
+      if (!user.isActive) {
+        await profiles.update({ id: profile.id }, { isPubliclyVisible: false });
+        await users.update({ id: userId }, { isActive: true });
+        return { changed: true, slug: profile.slug, isActive: false };
+      }
+      return {
+        changed: false,
+        slug: profile.slug,
+        isActive: profile.isPubliclyVisible,
+      };
+    });
+
+    if (result.changed) this.notifyPublicProfileChanged(userId, result.slug);
+    return { id: userId, isActive: result.isActive, isAccountActive: true };
   }
 
   async remove(id: number) {

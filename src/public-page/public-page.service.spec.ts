@@ -466,6 +466,58 @@ describe('PublicPageService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('نمایش غیرفعال را مستقل از پکیج و اسلاگ حفظ می‌کند', async () => {
+    const { service, profileRepo } = createService({
+      profile: {
+        id: 'prof-1',
+        userId: 42,
+        isApproved: true,
+        isPubliclyVisible: false,
+        salonName: 'سالن آریا',
+        slug: 'aria-salon',
+      },
+      purchase: { id: 'pur-1', createdAt: new Date('2026-01-01T00:00:00Z') },
+    });
+    const status = await service.getStatusByUserId(42);
+    expect(status).toMatchObject({
+      isActive: true,
+      isApproved: true,
+      isPubliclyVisible: false,
+      slug: 'aria-salon',
+      publicUrl: 'https://monshiim.ir/barber/aria-salon',
+    });
+    expect(profileRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ isPubliclyVisible: true }),
+      }),
+    );
+  });
+
+  it('صفحه و نقشهٔ سایت به فیلتر نمایش BarberService وابسته‌اند', async () => {
+    const { service, barberService, profileRepo } = createService({
+      profile: {
+        id: 'prof-1',
+        userId: 42,
+        isApproved: true,
+        isPubliclyVisible: false,
+        salonName: 'سالن آریا',
+        slug: 'aria-salon',
+      },
+      profiles: [{ id: 'prof-1', userId: 42, slug: 'aria-salon' }],
+      purchase: { id: 'pur-1', createdAt: new Date() },
+    });
+    barberService.findPublicOne.mockRejectedValue(new NotFoundException());
+    barberService.getPublicDirectory.mockResolvedValue({
+      barbers: [],
+      cities: [],
+    });
+    await expect(
+      service.getPublicBarberPage('aria-salon'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getActiveDirectory()).resolves.toEqual([]);
+    expect(profileRepo.find).not.toHaveBeenCalled();
+  });
+
   it('صفحهٔ عمومی را با اسلاگ باز می‌کند و بدون اسلاگ ۴۰۴ برمی‌گرداند', async () => {
     const { service: withoutSlug } = createService({
       profile: {

@@ -18,7 +18,10 @@ import {
 } from 'src/common/constants/constants';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { ParseJsonPipe } from 'src/common/pipes/parse-json.pipe';
-import { extractRefreshToken } from 'src/common/utils/auth-cookie.util';
+import {
+  extractAccessToken,
+  extractRefreshToken,
+} from 'src/common/utils/auth-cookie.util';
 import { FilesService } from 'src/files/files.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 
@@ -160,7 +163,14 @@ export class AuthController {
   }
 
   @Post('/logout')
-  logout(@Res({ passthrough: true }) response: Response) {
-    return this.authService.logout(response);
+  logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.logout(
+      extractRefreshToken(request),
+      response,
+      extractAccessToken(request),
+    );
   }
 }

@@ -12,6 +12,8 @@ services:
 
   redis:
     container_name: monshim_redis_prod
+    # Session revocations must survive Redis restarts.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
     ports:
       - "6381:6379"
 
