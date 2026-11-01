@@ -104,11 +104,12 @@ export function BarberReviewDialog({ barberId, open, onOpenChange }: Props) {
             {isEditReview && (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 space-y-1">
                 <p className="font-semibold">
-                  این آرایشگر از قبل تایید شده و در حال حاضر برای کاربران فعال است.
+                  پروفایل این آرایشگر از قبل تایید شده است.
                 </p>
                 <p className="text-xs text-amber-800">
-                  اطلاعات زیر مقادیر جدید پیشنهادی آرایشگر است. در صورت عدم تایید،
-                  نسخهٔ تاییدشدهٔ قبلی همچنان بدون وقفه در سایت نمایش داده می‌شود.
+                  اطلاعات زیر مقادیر جدید پیشنهادی آرایشگر است. در صورت عدم
+                  تایید، نسخهٔ تاییدشدهٔ قبلی محفوظ می‌ماند و وضعیت نمایش آن
+                  تغییر نمی‌کند.
                 </p>
               </div>
             )}
@@ -232,7 +233,7 @@ export function BarberReviewDialog({ barberId, open, onOpenChange }: Props) {
                 value={barber.bio}
                 previousValue={
                   previous && (previous.bio ?? '') !== (barber.bio ?? '')
-                    ? (previous.bio || '—')
+                    ? previous.bio || '—'
                     : undefined
                 }
               />
@@ -359,7 +360,7 @@ function InfoItem({
       <div className="font-medium">{value || '—'}</div>
       {previousValue !== undefined && (
         <div className="text-xs text-amber-700">
-          قبلی (فعال در سایت): {previousValue}
+          نسخهٔ تأییدشدهٔ قبلی: {previousValue}
         </div>
       )}
     </div>
@@ -383,7 +384,7 @@ function InfoBlock({
       </div>
       {previousValue !== undefined && (
         <div className="text-xs text-amber-700">
-          قبلی (فعال در سایت): {previousValue}
+          نسخهٔ تأییدشدهٔ قبلی: {previousValue}
         </div>
       )}
     </div>

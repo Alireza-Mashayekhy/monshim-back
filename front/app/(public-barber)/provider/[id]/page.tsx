@@ -11,15 +11,16 @@ import {
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 
 import JsonLd from '@/components/marketing/json-ld';
 import Breadcrumbs from '@/components/marketing/shared/breadcrumbs';
+import BookingGate, {
+  BookingTrigger,
+} from '@/components/public-barber/booking-gate';
 import PortfolioGallery from '@/components/public-barber/portfolio-gallery';
 import PublicReviews from '@/components/public-barber/public-reviews';
 import ShareButton from '@/components/public-barber/share-button';
-import { Button } from '@/components/ui/button';
 import { getActivityTypeLabel } from '@/constants/activity-types';
 import { publicImageUrl } from '@/lib/images';
 import { absolutePublicImageUrl, fetchPublicApi } from '@/lib/public-api';
@@ -246,7 +247,7 @@ export default async function PublicBarberPage({ params }: BarberPageProps) {
   };
 
   return (
-    <>
+    <BookingGate bookingUrl={bookingUrl} salonName={barber.salonName}>
       <JsonLd data={[salonSchema, breadcrumbSchema]} />
 
       <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-2 sm:px-6">
@@ -455,9 +456,9 @@ export default async function PublicBarberPage({ params }: BarberPageProps) {
 
                   return (
                     <li key={service.id}>
-                      <Link
-                        href={bookingUrl}
-                        className="group flex items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-4 transition-all hover:border-primary/35 hover:bg-primary-3/70 hover:shadow-xs"
+                      <BookingTrigger
+                        aria-label={`رزرو ${service.name} در ${barber.salonName}`}
+                        className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-4 text-right transition-all hover:border-primary/35 hover:bg-primary-3/70 hover:shadow-xs focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/40"
                       >
                         <div className="min-w-0 space-y-1">
                           <p className="truncate text-sm font-black text-gray-900 group-hover:text-primary sm:text-base">
@@ -496,7 +497,7 @@ export default async function PublicBarberPage({ params }: BarberPageProps) {
                             <ArrowLeft size={15} />
                           </span>
                         </div>
-                      </Link>
+                      </BookingTrigger>
                     </li>
                   );
                 })}
@@ -509,18 +510,12 @@ export default async function PublicBarberPage({ params }: BarberPageProps) {
       {/* نوار شناور پایین صفحه برای رزرو سریع نوبت */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-primary/10 bg-white/85 px-4 py-3 backdrop-blur-md">
         <div className="mx-auto max-w-2xl">
-          <Button
-            asChild
-            size="lg"
-            className="h-12 w-full gap-2 rounded-2xl text-sm font-black shadow-lg shadow-primary/20 sm:text-base"
-          >
-            <Link href={bookingUrl}>
-              <CalendarCheck size={19} />
-              رزرو نوبت آنلاین در {barber.salonName}
-            </Link>
-          </Button>
+          <BookingTrigger className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-black text-white shadow-lg shadow-primary/20 transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/40 sm:text-base">
+            <CalendarCheck size={19} />
+            رزرو نوبت آنلاین در {barber.salonName}
+          </BookingTrigger>
         </div>
       </div>
-    </>
+    </BookingGate>
   );
 }

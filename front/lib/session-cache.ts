@@ -4,7 +4,7 @@ import { authKeys } from '@/lib/auth';
 
 /** Keep the observed /me query attached; clear() would detach its subscribers. */
 export function clearSessionCache(queryClient: QueryClient) {
-  void queryClient.cancelQueries();
+  const canceled = queryClient.cancelQueries();
   queryClient.removeQueries({
     predicate: query => query.queryKey[0] !== authKeys.me[0],
   });
@@ -13,4 +13,5 @@ export function clearSessionCache(queryClient: QueryClient) {
     message: '',
     data: null,
   });
+  return canceled;
 }

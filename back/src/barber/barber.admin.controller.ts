@@ -5,8 +5,8 @@ import {
   Delete,
   Get,
   Param,
-  Patch,
   ParseIntPipe,
+  Patch,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -70,6 +70,12 @@ export class BarberAdminController {
     @Body() dto: SetBarberActiveDto,
   ) {
     return this.barberService.setBarberActive(id, dto.isActive);
+  }
+
+  /** Separate, explicit account repair; does not make the profile public. */
+  @Patch(':id/restore-account')
+  restoreAccount(@Param('id', ParseIntPipe) id: number) {
+    return this.barberService.restoreBarberAccount(id);
   }
 
   @Delete(':id')

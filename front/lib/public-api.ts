@@ -1,6 +1,7 @@
 import { resolveServerApiBaseUrl } from './api-base-url';
 import { publicImageUrl } from './images';
 import { PUBLIC_API_CACHE_TAG } from './public-cache-tags';
+import { siteConfig } from './site-config';
 
 type ApiEnvelope<T> = {
   data?: T;
@@ -84,5 +85,11 @@ export async function fetchPublicApi<T>(path: string): Promise<T | null> {
 }
 
 export function absolutePublicImageUrl(imagePath?: string | null) {
-  return publicImageUrl(imagePath);
+  const image = publicImageUrl(imagePath);
+  if (!image) return undefined;
+  try {
+    return new URL(image, siteConfig.url).toString();
+  } catch {
+    return undefined;
+  }
 }

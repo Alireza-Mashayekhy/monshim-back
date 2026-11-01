@@ -48,6 +48,7 @@ export const endpoints = {
       list: '/admin/barber',
       managementList: '/admin/barber/management',
       setActive: (id: number) => `/admin/barber/${id}/active`,
+      restoreAccount: (id: number) => `/admin/barber/${id}/restore-account`,
       detail: (id: string) => `/admin/barber/${id}`,
       approvalDetail: (id: string) => `/admin/barber/${id}/approval`,
       update: '/admin/barber',

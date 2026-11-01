@@ -1,7 +1,8 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 import { authKeys } from '@/lib/auth';
+import { apiMayUseDifferentCookieHost } from '@/lib/auth-cookie-origin';
 import { makeQueryClient } from '@/lib/query-client';
 import { extractUser } from '@/lib/roles';
 import { getMe } from '@/services/features/auth/server.api';
@@ -16,13 +17,18 @@ async function resolveUser(): Promise<{
 }> {
   const cookieStore = await cookies();
   if (!cookieStore.has('access_token')) {
-    // No access token at all: if there's also no refresh token, this is
-    // definitively a logged-out guest — no need to ask the API to confirm it.
     const hasRefreshToken = cookieStore.has('refresh_token');
-    return { user: null, known: !hasRefreshToken };
+    const apiHasDifferentHost = apiMayUseDifferentCookieHost(
+      process.env.NEXT_PUBLIC_API_URL,
+      (await headers()).get('host'),
+    );
+    // A refresh cookie, or cookies owned by another API host, can only be
+    // checked in the browser. Do not hydrate either case as a known guest.
+    return { user: null, known: !hasRefreshToken && !apiHasDifferentHost };
   }
   try {
-    return { user: extractUser(await getMe()), known: true };
+    const user = extractUser(await getMe());
+    return { user, known: !!user };
   } catch {
     return { user: null, known: false };
   }

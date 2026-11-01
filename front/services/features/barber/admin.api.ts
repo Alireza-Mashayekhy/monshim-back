@@ -70,6 +70,17 @@ export const setBarberActive = async (id: number, isActive: boolean) => {
   return data;
 };
 
+export const restoreBarberAccount = async (id: number) => {
+  const { data } = await api.patch<
+    ApiSingleResponse<{
+      id: number;
+      isActive: boolean;
+      isAccountActive: boolean;
+    }>
+  >(endpoints.barber.admin.restoreAccount(id));
+  return data;
+};
+
 export const deleteBarber = async (id: number) => {
   const { data } = await api.delete<ApiSingleResponse<{ id: number }>>(
     endpoints.barber.admin.remove(id),

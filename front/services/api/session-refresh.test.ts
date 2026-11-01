@@ -229,6 +229,20 @@ test('لغوِ درخواست: بدون تلاش مجدد و بدون اعلام
   assert.equal(refresher.harness.expired, 0);
 });
 
+test('تغییر حساب هنگام انتظار: رفرش قدیمی تکرار یا منقضی اعلام نمی‌شود', async () => {
+  const changed = Object.assign(new Error('session changed'), {
+    code: 'ERR_SESSION_CHANGED',
+  });
+  const refresher = makeRefresher(() => {
+    throw changed;
+  });
+  const result = await refresher.refresh();
+  assert.equal(result.error, changed);
+  assert.equal(result.expired, false);
+  assert.equal(refresher.harness.calls, 1);
+  assert.equal(refresher.harness.expired, 0);
+});
+
 test('۴۰۰ (خطای غیرمنتظره): بدون تلاش مجدد و بدون اعلام انقضا', async () => {
   const refresher = makeRefresher(() => {
     throw httpError(400);

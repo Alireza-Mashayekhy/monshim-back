@@ -42,7 +42,11 @@ export function isSessionExpiredError(error: unknown): boolean {
 export function isCanceledError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const code = (error as { code?: unknown }).code;
-  return code === 'ERR_CANCELED' || code === 'ABORT_ERR';
+  return (
+    code === 'ERR_CANCELED' ||
+    code === 'ABORT_ERR' ||
+    code === 'ERR_SESSION_CHANGED'
+  );
 }
 
 export function isTransientAuthError(error: unknown): boolean {
@@ -73,7 +77,7 @@ export interface SessionRefreshResult {
 
 export interface SessionRefresherHooks {
   /** نشست واقعاً تمام شده: انتشار رویداد انقضا و پاک‌سازی کش/کوکی. */
-  onExpired: () => void;
+  onExpired: (error: unknown) => void;
   /**
    * تلاش‌ها تمام شد ولی نشست «تمام‌شده» اعلام نشد (خطای موقت یا وضعیتِ
    * غیرمنتظره). عمداً هیچ پاک‌سازی‌ای انجام نمی‌دهد تا کاربر با «تلاش
@@ -91,8 +95,8 @@ export interface SessionRefresher {
 
 /**
  * ساختِ تازه‌سازِ نشست با دو ویژگی مهم:
- *  ۱. single-flight: درخواست‌های هم‌زمان (چند تب، چند کوئری موازی) فقط **یک**
- *     بار `/auth/refresh` می‌زنند و همه منتظر همان یک نتیجه می‌مانند؛
+ *  ۱. single-flight: کوئری‌های موازی در همین تب فقط **یک** بار
+ *     `/auth/refresh` می‌زنند و همه منتظر همان یک نتیجه می‌مانند؛
  *  ۲. تفکیکِ «انقضای نشست» از «خطای موقت» + تلاشِ مجدد با فاصلهٔ فزاینده.
  */
 export function createSessionRefresher(
@@ -111,7 +115,7 @@ export function createSessionRefresher(
         return { ok: true, expired: false };
       } catch (error) {
         if (isSessionExpiredError(error)) {
-          hooks.onExpired();
+          hooks.onExpired(error);
           return { ok: false, expired: true, error };
         }
 

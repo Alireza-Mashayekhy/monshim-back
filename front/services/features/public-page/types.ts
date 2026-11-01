@@ -25,6 +25,8 @@ export interface PublicPageStatus {
   publicUrl: string | null;
   /** آیا پروفایل آرایشگر تایید شده است؟ (بدون تایید، صفحه عمومی نمایش داده نمی‌شود) */
   isApproved: boolean;
+  /** وضعیت نمایش عمومی مستقل از فعال‌بودن پکیج است. */
+  isPubliclyVisible?: boolean;
   /** فقط آرایشگرانی که با کد معرف ثبت‌نام کرده‌اند تخفیف ویژهٔ خرید دارند. */
   hasReferralDiscount: boolean;
 }

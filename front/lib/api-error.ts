@@ -16,6 +16,14 @@ export function getApiErrorMessage(
   fallback = 'خطایی رخ داد. لطفاً دوباره تلاش کنید.',
 ): string {
   const status = getErrorStatus(error);
+  if (error && typeof error === 'object' && 'code' in error) {
+    if (error.code === 'ERR_SESSION_VERIFICATION') {
+      return 'تأیید نشست پس از تمدید انجام نشد. لطفاً دوباره تلاش کنید.';
+    }
+    if (error.code === 'ERR_SESSION_CHANGED') {
+      return 'حساب کاربری تغییر کرده است. پیش از تلاش دوباره، وضعیت درخواست قبلی را بررسی کنید.';
+    }
+  }
   if (axios.isAxiosError(error)) {
     if (!error.response) {
       return error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT'

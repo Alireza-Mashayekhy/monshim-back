@@ -11,6 +11,7 @@ import {
   getBarberById,
   moderateBarberReview,
   notApprovedBarberList,
+  restoreBarberAccount,
   reviewBarber,
   setBarberActive,
   updateBarber,
@@ -96,8 +97,14 @@ export const useUpdateBarberProfile = () => {
 export const useSetBarberActive = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
-      setBarberActive(id, isActive),
+    mutationFn: ({
+      id,
+      isActive,
+    }: {
+      id: number;
+      isActive: boolean;
+      slug?: string | null;
+    }) => setBarberActive(id, isActive),
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({
         queryKey: ['adminBarberManagement'],
@@ -105,15 +112,48 @@ export const useSetBarberActive = () => {
       void queryClient.invalidateQueries({ queryKey: ['adminBarbers'] });
       void queryClient.invalidateQueries({ queryKey: ['barbers'] });
       void queryClient.invalidateQueries({ queryKey: ['homeBarbers'] });
+      void revalidatePublicBarberCache({
+        userId: variables.id,
+        slugs: variables.slug ? [variables.slug] : [],
+      }).catch(() => false);
       toast.success(
         variables.isActive
-          ? 'آرایشگر دوباره فعال شد.'
-          : 'آرایشگر غیرفعال شد و از فهرست‌های کاربران پنهان می‌شود.',
+          ? 'نمایش عمومی آرایشگر فعال شد؛ تأیید پروفایل همچنان لازم است.'
+          : 'نمایش عمومی آرایشگر غیرفعال شد؛ ورود به حساب تغییری نکرد.',
       );
     },
     onError: (error: any) => {
       toast.error(
         error.response?.data?.message || 'تغییر وضعیت آرایشگر ناموفق بود.',
+      );
+    },
+  });
+};
+
+export const useRestoreBarberAccount = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: number; slug?: string | null }) =>
+      restoreBarberAccount(id),
+    onSuccess: (response, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['adminBarberManagement'],
+      });
+      void queryClient.invalidateQueries({ queryKey: ['barbers'] });
+      void queryClient.invalidateQueries({ queryKey: ['homeBarbers'] });
+      void revalidatePublicBarberCache({
+        userId: variables.id,
+        slugs: variables.slug ? [variables.slug] : [],
+      }).catch(() => false);
+      toast.success(
+        response.data.isActive
+          ? 'حساب از قبل قابل ورود بود؛ وضعیت نمایش تغییری نکرد.'
+          : 'ورود حساب باز شد؛ نمایش عمومی سالن همچنان غیرفعال است.',
+      );
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'بازکردن ورود حساب ناموفق بود.',
       );
     },
   });

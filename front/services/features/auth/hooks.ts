@@ -26,11 +26,8 @@ export { authKeys } from '@/lib/auth';
  * تنها منبع حقیقی اطلاعات کاربر در سمت کلاینت.
  * بعد از لاگین/ثبت‌نام/تغییر نقش، کش آن باطل می‌شود تا همه‌جا به‌روزرسانی شود.
  *
- * `enabled: false` برای صفحات عمومی (صفحهٔ اصلی، صفحات مارکتینگ، صفحات ورود و ...)
- * استفاده می‌شود: آن صفحات به اطلاعات کاربر نیازی ندارند، بنابراین درخواست
- * `/auth/me` در ابتدای بارگذاری آن‌ها حذف می‌شود تا یک request کمتر با منابع
- * critical رقابت کند. به‌محض اینکه کاربر به مسیر غیرعمومی برود، کوئری فعال
- * می‌شود (و اگر داده در کش باشد همان لحظه در دسترس است).
+ * صفحات عمومیِ معمولی به این کوئری نیازی ندارند، اما صفحات ورود باید نشست
+ * قابل تمدید را هم بررسی کنند تا کاربرِ واردشده دوباره فرم ورود نبیند.
  */
 export const useMe = (options?: { enabled?: boolean }) =>
   useQuery({
@@ -38,7 +35,8 @@ export const useMe = (options?: { enabled?: boolean }) =>
     queryFn: ({ signal }) => fetchMe(signal),
     enabled: options?.enabled,
     staleTime: 60 * 1000,
-    refetchOnWindowFocus: true,
+    // Cookies may have changed in another tab while this one was hidden.
+    refetchOnWindowFocus: 'always',
     /**
      * خطاهای احراز هویت (۴۰۰/۴۰۱/۴۰۳) با تلاشِ مجدد درست نمی‌شوند؛ بقیهٔ
      * حالت‌ها گذرا هستند: ۴۲۹ (محدودیت نرخ)، ۵xx، قطعی شبکه و timeout.
@@ -73,8 +71,9 @@ function useSyncSession() {
     // Cancel old-account reads before clearing them; late responses must not
     // overwrite the new session. Never make a successful OTP mutation appear to
     // fail just because the subsequent /me request had a network error.
-    clearSessionCache(queryClient);
+    const canceled = clearSessionCache(queryClient);
     useAuthStore.getState().clearUser();
+    await canceled;
     await queryClient
       .fetchQuery({
         queryKey: authKeys.me,
@@ -88,7 +87,10 @@ function useSyncSession() {
 
 export function useLogin() {
   const sync = useSyncSession();
-  return useMutation({ mutationFn: login, onSuccess: sync });
+  return useMutation({
+    mutationFn: login,
+    onSuccess: result => (result.data?.newUser === false ? sync() : undefined),
+  });
 }
 
 export function useLoginWithPassword() {
@@ -111,14 +113,8 @@ export function useSignUp() {
 
 export function useRegisterBarber() {
   const sync = useSyncSession();
-  return useMutation({
-    mutationFn: registerBarber,
-    onSuccess: async () => {
-      // Explicit role transition, not a blanket refresh on every 403.
-      await refreshSession().catch(() => undefined);
-      await sync();
-    },
-  });
+  // Registration already issues tokens containing the new role.
+  return useMutation({ mutationFn: registerBarber, onSuccess: sync });
 }
 
 /** دریافت توکن تازه — برای وقتی که نقش کاربر در سرور تغییر کرده است */
@@ -132,8 +128,9 @@ export function useLogout() {
   return useMutation({
     mutationFn: logout,
     onSuccess: async () => {
-      clearSessionCache(queryClient);
+      const canceled = clearSessionCache(queryClient);
       useAuthStore.getState().clearUser();
+      await canceled;
     },
   });
 }

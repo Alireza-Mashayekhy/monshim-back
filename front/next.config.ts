@@ -80,6 +80,13 @@ const uploadsOriginIsLocal = (() => {
 })();
 
 const nextConfig: NextConfig = {
+  // Keep the isolated browser-test build separate from normal dev/prod builds.
+  ...(process.env.SESSION_E2E === '1'
+    ? {
+        distDir: '.next/session-e2e',
+        typescript: { tsconfigPath: 'tsconfig.e2e.json' },
+      }
+    : {}),
   turbopack: {
     root: process.cwd(),
   },

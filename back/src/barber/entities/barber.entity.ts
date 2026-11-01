@@ -148,6 +148,10 @@ export class BarberProfile {
   @Column({ default: false })
   isApproved: boolean;
 
+  /** Independent of the user's login status and the profile approval workflow. */
+  @Column({ name: 'is_publicly_visible', default: true })
+  isPubliclyVisible: boolean;
+
   @Column({
     type: 'decimal',
     precision: 2,
