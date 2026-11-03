@@ -3,6 +3,7 @@ import {
   Clock,
   Gem,
   Globe,
+  Headphones,
   LayoutDashboard,
   Scissors,
   UserRound,
@@ -52,5 +53,11 @@ export const dashboardRoutes = [
     icon: Globe,
     title: 'صفحهٔ اختصاصی',
     href: '/dashboard/public-page',
+  },
+  /** پشتیبانی آرایشگر — همان تیکت‌های پنل کاربر (اندیس ۹، انتهای فهرست) */
+  {
+    icon: Headphones,
+    title: 'پشتیبانی',
+    href: '/dashboard/support',
   },
 ];

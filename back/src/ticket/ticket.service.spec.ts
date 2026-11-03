@@ -44,10 +44,13 @@ describe('TicketService - اعلان بله هنگام ثبت تیکت', () => {
     const baleNotificationService: any = {
       notifyTicketCreated: jest.fn().mockResolvedValue(undefined),
     };
+    // ریپازیتوری User فقط در مسیرهای ادمین استفاده می‌شود
+    const userRepo: any = {};
 
     const service = new TicketService(
       ticketRepo,
       messageRepo,
+      userRepo,
       baleNotificationService,
     );
 
@@ -96,7 +99,11 @@ describe('TicketService - اعلان بله هنگام ثبت تیکت', () => {
 
   it('در نبود سرویس اعلان بله (اختیاری)، ثبت تیکت بدون خطا انجام می‌شود', async () => {
     const { ticketRepo, messageRepo } = buildSetup();
-    const serviceWithoutBale = new TicketService(ticketRepo, messageRepo);
+    const serviceWithoutBale = new TicketService(
+      ticketRepo,
+      messageRepo,
+      {} as any,
+    );
 
     await expect(
       serviceWithoutBale.createTicket(10, dto),

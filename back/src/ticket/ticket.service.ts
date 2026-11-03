@@ -7,8 +7,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaleNotificationService } from 'src/bale/bale-notification.service';
+import { Role } from 'src/common/enum/role.enum';
 import { toEnglishDigits } from 'src/common/utils/digits.util';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { User } from 'src/users/entities/user.entity';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -17,6 +19,9 @@ import { Ticket, TicketStatus } from './entities/ticket.entity';
 import { MessageSender, TicketMessage } from './entities/ticket-message.entity';
 
 type ViewerRole = 'user' | 'admin';
+
+/** نقش صاحب تیکت از نگاه ادمین — «آرایشگر» یا «کاربر» */
+export type TicketOwnerRole = 'barber' | 'user';
 
 export interface TicketActor {
   role: MessageSender;
@@ -30,6 +35,8 @@ export class TicketService {
     private readonly ticketRepo: Repository<Ticket>,
     @InjectRepository(TicketMessage)
     private readonly messageRepo: Repository<TicketMessage>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
 
     // اعلان به ادمین در بله (اختیاری تا در نبودِ ماژول بله هم سرویس کار کند)
     @Optional()
@@ -148,10 +155,15 @@ export class TicketService {
 
     const [tickets, total] = await qb.getManyAndCount();
 
+    // نقش و نام صاحبان تیکت‌ها برای نمایش در پنل ادمین (یک کوئری جمعی)
+    const owners = await this.loadOwners(tickets.map(t => t.userId));
+
     const data: any[] = [];
     for (const ticket of tickets) {
       const messages = await this.loadMessages(ticket.id);
-      data.push(this.formatTicket(ticket, messages, 'admin'));
+      data.push(
+        this.formatTicket(ticket, messages, 'admin', owners.get(ticket.userId)),
+      );
     }
 
     return {
@@ -175,9 +187,11 @@ export class TicketService {
       messages = await this.loadMessages(ticketId);
     }
 
+    const owner = (await this.loadOwners([ticket.userId])).get(ticket.userId);
+
     return {
       message: 'جزئیات تیکت با موفقیت دریافت شد',
-      data: this.formatTicketDetail(ticket, messages, 'admin'),
+      data: this.formatTicketDetail(ticket, messages, 'admin', owner),
     };
   }
 
@@ -271,6 +285,31 @@ export class TicketService {
     });
   }
 
+  /**
+   * صاحبان تیکت‌ها را یکجا می‌خواند (بدون N+1) تا پنل ادمین بتواند نشان دهد
+   * فرستندهٔ تیکت آرایشگر است یا کاربر عادی. کاربر حذف‌شده در map نمی‌آید.
+   */
+  private async loadOwners(
+    userIds: number[],
+  ): Promise<Map<number, Pick<User, 'id' | 'fullName' | 'roles'>>> {
+    const uniqueIds = [...new Set(userIds)];
+    if (uniqueIds.length === 0) return new Map();
+
+    const users = await this.userRepo.find({
+      where: { id: In(uniqueIds) },
+      select: { id: true, fullName: true, roles: true },
+    });
+    return new Map(users.map(user => [user.id, user]));
+  }
+
+  /**
+   * نقش نمایشی صاحب تیکت: اگر نقش «barber» بین نقش‌های کاربر باشد آرایشگر
+   * است؛ در غیر این صورت (حتی برای ادمینِ بدون نقش آرایشگر) «کاربر».
+   */
+  private ownerDisplayRole(roles: Role[] | undefined | null): TicketOwnerRole {
+    return roles?.includes(Role.Barber) ? 'barber' : 'user';
+  }
+
   private applyFilters(qb: SelectQueryBuilder<Ticket>, query: TicketQueryDto) {
     if (query.status) {
       qb.andWhere('ticket.status = :status', { status: query.status });
@@ -334,6 +373,7 @@ export class TicketService {
     t: Ticket,
     messages: TicketMessage[],
     viewer: ViewerRole,
+    owner?: Pick<User, 'id' | 'fullName' | 'roles'> | null,
   ) {
     const unreadCount =
       viewer === 'user'
@@ -360,6 +400,13 @@ export class TicketService {
       updatedAt: t.updatedAt,
       lastMessage,
       unreadCount,
+      // اطلاعات صاحب تیکت فقط در پاسخ‌های ادمین برمی‌گردد
+      ...(viewer === 'admin'
+        ? {
+            userName: owner?.fullName ?? null,
+            userRole: owner ? this.ownerDisplayRole(owner.roles) : null,
+          }
+        : {}),
     };
   }
 
@@ -367,9 +414,10 @@ export class TicketService {
     t: Ticket,
     messages: TicketMessage[],
     viewer: ViewerRole,
+    owner?: Pick<User, 'id' | 'fullName' | 'roles'> | null,
   ) {
     return {
-      ...this.formatTicket(t, messages, viewer),
+      ...this.formatTicket(t, messages, viewer, owner),
       messages: messages.map(m => this.formatMessage(m)),
     };
   }
