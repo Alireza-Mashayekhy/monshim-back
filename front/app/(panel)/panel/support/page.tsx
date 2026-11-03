@@ -1,6 +1,7 @@
 'use client';
 
-import { Headphones, Plus } from 'lucide-react';
+import { GraduationCap, Headphones, Plus } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import { NewTicketDialog } from '@/components/pages/support/new-ticket-dialog';
@@ -13,6 +14,7 @@ import {
 } from '@/components/shared/ticket-filters';
 import { Button } from '@/components/ui/button';
 import { useDebounce } from '@/hooks/use-debounce';
+import { siteConfig } from '@/lib/site-config';
 import { useTickets } from '@/services/features/ticket/hooks';
 
 const PAGE_LIMIT = 10;
@@ -74,6 +76,36 @@ export default function SupportPage() {
         >
           <Plus size={16} />
           تیکت جدید
+        </Button>
+      </div>
+
+      {/* بنر آموزش سایت — لینک به صفحهٔ عمومی /tutorials */}
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-teal-100 bg-teal-50 p-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+            <GraduationCap size={18} />
+          </span>
+          <div>
+            <p className="text-xs font-bold text-gray-800">
+              آموزش گام‌به‌گام کار با منشیم
+            </p>
+            <p className="mt-0.5 text-[10px] text-gray-400">
+              ویدیوهای کوتاه؛ از ثبت‌نام تا مدیریت نوبت‌ها
+            </p>
+          </div>
+        </div>
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="shrink-0 rounded-full border-teal-200 bg-white text-teal-700 hover:bg-teal-50 hover:text-teal-800"
+        >
+          <Link
+            href={siteConfig.routes.tutorials}
+            title="آموزش کار با سایت منشیم"
+          >
+            مشاهده
+          </Link>
         </Button>
       </div>
 
