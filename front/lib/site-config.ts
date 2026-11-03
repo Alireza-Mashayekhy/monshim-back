@@ -11,6 +11,7 @@ export const siteConfig = {
     providerManagement: '/provider-management',
     onlineBooking: '/online-provider-booking',
     pricing: '/pricing',
+    tutorials: '/tutorials',
     explore: '/panel/explore',
     privacy: '/privacy',
     terms: '/terms',

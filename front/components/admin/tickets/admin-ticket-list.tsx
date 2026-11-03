@@ -7,6 +7,9 @@ import {
   TicketPriorityBadge,
   TicketStatusBadge,
 } from '@/components/shared/ticket-badges';
+import TicketSenderBadge, {
+  ticketSenderLabel,
+} from '@/components/shared/ticket-sender-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TICKET_DEPARTMENT_LABEL } from '@/constants/ticket';
 import { formatTicketDate } from '@/lib/date-utils';
@@ -98,7 +101,7 @@ export function AdminTicketList({
                 {lastMessage.senderRole === 'USER' && (
                   <span className="inline-flex items-center gap-1 text-gray-400">
                     <UserRound size={11} />
-                    کاربر:
+                    {ticketSenderLabel(ticket.userRole)}:
                   </span>
                 )}{' '}
                 {lastMessage.message}
@@ -114,8 +117,10 @@ export function AdminTicketList({
               </span>
               <span className="text-[10px] text-gray-300">•</span>
               <span className="text-[10px] text-gray-400">
-                کاربر {ticket.userId.toLocaleString('fa-IR')}
+                {ticket.userName ??
+                  `کاربر ${ticket.userId.toLocaleString('fa-IR')}`}
               </span>
+              <TicketSenderBadge role={ticket.userRole} />
               <span className="text-[10px] text-gray-300">•</span>
               <span className="text-[10px] text-gray-400">
                 {formatTicketDate(lastMessage?.createdAt ?? ticket.updatedAt)}

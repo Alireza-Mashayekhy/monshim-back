@@ -36,7 +36,14 @@ export interface Ticket {
   unreadCount?: number;
   /** فقط در جزئیات تیکت برمی‌گردد */
   messages?: TicketMessage[];
+  /** فقط در پاسخ‌های ادمین: نام کامل صاحب تیکت (کاربر حذف‌شده → null) */
+  userName?: string | null;
+  /** فقط در پاسخ‌های ادمین: آرایشگر یا کاربر بودن فرستندهٔ تیکت */
+  userRole?: TicketSenderRole | null;
 }
+
+/** نقش نمایشی فرستندهٔ تیکت در پنل ادمین */
+export type TicketSenderRole = 'barber' | 'user';
 
 export interface TicketQueryParams {
   page?: number;

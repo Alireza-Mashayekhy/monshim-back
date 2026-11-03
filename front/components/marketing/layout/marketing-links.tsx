@@ -36,6 +36,12 @@ export const NAV_LINKS: NavLink[] = [
     title: 'تعرفه و قیمت پلن‌های منشیم',
     hint: 'قیمت پلن‌های اشتراک',
   },
+  {
+    href: siteConfig.routes.tutorials,
+    label: 'آموزش',
+    title: 'آموزش کار با سایت و نرم افزار منشیم',
+    hint: 'ویدیوهای آموزشی گام‌به‌گام',
+  },
 ];
 
 export const SEO_LINKS: NavLink[] = [

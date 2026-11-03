@@ -12,6 +12,9 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { MessageBubble } from '@/components/shared/message-bubble';
 import { TicketStatusBadge } from '@/components/shared/ticket-badges';
+import TicketSenderBadge, {
+  ticketSenderLabel,
+} from '@/components/shared/ticket-sender-badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -123,8 +126,10 @@ export function AdminTicketChat({ ticketId, onBack }: AdminTicketChatProps) {
                 </span>
                 <span className="text-[10px] text-gray-300">•</span>
                 <span className="text-[10px] text-gray-400">
-                  کاربر {ticket.userId.toLocaleString('fa-IR')}
+                  {ticket.userName ??
+                    `کاربر ${ticket.userId.toLocaleString('fa-IR')}`}
                 </span>
+                <TicketSenderBadge role={ticket.userRole} />
               </>
             )}
           </div>
@@ -216,7 +221,7 @@ export function AdminTicketChat({ ticketId, onBack }: AdminTicketChatProps) {
                       message={message}
                       isOwn={message.senderRole === 'ADMIN'}
                       ownLabel="پشتیبانی"
-                      otherLabel="کاربر"
+                      otherLabel={ticketSenderLabel(ticket?.userRole)}
                     />
                   </div>
                 </Fragment>

@@ -20,6 +20,8 @@ const otherRoutes = [
   dashboardRoutes[4],
   dashboardRoutes[6],
   dashboardRoutes[8],
+  // پشتیبانی (آخرین آیتم dashboardRoutes)
+  dashboardRoutes[dashboardRoutes.length - 1],
 ];
 
 export default function MobileNavigation() {
@@ -80,7 +82,7 @@ export default function MobileNavigation() {
 
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent>
-          <div className="grid grid-cols-5 gap-2 px-2 py-10">
+          <div className="grid grid-cols-3 gap-2 px-2 py-10">
             {otherRoutes.map(route => {
               return (
                 <MobileMenuItem

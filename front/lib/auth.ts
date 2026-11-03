@@ -92,7 +92,9 @@ export function isPublicAuthPath(pathname: string) {
     // Public marketing pages.
     isPathWithin(pathname, '/provider-management') ||
     isPathWithin(pathname, '/online-provider-booking') ||
-    isPathWithin(pathname, '/pricing')
+    isPathWithin(pathname, '/pricing') ||
+    // صفحهٔ عمومی و سئوشدهٔ آموزش سایت (ویدیوهای آپارات).
+    isPathWithin(pathname, '/tutorials')
   );
 }
 

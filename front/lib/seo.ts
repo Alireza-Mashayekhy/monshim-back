@@ -95,4 +95,5 @@ export const JSONLD_URLS = {
   management: siteConfig.url + siteConfig.routes.providerManagement,
   booking: siteConfig.url + siteConfig.routes.onlineBooking,
   pricing: siteConfig.url + siteConfig.routes.pricing,
+  tutorials: siteConfig.url + siteConfig.routes.tutorials,
 };

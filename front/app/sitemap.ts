@@ -11,6 +11,7 @@ const staticPaths = [
   '/provider-management',
   '/online-provider-booking',
   '/pricing',
+  '/tutorials',
   '/privacy',
   '/terms',
 ];
