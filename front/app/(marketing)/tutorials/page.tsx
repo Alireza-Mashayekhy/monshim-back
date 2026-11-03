@@ -179,53 +179,56 @@ export default async function TutorialsPage() {
         </ol>
       </section>
 
-      <section
-        aria-labelledby="more-tutorials-heading"
-        className="custom-container py-8 lg:py-14"
-      >
-        <SectionHeading
-          id="more-tutorials-heading"
-          eyebrow="ویدیوهای آموزشی"
-          title="آموزش گام‌به‌گام بخش‌های مختلف منشیم"
-          description="هر ویدیو یک بخش از پنل را پوشش می‌دهد؛ روی هر کدام کلیک کنید تا پخش شود."
-        />
-        <div className="mt-10 grid gap-8 md:grid-cols-2">
-          {moreTutorials.map(tutorial => {
-            const hash = extractAparatHash(tutorial.aparatUrl);
+      {/* بخش کارت‌ها فقط وقتی ویدیویی غیر از ویدیوی اصلی وجود دارد رندر می‌شود */}
+      {moreTutorials.length > 0 ? (
+        <section
+          aria-labelledby="more-tutorials-heading"
+          className="custom-container py-8 lg:py-14"
+        >
+          <SectionHeading
+            id="more-tutorials-heading"
+            eyebrow="ویدیوهای آموزشی"
+            title="آموزش گام‌به‌گام بخش‌های مختلف منشیم"
+            description="هر ویدیو یک بخش از پنل را پوشش می‌دهد؛ روی هر کدام کلیک کنید تا پخش شود."
+          />
+          <div className="mt-10 grid gap-8 md:grid-cols-2">
+            {moreTutorials.map(tutorial => {
+              const hash = extractAparatHash(tutorial.aparatUrl);
 
-            return (
-              <article
-                key={tutorial.title}
-                className="flex flex-col overflow-hidden rounded-4xl border border-primary-2 bg-white shadow-sm"
-              >
-                <AparatVideo
-                  videoHash={hash}
-                  title={tutorial.title}
-                  posterUrl={tutorial.poster}
-                  className="rounded-none"
-                />
-                <div className="flex flex-1 flex-col p-6">
-                  <h3 className="text-lg font-extrabold text-foreground">
-                    {tutorial.title}
-                  </h3>
-                  <p className="mt-2 flex-1 text-sm leading-7 text-muted-foreground">
-                    {tutorial.description}
-                  </p>
-                  <a
-                    href={aparatWatchUrl(hash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
-                  >
-                    تماشا در آپارات
-                    <ExternalLink className="size-3.5" aria-hidden="true" />
-                  </a>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
+              return (
+                <article
+                  key={tutorial.title}
+                  className="flex flex-col overflow-hidden rounded-4xl border border-primary-2 bg-white shadow-sm"
+                >
+                  <AparatVideo
+                    videoHash={hash}
+                    title={tutorial.title}
+                    posterUrl={tutorial.poster}
+                    className="rounded-none"
+                  />
+                  <div className="flex flex-1 flex-col p-6">
+                    <h3 className="text-lg font-extrabold text-foreground">
+                      {tutorial.title}
+                    </h3>
+                    <p className="mt-2 flex-1 text-sm leading-7 text-muted-foreground">
+                      {tutorial.description}
+                    </p>
+                    <a
+                      href={aparatWatchUrl(hash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                    >
+                      تماشا در آپارات
+                      <ExternalLink className="size-3.5" aria-hidden="true" />
+                    </a>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <CtaSection
         title="همین حالا سالن خود را آنلاین کنید"
