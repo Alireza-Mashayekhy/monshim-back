@@ -5,16 +5,24 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
-import { json } from 'express';
 import { join } from 'path';
 
 import { AppModule } from './app.module';
+import { setupBodyParsers } from './common/config/body-parsers.config';
 import { setupSwagger } from './common/config/swagger.config';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  /**
+   * پارس‌کنندهٔ بدنهٔ پیش‌فرضِ Nest خاموش می‌شود و پارس‌کننده‌ها به‌صورت دستی و
+   * با ترتیب درست در `setupBodyParsers` ثبت می‌شوند. جزئیات و دلیلش (باگِ
+   * خالی‌ماندن `req.body` در مسیرهایی مثل `POST /api/bookings/manual`) همان‌جا
+   * توضیح داده شده است.
+   */
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
   app.setGlobalPrefix('api');
 
   if (process.env.NODE_ENV !== 'production') {
@@ -47,8 +55,7 @@ async function bootstrap() {
     );
   }
 
-  // Only blog documents need a larger JSON body. Other routes keep Nest's default limit.
-  app.use('/api/admin/blog', json({ limit: '1100kb' }));
+  setupBodyParsers(app);
   app.use(compression());
   app.use(cookieParser());
   app.useGlobalPipes(
