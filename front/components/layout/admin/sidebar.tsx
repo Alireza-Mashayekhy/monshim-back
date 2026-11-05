@@ -3,6 +3,7 @@
 import {
   ArrowLeftRight,
   Banknote,
+  BookOpen,
   Check,
   Headphones,
   LogOut,
@@ -34,6 +35,7 @@ import { usePendingWithdrawalsCount } from '@/services/features/admin-withdrawal
 import { useLogout } from '@/services/features/auth/hooks';
 
 const items = [
+  { link: '/admin/blog', icon: BookOpen, name: 'بلاگ' },
   {
     link: '/admin/users',
     icon: User,

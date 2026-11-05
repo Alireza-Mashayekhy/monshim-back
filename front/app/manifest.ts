@@ -2,42 +2,37 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Monshim',
-    short_name: 'Monshim',
-    description: 'Monshim',
+    id: '/',
+    name: 'Monshiim',
+    short_name: 'منشیم',
+    description:
+      'پلتفرم رزرو آنلاین نوبت و دسترسی به خدمات زیبایی و مراقبتی منشیم',
+    lang: 'fa',
+    dir: 'rtl',
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#0d8cf4',
-    // قبلاً هر سه اندازه به یک فایل ۱ مگابایتی (logo.png با ابعاد 1254x1254)
-    // اشاره می‌کردند و مرورگر هنگام پردازش manifest آن را دانلود می‌کرد. حالا
-    // برای هر اندازه یک فایل واقعی و کوچک تولید شده است (با نسخهٔ webp برای
-    // مرورگرهایی که پشتیبانی می‌کنند).
+    orientation: 'any',
+    background_color: '#f6fcfd',
+    theme_color: '#0b7285',
     icons: [
       {
-        src: '/logo/icon-192.png',
+        src: '/pwa/icon-192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/logo/icon-512.png',
+        src: '/pwa/icon-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/logo/icon-192.webp',
-        sizes: '192x192',
-        type: 'image/webp',
-        purpose: 'any',
-      },
-      {
-        src: '/logo/icon-512.webp',
+        src: '/pwa/icon-maskable-512.png',
         sizes: '512x512',
-        type: 'image/webp',
-        purpose: 'any',
+        type: 'image/png',
+        purpose: 'maskable',
       },
     ],
   };
