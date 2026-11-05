@@ -12,6 +12,7 @@ const staticPaths = [
   '/online-provider-booking',
   '/pricing',
   '/tutorials',
+  '/blog',
   '/privacy',
   '/terms',
 ];
@@ -42,5 +43,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...(entry.updatedAt ? { lastModified: new Date(entry.updatedAt) } : {}),
     }));
 
-  return [...staticEntries, ...barberEntries];
+  const blogArticles =
+    await fetchPublicApi<{ slug: string; updatedAt: string }[]>(
+      '/blog/sitemap',
+    );
+  const blogEntries = (blogArticles ?? [])
+    .filter(a => typeof a.slug === 'string' && a.slug.length > 0)
+    .map(a => ({
+      url: `${siteConfig.url}/blog/${encodeURIComponent(a.slug)}`,
+      ...(a.updatedAt ? { lastModified: new Date(a.updatedAt) } : {}),
+    }));
+  return [...staticEntries, ...barberEntries, ...blogEntries];
 }

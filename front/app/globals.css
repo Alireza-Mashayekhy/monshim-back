@@ -35,6 +35,10 @@
 @layer base {
   /* برای کاربرانی که حرکت کمتر می‌خواهند، محتوا بلافاصله و کامل دیده شود. */
   @media (prefers-reduced-motion: reduce) {
+    [data-slot="dialog-overlay"],
+    [data-slot="dialog-content"] {
+      animation: none !important;
+    }
     .animate-fade-up {
       animation: none;
     }

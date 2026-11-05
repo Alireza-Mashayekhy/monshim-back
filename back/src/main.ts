@@ -5,6 +5,7 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import { json } from 'express';
 import { join } from 'path';
 
 import { AppModule } from './app.module';
@@ -46,6 +47,8 @@ async function bootstrap() {
     );
   }
 
+  // Only blog documents need a larger JSON body. Other routes keep Nest's default limit.
+  app.use('/api/admin/blog', json({ limit: '1100kb' }));
   app.use(compression());
   app.use(cookieParser());
   app.useGlobalPipes(
@@ -61,6 +64,13 @@ async function bootstrap() {
   // خطاهای غیر HTTP (multer، MySQL و ...) با کد وضعیت مناسب برگردانده شوند
   const { httpAdapter } = app.get(HttpAdapterHost);
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapter));
+
+  // Media is administrator-uploaded but must never be sniffed as executable HTML.
+  app.use('/uploads/blog', (_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    next();
+  });
 
   app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads',

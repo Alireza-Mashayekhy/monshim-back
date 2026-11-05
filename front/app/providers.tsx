@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 
+import PWAInstallManager from '@/components/pwa/pwa-install-manager';
 import { useViewportVars } from '@/hooks/use-viewport-vars';
 
 /**
@@ -14,9 +15,9 @@ import { useViewportVars } from '@/hooks/use-viewport-vars';
  *
  * جابه‌جایی: `QueryClientProvider`/`DirectionProvider` به لایوت‌های
  * `(user)`/`(auth)`/`(dashboard)`/`(admin)` منتقل شدند. در مارکتینگ
- * فقط PWAModal/Toaster/NextTopLoader (که هر سه از قبل lazy هستند) می‌ماند.
+ * مدیر سبک PWA و Toaster/NextTopLoader در اینجا قرار دارند.
  */
-let browserQueryClient: undefined | unknown = undefined;
+const browserQueryClient: undefined | unknown = undefined;
 
 function getQueryClient() {
   // صرفاً برای سازگاری با نوع؛ نگه‌داشتن ارجاع یکتا در کلاینت.
@@ -27,8 +28,8 @@ void getQueryClient;
 
 /**
  * این سه کامپوننت فقط برای تعامل‌های بعد از لود شدن صفحه لازم‌اند (نوار
- * پیشرفت navigation، نوتیفیکیشن toast، و پیشنهاد نصب PWA که خودش ۵ ثانیه تأخیر
- * دارد). با بارگذاری تنبل (و بدون SSR) حدود ۶۰ کیلوبایت JavaScriptِ مربوط به
+ * پیشرفت navigation و نوتیفیکیشن toast). رابط مودال PWA هم فقط هنگام نیاز
+ * بارگذاری می‌شود، اما شنود رویداد نصب باید زودتر شروع شود. با بارگذاری تنبل حدود ۶۰ کیلوبایت JavaScriptِ مربوط به
  * sonner / next-themes / Radix Dialog و چند request از مسیر criticalِ اولیهٔ
  * همهٔ صفحه‌ها حذف می‌شود.
  */
@@ -36,10 +37,6 @@ const NextTopLoader = dynamic(
   () => import('nextjs-toploader').then(mod => mod.default),
   { ssr: false },
 );
-
-const PWAModal = dynamic(() => import('@/components/shared/pwa-modal'), {
-  ssr: false,
-});
 
 const Toaster = dynamic(
   () => import('@/components/ui/sonner').then(mod => mod.Toaster),
@@ -52,7 +49,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <>
       <NextTopLoader color="#2299DD" showSpinner={false} />
-      <PWAModal />
+      <PWAInstallManager />
       <Toaster theme="light" richColors position="top-right" />
 
       {children}

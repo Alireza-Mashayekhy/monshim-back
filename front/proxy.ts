@@ -95,6 +95,6 @@ export const config = {
     // وجود ندارد» یک صفحهٔ HTML با کد ۳۰۷/۲۰۰ بگیرند — که همان چیزی است که
     // ممیزی «ai-catalog.json schema is valid» در PageSpeed را می‌شکند.
     // با خارج‌بودن از matcher، این درخواست‌ها طبیعی و بدون ریدایرکت ۴۰۴ می‌شوند.
-    '/((?!api(?:/|$)|\\.well-known/|_next/|monitoring(?:/|$)|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|mov|mp4|txt)$).*)',
+    '/((?!api(?:/|$)|\\.well-known/|_next/|monitoring(?:/|$)|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|sw\\.js|pwa/offline\\.html|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|mov|mp4|txt)$).*)',
   ],
 };

@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { BaleModule } from './bale/bale.module';
 import { BarberModule } from './barber/barber.module';
 import { BookingModule } from './booking/booking.module';
+import { BlogModule } from './blog/blog.module';
 import { ClubModule } from './club/club.module';
 import { createThrottlerOptions } from './common/config/throttler.config';
 import { TypeOrmConfigService } from './common/config/typeorm.config';
@@ -70,6 +71,7 @@ import { WalletModule } from './wallet/wallet.module';
     ServicesModule,
     LocationsModule,
     BookingModule,
+    BlogModule,
     WalletModule,
     ReferralModule,
     SettingsModule,

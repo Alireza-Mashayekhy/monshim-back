@@ -1,6 +1,6 @@
 import './globals.css';
 
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 import AnalyticsGate from '@/components/analytics/AnalyticsGate';
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
@@ -37,6 +37,16 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   applicationName: siteConfig.name,
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'منشیم' },
+  // Older iOS releases still require the Apple-specific standalone flag.
+  other: { 'apple-mobile-web-app-capable': 'yes' },
+  icons: { apple: '/pwa/apple-touch-icon.png' },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0b7285',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 const globalStructuredData = [

@@ -13,6 +13,12 @@ export interface NavLink {
  */
 export const NAV_LINKS: NavLink[] = [
   {
+    href: '/blog',
+    label: 'بلاگ',
+    title: 'بلاگ منشیم',
+    hint: 'مقاله‌ها و راهنماها',
+  },
+  {
     href: siteConfig.routes.onlineBooking,
     label: 'برای مشتریان',
     title: 'رزرو آنلاین آرایشگاه و نوبت دهی اینترنتی در منشیم',

@@ -160,6 +160,10 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/sw.js',
+        headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }],
+      },
+      {
         source: '/landing/:file*',
         headers: [{ key: 'Cache-Control', value: LONG_LIVED_STATIC_ASSETS }],
       },
