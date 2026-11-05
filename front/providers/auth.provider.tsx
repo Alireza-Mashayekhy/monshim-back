@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
@@ -76,11 +77,22 @@ export default function AuthProvider({
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expire);
   }, [queryClient]);
 
+  /**
+   * بررسی نشست باید «بی‌صدا» باشد؛ کاربر نباید وسط جابه‌جایی بین صفحات متن یا
+   * پیامِ «در حال بررسی نشست...» ببیند.
+   *
+   * - روی مسیرهای عمومی (از جمله `/login`) خودِ محتوای صفحه رندر می‌شود و
+   *   تصمیمِ «کاربر وارد است → برو به پنل» در پس‌زمینه گرفته می‌شود. این‌طور
+   *   صفحه هرگز خالی/سفید نیست.
+   * - روی مسیرهای خصوصی، تا وقتی مطمئن نشویم کاربر مجاز است، محتوا را نشان
+   *   نمی‌دهیم (تا محتوای محافظت‌شده برای مهمان لحظه‌ای دیده نشود)؛ فقط یک
+   *   اسپینرِ کوچک و بدون متن نمایش می‌دهیم.
+   */
   if (gate === 'error') {
     return (
       <div role="alert" className="p-8 text-center space-y-4">
         <p>
-          {getApiErrorMessage(error, 'بررسی نشست انجام نشد. دوباره تلاش کنید.')}
+          {getApiErrorMessage(error, 'ارتباط برقرار نشد. دوباره تلاش کنید.')}
         </p>
         <Button onClick={() => void refetch()} disabled={isFetching}>
           تلاش مجدد
@@ -93,9 +105,20 @@ export default function AuthProvider({
   }
 
   if (gate !== 'ready') {
+    if (isPublicPath) return children;
+
     return (
-      <div role="status" aria-live="polite" className="p-8 text-center">
-        در حال بررسی نشست...
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex min-h-[60vh] items-center justify-center"
+      >
+        <span className="sr-only">در حال بارگذاری</span>
+        <Loader2
+          aria-hidden="true"
+          size={28}
+          className="animate-spin text-primary"
+        />
       </div>
     );
   }
