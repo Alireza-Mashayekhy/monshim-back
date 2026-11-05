@@ -44,6 +44,7 @@
     "cookie-parser": "^1.4.7",
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "eslint-plugin-unused-imports": "^4.4.1",
+    "express": "^5.2.1",
     "jalaali-js": "^2.0.1",
     "multer": "^2.4.0",
     "mysql2": "^3.22.3",
