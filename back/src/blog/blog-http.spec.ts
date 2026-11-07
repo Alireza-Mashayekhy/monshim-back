@@ -32,6 +32,40 @@ describe('blog HTTP contract', () => {
   let rows: BlogArticle[] = [];
   const repo = {
     create: () => ({}),
+    createQueryBuilder: () => {
+      let status: string | undefined;
+      let search = '';
+      let skip = 0;
+      let take = 12;
+      const qb = {
+        select: () => qb,
+        where: (_sql: string, params: { status: string }) => {
+          status = params.status;
+          return qb;
+        },
+        andWhere: (_sql: string, params: { search: string }) => {
+          search = params.search.slice(1, -1);
+          return qb;
+        },
+        orderBy: () => qb,
+        skip: (n: number) => {
+          skip = n;
+          return qb;
+        },
+        take: (n: number) => {
+          take = n;
+          return qb;
+        },
+        getManyAndCount: async () => {
+          const matches = rows.filter(
+            row =>
+              (!status || row.status === status) && row.title.includes(search),
+          );
+          return [matches.slice(skip, skip + take), matches.length];
+        },
+      };
+      return qb;
+    },
     save: async (item: BlogArticle) => {
       if (!item.id) item.id = rows.length + 1;
       rows = [...rows.filter(row => row.id !== item.id), structuredClone(item)];
@@ -64,6 +98,7 @@ describe('blog HTTP contract', () => {
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
+        transformOptions: { enableImplicitConversion: true },
       }),
     );
     app.useGlobalInterceptors(new ResponseInterceptor());
@@ -113,12 +148,26 @@ describe('blog HTTP contract', () => {
       'faq',
       'paragraph',
     ]);
+    const adminList = await request(app.getHttpServer())
+      .get('/api/admin/blog?search=تست')
+      .set('x-test-role', 'admin')
+      .expect(200);
+    expect(adminList.body.pagination.total).toBe(1);
+    expect(adminList.body.data[0].slug).toBe('test-blog');
+    const publicDrafts = await request(app.getHttpServer())
+      .get('/api/blog')
+      .expect(200);
+    expect(publicDrafts.body.data).toEqual([]);
     await request(app.getHttpServer()).get('/api/blog/test-blog').expect(404);
     await request(app.getHttpServer())
       .put('/api/admin/blog/1')
       .set('x-test-role', 'admin')
       .send({ ...payload, status: 'published' })
       .expect(200);
+    const publicList = await request(app.getHttpServer())
+      .get('/api/blog')
+      .expect(200);
+    expect(publicList.body.data[0].slug).toBe('test-blog');
     const published = await request(app.getHttpServer())
       .get('/api/blog/test-blog')
       .expect(200);
