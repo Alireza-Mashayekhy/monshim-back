@@ -9,7 +9,14 @@
  * شناخته می‌شود اما سرور رد می‌کند (یا برعکس).
  *
  * اجرای دوباره فقط اگر آگاهانه الگوریتم را عوض کردید:
- *   node shared/generate-text-vectors.mjs
+ *   node --import ./shared/register-ts-resolver.mjs shared/generate-text-vectors.mjs
+ *
+ * چرا `--import` اجباری است (نه اختیاری)؟
+ * `national-code.util.ts` این خط را دارد:
+ *     import { toEnglishDigits } from './digits.util'    ← بدون پسوند
+ * Node به دنبال فایل دقیق `./digits.util` می‌گردد و پیدا نمی‌کند.
+ * بدون هوک، این مولد با `ERR_MODULE_NOT_FOUND` شکست می‌خورد.
+ * (این باگ واقعاً وجود داشت؛ با اجرای مولد پیدا و رفع شد.)
  */
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';

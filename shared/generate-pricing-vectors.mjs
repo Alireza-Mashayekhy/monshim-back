@@ -13,7 +13,13 @@
  * اگر هر کدام از مسیر منحرف شود، تست خودش شکست می‌خورد.
  *
  * اجرای دوباره (فقط اگر آگاهانه الگوریتم را عوض کردید):
- *   node shared/generate-pricing-vectors.mjs
+ *   node --import ./shared/register-ts-resolver.mjs shared/generate-pricing-vectors.mjs
+ *
+ * دربارهٔ `--import`: مولد، فایل TypeScript بک‌اند را مستقیم import می‌کند.
+ * اگر روزی داخل `deposit-amount.ts` یک import **بدون پسوند** اضافه شود
+ * (مثل `from './digits.util'`)، Node بدون این هوک `ERR_MODULE_NOT_FOUND`
+ * می‌دهد. الان چنین importی وجود ندارد، اما هوک جلوی شکنندگی آینده را می‌گیرد
+ * و هزینه‌اش صفر است.
  */
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
