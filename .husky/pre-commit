@@ -1,13 +1,14 @@
 #!/bin/sh
 # ---------------------------------------------------------------------------
-# گارد قبل از commit — سریع، آفلاین، بدون تغییر فایل.
+# pre-commit — سریع، آفلاین، بدون تغییر تصادفی فایل.
 #
-# فلسفه: فقط چیزهایی که در چند ثانیه بررسی می‌شوند و «قطعاً» خطا هستند.
-# تست کامل این‌جا اجرا نمی‌شود: کند می‌شود و آدم‌ها را به `--no-verify` عادت
-# می‌دهد. تست کامل کار CI است.
+# نصب خودکار:
+#   pnpm install        (اسکریپت "prepare" این کار را می‌کند)
+# یا دستی:
+#   git config core.hooksPath .husky
 #
-# نصب (یک‌بار برای هر clone):
-#   git config core.hooksPath .githooks
+# فلسفه: تست کامل این‌جا اجرا نمی‌شود؛ کند می‌شود و آدم‌ها را به
+# `--no-verify` عادت می‌دهد. تست کامل کار CI است.
 # ---------------------------------------------------------------------------
 set -u
 
@@ -26,7 +27,6 @@ staged=$(git diff --cached --name-only --diff-filter=ACMR)
 
 # ---------------------------------------------------------------------------
 # ۱. فایل .env هرگز commit نشود
-#    (.gitignore پوشش می‌دهد، ولی تایپوی .gitignore هم اتفاق می‌افتد)
 # ---------------------------------------------------------------------------
 env_hits=$(echo "$staged" | grep -E '(^|/)\.env($|\.(local|production|prod)$)' || true)
 if [ -n "$env_hits" ]; then
@@ -39,16 +39,11 @@ fi
 # ---------------------------------------------------------------------------
 code_files=$(echo "$staged" | grep -E '\.(ts|tsx|js|mjs|cjs|json|ya?ml|md|sql|sh)$' || true)
 if [ -n "$code_files" ]; then
-  # فقط خطوط «افزوده‌شده» را نگاه کن، نه زمینه.
-  # نکته: `{|}` در ERE یعنی تکرار — نه گروه. پس از کاراکترهای ساده استفاده می‌کنیم.
   added=$(git diff --cached -U0 -- $code_files | grep -E '^\+' | grep -vE '^\+\+\+' || true)
-
-  # نامزدهای مشکوک
   suspects=$(echo "$added" | grep -iE '.*(BOT_TOKEN|API_KEY|SECRET_KEY|PRIVATE_KEY|ACCESS_TOKEN).*["'"'"'][^"'"'"']{20,}["'"'"']' || true)
 
-  # استثناها — مقادیر آشکارا ساختگی/نمونه‌ای، نه کلید واقعی.
-  # بدون این استثناها hook روی fixtureهای تست false positive می‌دهد و
-  # آدم‌ها را به `--no-verify` عادت می‌دهد (که کل محافظ را بی‌اثر می‌کند).
+  # استثنا: مقادیر آشکارا ساختگی (fixtureهای تست). بدون این، hook روی
+  # نمونه‌های واقعیِ داخل تست false positive می‌دهد و بی‌اعتبار می‌شود.
   if [ -n "$suspects" ]; then
     real=$(echo "$suspects" | grep -viE 'SUPER_SECRET|FAKE|DUMMY|EXAMPLE|PLACEHOLDER|CHANGEME|YOUR_|XXX|TEST_|SAMPLE|<[A-Z_]+>|\$\{' || true)
   else
@@ -62,23 +57,32 @@ if [ -n "$code_files" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# ۳. بررسی نوع‌ها — فقط اگر node_modules موجود باشد (وگرنه CI انجام می‌دهد)
+# ۳. lint روی فایل‌های staged (سریع — فقط چیزی که تغییر کرده)
+#    اگر lint-staged نصب نباشد، بی‌صدا رد می‌شود (CI جایگزینش است)
 # ---------------------------------------------------------------------------
-if echo "$staged" | grep -qE '^back/.*\.ts$'; then
-  if [ -x back/node_modules/.bin/tsc ]; then
-    printf '… tsc (back)\n'
-    ( cd back && ./node_modules/.bin/tsc --noEmit ) || fail "خطای TypeScript در بک‌اند."
+if [ -x node_modules/.bin/lint-staged ]; then
+  printf '… lint-staged\n'
+  ./node_modules/.bin/lint-staged >/dev/null 2>&1 || fail "lint روی فایل‌های staged خطا داد. با 'pnpm lint:staged' جزئیات را ببینید."
+fi
+
+# ---------------------------------------------------------------------------
+# ۴. بررسی نوع‌ها — فقط اگر node_modules موجود باشد (وگرنه CI انجام می‌دهد)
+# ---------------------------------------------------------------------------
+if echo "$staged" | grep -qE '^apps/api/.*\.ts$'; then
+  if [ -x apps/api/node_modules/.bin/tsc ]; then
+    printf '… tsc (apps/api)\n'
+    ( cd apps/api && ./node_modules/.bin/tsc --noEmit ) || fail "خطای TypeScript در apps/api."
   else
-    printf '… node_modules بک‌اند نیست؛ tsc رد شد (CI انجام می‌دهد)\n'
+    printf '… node_modules نیست؛ tsc رد شد (CI انجام می‌دهد)\n'
   fi
 fi
 
-if echo "$staged" | grep -qE '^front/.*\.(ts|tsx)$'; then
-  if [ -x front/node_modules/.bin/tsc ]; then
-    printf '… tsc (front)\n'
-    ( cd front && ./node_modules/.bin/tsc --noEmit ) || fail "خطای TypeScript در فرانت."
+if echo "$staged" | grep -qE '^apps/web/.*\.(ts|tsx)$'; then
+  if [ -x apps/web/node_modules/.bin/tsc ]; then
+    printf '… tsc (apps/web)\n'
+    ( cd apps/web && ./node_modules/.bin/tsc --noEmit ) || fail "خطای TypeScript در apps/web."
   else
-    printf '… node_modules فرانت نیست؛ tsc رد شد (CI انجام می‌دهد)\n'
+    printf '… node_modules نیست؛ tsc رد شد (CI انجام می‌دهد)\n'
   fi
 fi
 

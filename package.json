@@ -8,9 +8,15 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "prepare": "git config core.hooksPath .husky || true",
+    "lint:staged": "lint-staged",
+    "format": "prettier --write \"**/*.{json,md,yml,yaml,css,ts,tsx}\" --ignore-path .gitignore"
   },
   "devDependencies": {
-    "turbo": "^2.11.10"
+    "turbo": "^2.11.10",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.7"
   }
 }
