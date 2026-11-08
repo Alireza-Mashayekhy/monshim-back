@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { describe, it } from 'node:test';
 
+import { readSharedJson } from '../tests/shared-vectors.mjs';
 import { stripNumericSeparators, toEnglishDigits } from './digits.ts';
 import {
   isValidIranianNationalCode,
@@ -30,11 +29,7 @@ type TextVectors = {
   };
 };
 
-const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
-
-const { vectors } = JSON.parse(
-  readFileSync(path.join(REPO_ROOT, 'shared', 'text-vectors.json'), 'utf8'),
-) as TextVectors;
+const { vectors } = readSharedJson('text-vectors.json') as TextVectors;
 
 describe('قفل همسانی منطق متن — همان بردارهای بک‌اند', () => {
   it('فایل بردارها کامل است', () => {

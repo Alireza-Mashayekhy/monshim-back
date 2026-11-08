@@ -42,8 +42,21 @@ if [ -n "$code_files" ]; then
   # فقط خطوط «افزوده‌شده» را نگاه کن، نه زمینه.
   # نکته: `{|}` در ERE یعنی تکرار — نه گروه. پس از کاراکترهای ساده استفاده می‌کنیم.
   added=$(git diff --cached -U0 -- $code_files | grep -E '^\+' | grep -vE '^\+\+\+' || true)
-  if echo "$added" | grep -qiE '.*(BOT_TOKEN|API_KEY|SECRET_KEY|PRIVATE_KEY|ACCESS_TOKEN).*["'"'"'][^"'"'"']{20,}["'"'"']'; then
-    # استثنا: .env.example عمداً placeholder دارد (مقدار کوتاه یا خالی)
+
+  # نامزدهای مشکوک
+  suspects=$(echo "$added" | grep -iE '.*(BOT_TOKEN|API_KEY|SECRET_KEY|PRIVATE_KEY|ACCESS_TOKEN).*["'"'"'][^"'"'"']{20,}["'"'"']' || true)
+
+  # استثناها — مقادیر آشکارا ساختگی/نمونه‌ای، نه کلید واقعی.
+  # بدون این استثناها hook روی fixtureهای تست false positive می‌دهد و
+  # آدم‌ها را به `--no-verify` عادت می‌دهد (که کل محافظ را بی‌اثر می‌کند).
+  if [ -n "$suspects" ]; then
+    real=$(echo "$suspects" | grep -viE 'SUPER_SECRET|FAKE|DUMMY|EXAMPLE|PLACEHOLDER|CHANGEME|YOUR_|XXX|TEST_|SAMPLE|<[A-Z_]+>|\$\{' || true)
+  else
+    real=""
+  fi
+
+  if [ -n "$real" ]; then
+    echo "$real" | head -3 >&2
     fail "به نظر می‌رسد یک کلید/توکن واقعی در تغییرات است. مقدارش را با placeholder عوض کنید."
   fi
 fi

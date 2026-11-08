@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { describe, it } from 'node:test';
 
+import { readSharedJson } from '../tests/shared-vectors.mjs';
 import {
   computeOrderPricing,
   computeProgressiveCommission,
@@ -25,12 +24,9 @@ type Vector = {
   expect: unknown;
 };
 
-/** `front/lib` → `front` → ریشهٔ مخزن؛ بردارها در `shared/` ریشه هستند. */
-const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
-
-const { vectors: allVectors } = JSON.parse(
-  readFileSync(path.join(REPO_ROOT, 'shared', 'pricing-vectors.json'), 'utf8'),
-) as { vectors: Vector[] };
+const { vectors: allVectors } = readSharedJson('pricing-vectors.json') as {
+  vectors: Vector[];
+};
 
 const byKind = (kind: Vector['kind']) => allVectors.filter(v => v.kind === kind);
 

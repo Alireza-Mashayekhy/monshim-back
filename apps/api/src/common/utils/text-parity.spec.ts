@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-
 import { normalizeNumericString, toEnglishDigits } from './digits.util';
 import {
   isValidIranianNationalCode,
   normalizeNationalCode,
   toPersianDigits,
 } from './national-code.util';
+import { readSharedJson } from './repo-root.util';
 
 /**
  * «قفل همسانی» منطق متن فارسی — سمت بک‌اند.
@@ -32,19 +30,7 @@ type TextVectors = {
  * `jest` با `rootDir: "src"` اجرا می‌شود، پس `__dirname` این‌جا
  * `back/src/common/utils` است. سه پله بالا = `back/`، یک پله دیگر = ریشهٔ مخزن.
  */
-const VECTORS_PATH = path.resolve(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  '..',
-  'shared',
-  'text-vectors.json',
-);
-
-const { vectors } = JSON.parse(
-  readFileSync(VECTORS_PATH, 'utf8'),
-) as TextVectors;
+const { vectors } = readSharedJson<TextVectors>('text-vectors.json');
 
 describe('قفل همسانی منطق متن — بردارهای مشترک با فرانت', () => {
   it('فایل بردارها کامل است', () => {

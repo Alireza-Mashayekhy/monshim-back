@@ -1,5 +1,4 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
+import { readSharedJson } from 'src/common/utils/repo-root.util';
 
 import {
   computeOrderPricing,
@@ -41,18 +40,9 @@ type Vector = {
  *  - `resolveJsonModule` در tsconfig بک‌اند روشن نیست
  * این هم ساده‌تر است و هم هیچ تنظیم Build را عوض نمی‌کند.
  */
-const VECTORS_PATH = path.resolve(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  'shared',
+const { vectors: allVectors } = readSharedJson<{ vectors: Vector[] }>(
   'pricing-vectors.json',
 );
-
-const { vectors: allVectors } = JSON.parse(
-  readFileSync(VECTORS_PATH, 'utf8'),
-) as { vectors: Vector[] };
 
 const byKind = (kind: Vector['kind']) =>
   allVectors.filter(vector => vector.kind === kind);

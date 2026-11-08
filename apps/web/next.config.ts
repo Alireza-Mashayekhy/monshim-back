@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
 
@@ -88,7 +90,12 @@ const nextConfig: NextConfig = {
       }
     : {}),
   turbopack: {
-    root: process.cwd(),
+    // ⚠️ در monorepo این باید ریشهٔ workspace باشد، نه پوشهٔ اپ.
+    // Turbopack برای امنیت از مرز `root` بیرون نمی‌رود؛ اگر `cwd` باشد
+    // (پیش‌فرض قبلی)، `next/package.json` در node_modules ریشه پیدا نمی‌شود
+    // و build با «couldn't find the Next.js package» شکست می‌خورد.
+    // دو پله بالا: apps/web → apps → ریشهٔ مخزن.
+    root: path.resolve(process.cwd(), '..', '..'),
   },
 
   // فشرده‌سازی gzip سمت سرور Next (Brotli باید در لبه/CDN فعال باشد)
