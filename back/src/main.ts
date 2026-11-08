@@ -5,13 +5,13 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
-import { join } from 'path';
 
 import { AppModule } from './app.module';
 import { setupBodyParsers } from './common/config/body-parsers.config';
 import { setupSwagger } from './common/config/swagger.config';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { getUploadRoot } from './common/utils/upload-path.util';
 
 async function bootstrap() {
   /**
@@ -94,7 +94,7 @@ async function bootstrap() {
     next();
   });
 
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+  app.useStaticAssets(getUploadRoot(), {
     prefix: '/uploads',
   });
 

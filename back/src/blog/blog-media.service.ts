@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
+import { getUploadDir } from 'src/common/utils/upload-path.util';
 
 function configuredMb(name: string, fallback: number, max: number) {
   const value = Number(process.env[name]);
@@ -83,7 +84,7 @@ export class BlogMediaService {
       output = b;
       suffix = ext;
     }
-    const dir = path.join(process.cwd(), 'uploads', 'blog');
+    const dir = getUploadDir('blog');
     await fs.mkdir(dir, { recursive: true });
     const name = `${randomUUID()}${suffix}`;
     await fs.writeFile(path.join(dir, name), output, { flag: 'wx' });

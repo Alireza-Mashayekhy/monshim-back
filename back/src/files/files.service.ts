@@ -14,11 +14,12 @@ import {
   IMAGE_WEBP_QUALITY,
   OUTPUT_IMAGE_EXTENSION,
 } from 'src/common/constants/constants';
+import { getUploadRoot } from 'src/common/utils/upload-path.util';
 
 @Injectable()
 export class FilesService {
   private readonly logger = new Logger(FilesService.name);
-  private readonly uploadDir = path.join(process.cwd(), 'uploads');
+  private readonly uploadDir = getUploadRoot();
 
   constructor() {
     if (!fs.existsSync(this.uploadDir)) {
