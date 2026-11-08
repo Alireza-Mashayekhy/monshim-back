@@ -7,6 +7,27 @@
 
 ---
 
+## ساختار پروژه (monorepo)
+
+از بازآرایی، پروژه یک pnpm workspace است:
+
+```
+pnpm-workspace.yaml     ریشهٔ workspace
+apps/api                بک‌اند NestJS  (@monshim/api)
+apps/web                فرانت Next.js  (@monshim/web)
+packages/contracts      بردارهای مرجع مشترک
+infra/                  Dockerfile + docker-compose
+```
+
+نتیجه برای deploy:
+
+- `pnpm install` **از ریشهٔ مخزن** اجرا می‌شود (نه از داخل `apps/api`).
+- build هر اپ با `pnpm --filter <name> build`.
+- خروجی بک‌اند همان `apps/api/dist/src/main.js` است.
+- `docker compose` از `infra/` با context ریشه اجرا می‌شود.
+
+---
+
 ## ۰. هشدار پیش از هر deploy
 
 ### 🔴 سرویس در بوت DDL می‌زند — این را قبل از deploy بدانید
@@ -32,7 +53,7 @@
 **پس قبل از هر deploy این را اجرا کنید:**
 
 ```bash
-mysql -u root -p <db> < back/sql/PRE-DEPLOY-CHECK.sql
+mysql -u root -p <db> < apps/api/sql/PRE-DEPLOY-CHECK.sql
 ```
 
 اگر هر ردیف `MISSING` بود، **اول** فایل `sql/` مربوطه را اجرا کنید،
@@ -69,7 +90,7 @@ mysql -u root -p -e "DROP DATABASE monshim_restore_test"
 
 ```bash
 # ۰. بررسی پیش‌نیاز دیتابیس (بخش ۰)
-mysql -u root -p <db> < back/sql/PRE-DEPLOY-CHECK.sql
+mysql -u root -p <db> < apps/api/sql/PRE-DEPLOY-CHECK.sql
 
 # ۱. بکاپ + تست restore (بخش ۱)
 
@@ -78,11 +99,13 @@ cd /var/www/monshim-releases
 git fetch origin && git checkout <tag-or-sha>
 
 # ۳. نصب و build — بدون دست زدن به سرویس در حال اجرا
-cd back  && pnpm install --frozen-lockfile && pnpm build
-cd ../front && pnpm install --frozen-lockfile && npm run build
+#    (workspace: نصب از ریشه انجام می‌شود، نه از apps/api)
+pnpm install --frozen-lockfile
+pnpm --filter @monshim/api build
+pnpm --filter @monshim/web build
 
 # ۴. بررسی سلامت build قبل از restart
-test -f back/dist/src/main.js && echo "backend build OK"
+test -f apps/api/dist/src/main.js && echo "backend build OK"
 
 # ۵. restart با مهلت کافی (enableShutdownHooks فعال است)
 pm2 restart monshim-backend
@@ -103,8 +126,11 @@ curl -sfI http://127.0.0.1:3002/              && echo "frontend alive"
 پاسخ JSON می‌گوید کدام وابستگی خراب است:
 
 ```json
-{ "status": "degraded", "checks": { "database": "down", "redis": "ok" },
-  "details": { "database": "connect ECONNREFUSED 127.0.0.1:3306" } }
+{
+  "status": "degraded",
+  "checks": { "database": "down", "redis": "ok" },
+  "details": { "database": "connect ECONNREFUSED 127.0.0.1:3306" }
+}
 ```
 
 ---
@@ -115,7 +141,8 @@ curl -sfI http://127.0.0.1:3002/              && echo "frontend alive"
 # سریع‌ترین: برگشت به release قبلی و restart
 cd /var/www/monshim-releases
 git checkout <previous-sha>
-cd back && pnpm install --frozen-lockfile && pnpm build
+pnpm install --frozen-lockfile
+pnpm --filter @monshim/api build
 cd ../front && npm run build
 pm2 restart monshim-backend && pm2 restart monshim-frontend
 ```
@@ -132,13 +159,13 @@ rollback کد می‌شکند. به همین دلیل:
 
 ## ۴. آنچه در این مخزن **نیست** و باید روی سرور بررسی شود
 
-| مورد | چرا مهم است |
-|---|---|
-| `nginx.conf` | پروکسی `/api` و `/uploads` و TLS |
+| مورد                        | چرا مهم است                                               |
+| --------------------------- | --------------------------------------------------------- |
+| `nginx.conf`                | پروکسی `/api` و `/uploads` و TLS                          |
 | `ecosystem.config.js` (PM2) | `cwd` — اگر اشتباه باشد، `.env` و `uploads` پیدا نمی‌شوند |
-| `.env` واقعی | مقادیر production |
-| وضعیت SSL | انقضا و تمدید خودکار |
-| `crontab` | زمان‌بندی بکاپ |
+| `.env` واقعی                | مقادیر production                                         |
+| وضعیت SSL                   | انقضا و تمدید خودکار                                      |
+| `crontab`                   | زمان‌بندی بکاپ                                            |
 
 ### بررسی امن `cwd` در PM2 (چون روی `.env` و `uploads` اثر دارد)
 
@@ -159,7 +186,7 @@ for p in json.load(sys.stdin):
 `@nestjs/config` این است (تأییدشده در `node_modules/@nestjs/config/dist/config.module.js:76`):
 
 ```js
-resolve(process.cwd(), '.env')
+resolve(process.cwd(), '.env');
 ```
 
 یعنی اگر `cwd` اشتباه باشد، `.env` **بی‌صدا** لود نمی‌شود — هیچ خطایی چاپ نمی‌شود.
@@ -195,7 +222,9 @@ pm2 env 0 | grep NODE_ENV
 اکوسیستم PM2 تنظیم کنید:
 
 ```js
-env: { NODE_ENV: 'production' }
+env: {
+  NODE_ENV: 'production';
+}
 ```
 
 > **چرا این کار امن است؟** قرار دادن `NODE_ENV: production` در اکوسیستم PM2

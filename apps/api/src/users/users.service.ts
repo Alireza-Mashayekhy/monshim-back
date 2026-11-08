@@ -13,13 +13,13 @@ import {
   BarberProfile,
   getBarberChangedFieldLabels,
 } from 'src/barber/entities/barber.entity';
-import { Role } from 'src/common/enum/role.enum';
 import {
   applySearch,
   applySort,
   getPagination,
   QueryDto,
 } from 'src/common/database/query';
+import { Role } from 'src/common/enum/role.enum';
 import { hasRole } from 'src/common/utils/roles.util';
 import { EntityManager, Repository } from 'typeorm';
 

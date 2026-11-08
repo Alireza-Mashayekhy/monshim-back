@@ -7,11 +7,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { QueryDto } from 'src/common/database/query';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { QueryDto } from 'src/common/database/query';
 
 import { BarberReviewService } from './barber-review.service';
 import { ModerateBarberReviewDto } from './dto/moderate-barber-review.dto';

@@ -14,8 +14,8 @@ import {
   isAllowedSlotIntervalMinutes,
   normalizeSlotIntervalMinutes,
 } from 'src/booking/slot-intervals';
-import { Role } from 'src/common/enum/role.enum';
 import { getPagination, QueryDto } from 'src/common/database/query';
+import { Role } from 'src/common/enum/role.enum';
 import { FrontendRevalidationService } from 'src/common/services/frontend-revalidation.service';
 import {
   isValidIranianNationalCode,

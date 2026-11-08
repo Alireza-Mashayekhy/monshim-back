@@ -11,11 +11,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { QueryDto } from 'src/common/database/query';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enum/role.enum';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { QueryDto } from 'src/common/database/query';
 
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';

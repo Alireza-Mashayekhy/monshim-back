@@ -8,8 +8,8 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from 'src/common/guards/auth.guard';
 import { QueryDto } from 'src/common/database/query';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 import { BarberReviewService } from './barber-review.service';
 import { CreateBarberReviewDto } from './dto/create-barber-review.dto';
