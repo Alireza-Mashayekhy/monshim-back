@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaleNotificationService } from 'src/bale/bale-notification.service';
-import { getPagination } from 'src/common/query';
+import { getPagination } from 'src/common/database/query';
 import { ZohalService } from 'src/common/services/zohal.service';
 import {
   getNationalCodeError,

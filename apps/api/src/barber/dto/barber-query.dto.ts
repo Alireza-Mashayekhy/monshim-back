@@ -1,5 +1,5 @@
 import { IsNumber, IsOptional, Min } from 'class-validator';
-import { QueryDto } from 'src/common/query';
+import { QueryDto } from 'src/common/database/query';
 import { NormalizeNumber } from 'src/common/utils/digits.util';
 
 export class BarberQueryDto extends QueryDto {

@@ -17,7 +17,7 @@ import { BlogModule } from './blog/blog.module';
 import { BookingModule } from './booking/booking.module';
 import { ClubModule } from './club/club.module';
 import { createThrottlerOptions } from './common/config/throttler.config';
-import { TypeOrmConfigService } from './common/config/typeorm.config';
+import { TypeOrmConfigService } from './common/database/typeorm.config';
 import { FilesModule } from './files/files.module';
 import { HealthModule } from './health/health.module';
 import { LocationsModule } from './locations/locations.module';

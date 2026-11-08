@@ -17,7 +17,7 @@ import {
   MAX_BARBER_PORTFOLIO_IMAGES,
 } from 'src/common/constants/constants';
 import { AuthGuard } from 'src/common/guards/auth.guard';
-import { ParseJsonPipe } from 'src/common/pipes/parse-json.pipe';
+import { ParseJsonPipe } from 'src/common/validation/parse-json.pipe';
 import {
   extractAccessToken,
   extractRefreshToken,

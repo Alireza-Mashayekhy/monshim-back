@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { BarberProfile } from 'src/barber/entities/barber.entity';
 import { Role } from 'src/common/enum/role.enum';
-import { getPagination } from 'src/common/query';
+import { getPagination } from 'src/common/database/query';
 import { toEnglishDigits } from 'src/common/utils/digits.util';
 import {
   isValidIranMobile,

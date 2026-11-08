@@ -1,7 +1,7 @@
 // src/payment/admin-withdrawals.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { getPagination } from 'src/common/query';
+import { getPagination } from 'src/common/database/query';
 import {
   normalizeNumericString,
   toEnglishDigits,

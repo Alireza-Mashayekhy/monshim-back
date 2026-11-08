@@ -15,7 +15,7 @@ import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { ClubService } from 'src/club/club.service';
 import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import { DEPOSIT_TOKEN_BYTES } from 'src/common/constants/constants';
-import { getPagination } from 'src/common/query';
+import { getPagination } from 'src/common/database/query';
 import { toEnglishDigits } from 'src/common/utils/digits.util';
 import { BookingSmsService } from 'src/notification/booking-sms.service';
 import { extractBaseDepositToken } from 'src/payment/deposit-amount';

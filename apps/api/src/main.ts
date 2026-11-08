@@ -9,7 +9,7 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { setupBodyParsers } from './common/config/body-parsers.config';
 import { setupSwagger } from './common/config/swagger.config';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { AllExceptionsFilter } from './common/exceptions/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { getUploadRoot } from './common/utils/upload-path.util';
 

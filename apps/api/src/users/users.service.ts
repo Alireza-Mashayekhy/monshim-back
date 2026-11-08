@@ -19,7 +19,7 @@ import {
   applySort,
   getPagination,
   QueryDto,
-} from 'src/common/query';
+} from 'src/common/database/query';
 import { hasRole } from 'src/common/utils/roles.util';
 import { EntityManager, Repository } from 'typeorm';
 

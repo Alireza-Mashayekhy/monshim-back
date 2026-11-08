@@ -2,7 +2,7 @@
 import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 
-import { seedLocations } from './src/common/seeds/seed-locations';
+import { seedLocations } from './src/common/database/seed-locations';
 import { City } from './src/locations/entities/city.entity';
 import { Province } from './src/locations/entities/province.entity';
 

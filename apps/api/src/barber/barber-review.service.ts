@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
-import { getPagination, QueryDto } from 'src/common/query';
+import { getPagination, QueryDto } from 'src/common/database/query';
 import { toEnglishDigits } from 'src/common/utils/digits.util';
 import { In, Repository } from 'typeorm';
 
