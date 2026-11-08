@@ -1,56 +1,52 @@
-# =============================================================================
-# .dockerignore — build context اکنون **ریشهٔ مخزن** است (نه apps/api)
-# =============================================================================
-# این فایل کنار docker-compose است ولی Docker آن را از **ریشهٔ context**
-# می‌خواند. برای اینکه واقعاً اعمال شود، یک نسخه در ریشهٔ مخزن لازم است
-# (`.dockerignore` در ریشه). این فایل مرجع/مستندسازی است.
-#
-# نکته مهم: هرچه در context نباشد، در ایمیج هم نیست. چون فقط `apps/api`
-# کپی می‌شود، بقیهٔ مخزن می‌تواند در context باشد بدون اینکه وارد ایمیج شود —
-# ولی برای سرعت build همان‌ها را هم حذف می‌کنیم.
-# =============================================================================
+# Dependencies
+node_modules
+npm-debug.log
+pnpm-debug.log
+yarn-debug.log
+yarn-error.log
+uploads
 
-# وابستگی‌ها (بزرگ‌ترین بخش context)
-**/node_modules
+# Build output
+dist
+build
+*.tsbuildinfo
 
-# خروجی بیلد
-**/dist
-**/.next
-**/.turbo
-**/*.tsbuildinfo
+# Environment files
+.env
+.env.local
+.env.*.local
 
-# فایل‌های محیطی
-**/.env
-**/.env.local
-**/.env.*.local
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
 
-# آپلودها — هرگز نباید در ایمیج باشند (روی volume می‌نشینند)
-**/uploads
+# OS
+.DS_Store
+Thumbs.db
 
-# تست و پوشش
-**/coverage
-**/.nyc_output
-**/playwright-report
-**/test-results
-
-# گیت
+# Git
 .git
 .gitignore
 
-# مستندات و اسکریپت‌های محلی
-docs
-**/*.md
-.github
-.githooks
+# Testing
+coverage
+.nyc_output
 
-# اپ فرانت اصلاً در این ایمیج لازم نیست
-apps/web
+# Logs
+logs
+*.log
 
-# خود Docker
-infra/Dockerfile*
-infra/docker-compose*.yml
-**/.dockerignore
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+Dockerfile*
+docker-compose*.yml
 
-# لاگ و سیستم‌عامل
-**/*.log
-**/.DS_Store
+# Misc
+README.md
+*.md
+
