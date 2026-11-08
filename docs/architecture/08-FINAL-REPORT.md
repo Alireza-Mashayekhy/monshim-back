@@ -367,7 +367,7 @@ pnpm start:dev                # → http://localhost:3000/api
 
 # فرانت (ترمینال دوم)
 cd front
-npm install
+pnpm install
 npm run dev                   # → http://localhost:3000
 
 # تست‌ها
@@ -391,7 +391,7 @@ NODE_ENV=production node dist/src/main.js
 
 # فرانت
 cd front
-npm ci
+pnpm install --frozen-lockfile
 npm run build                 # → .next  (۵۱ مسیر)
 NODE_ENV=production npm start
 ```
@@ -433,7 +433,7 @@ pm2 env 0 | grep NODE_ENV      # باید production باشد
 cd <مسیر پروژه>
 git fetch && git checkout <sha>
 cd back  && pnpm install --frozen-lockfile && pnpm build && cd ..
-cd front && npm ci && npm run build && cd ..
+cd front && pnpm install --frozen-lockfile && npm run build && cd ..
 pm2 restart monshim-backend && pm2 restart monshim-frontend
 
 # تأیید
@@ -454,7 +454,7 @@ docker compose -f docker-compose.prod.yml ps        # باید healthy باشد
 ```bash
 git checkout <sha قبلی>
 cd back && pnpm install --frozen-lockfile && pnpm build
-cd ../front && npm ci && npm run build
+cd ../front && pnpm install --frozen-lockfile && npm run build
 pm2 restart monshim-backend && pm2 restart monshim-frontend
 ```
 

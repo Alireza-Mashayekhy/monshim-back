@@ -1,0 +1,72 @@
+#!/bin/sh
+# ---------------------------------------------------------------------------
+# گارد قبل از commit — سریع، آفلاین، بدون تغییر فایل.
+#
+# فلسفه: فقط چیزهایی که در چند ثانیه بررسی می‌شوند و «قطعاً» خطا هستند.
+# تست کامل این‌جا اجرا نمی‌شود: کند می‌شود و آدم‌ها را به `--no-verify` عادت
+# می‌دهد. تست کامل کار CI است.
+#
+# نصب (یک‌بار برای هر clone):
+#   git config core.hooksPath .githooks
+# ---------------------------------------------------------------------------
+set -u
+
+fail() {
+  echo "" >&2
+  echo "✖ commit متوقف شد: $1" >&2
+  echo "  (رد کردن: git commit --no-verify — ولی اول خطا را بفهمید)" >&2
+  echo "" >&2
+  exit 1
+}
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+# ---------------------------------------------------------------------------
+# ۱. فایل .env هرگز commit نشود
+#    (.gitignore پوشش می‌دهد، ولی تایپوی .gitignore هم اتفاق می‌افتد)
+# ---------------------------------------------------------------------------
+env_hits=$(echo "$staged" | grep -E '(^|/)\.env($|\.(local|production|prod)$)' || true)
+if [ -n "$env_hits" ]; then
+  echo "$env_hits" >&2
+  fail "فایل .env نباید در گیت باشد. مقادیر را در .env.example (بدون مقدار واقعی) مستند کنید."
+fi
+
+# ---------------------------------------------------------------------------
+# ۲. کلید/توکن واقعی در محتوای فایل‌های staged
+# ---------------------------------------------------------------------------
+code_files=$(echo "$staged" | grep -E '\.(ts|tsx|js|mjs|cjs|json|ya?ml|md|sql|sh)$' || true)
+if [ -n "$code_files" ]; then
+  # فقط خطوط «افزوده‌شده» را نگاه کن، نه زمینه.
+  # نکته: `{|}` در ERE یعنی تکرار — نه گروه. پس از کاراکترهای ساده استفاده می‌کنیم.
+  added=$(git diff --cached -U0 -- $code_files | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+  if echo "$added" | grep -qiE '.*(BOT_TOKEN|API_KEY|SECRET_KEY|PRIVATE_KEY|ACCESS_TOKEN).*["'"'"'][^"'"'"']{20,}["'"'"']'; then
+    # استثنا: .env.example عمداً placeholder دارد (مقدار کوتاه یا خالی)
+    fail "به نظر می‌رسد یک کلید/توکن واقعی در تغییرات است. مقدارش را با placeholder عوض کنید."
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# ۳. بررسی نوع‌ها — فقط اگر node_modules موجود باشد (وگرنه CI انجام می‌دهد)
+# ---------------------------------------------------------------------------
+if echo "$staged" | grep -qE '^back/.*\.ts$'; then
+  if [ -x back/node_modules/.bin/tsc ]; then
+    printf '… tsc (back)\n'
+    ( cd back && ./node_modules/.bin/tsc --noEmit ) || fail "خطای TypeScript در بک‌اند."
+  else
+    printf '… node_modules بک‌اند نیست؛ tsc رد شد (CI انجام می‌دهد)\n'
+  fi
+fi
+
+if echo "$staged" | grep -qE '^front/.*\.(ts|tsx)$'; then
+  if [ -x front/node_modules/.bin/tsc ]; then
+    printf '… tsc (front)\n'
+    ( cd front && ./node_modules/.bin/tsc --noEmit ) || fail "خطای TypeScript در فرانت."
+  else
+    printf '… node_modules فرانت نیست؛ tsc رد شد (CI انجام می‌دهد)\n'
+  fi
+fi
+
+exit 0
