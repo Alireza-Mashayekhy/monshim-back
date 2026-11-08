@@ -2,20 +2,21 @@
   "name": "monshim",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "dev": "concurrently \"pnpm dev:back\" \"pnpm dev:front\"",
-    "dev:back": "cd back && docker compose -f docker-compose.dev.yml up -d && pnpm start:dev",
-    "dev:front": "cd front && pnpm dev",
-    "docker:up": "cd back && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d",
-    "docker:down": "cd back && docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
-    "docker:prod:build": "cd back && docker compose -f docker-compose.yml -f docker-compose.prod.yml build",
-    "docker:prod:up": "cd back && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d",
-    "docker:prod:down": "cd back && docker compose -f docker-compose.yml -f docker-compose.prod.yml down"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "prepare": "git config core.hooksPath .husky || true",
+    "lint:staged": "lint-staged",
+    "format": "prettier --write \"**/*.{json,md,yml,yaml,css,ts,tsx}\" --ignore-path .gitignore"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
-  },
-  "dependencies": {
+    "turbo": "^2.11.10",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.7"
   }
 }

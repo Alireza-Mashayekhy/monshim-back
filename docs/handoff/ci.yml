@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+# اگر همان شاخه دوباره push شود، اجرای قبلی لغو می‌شود.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # workspace: نصب یک‌بار، سپس همهٔ بررسی‌ها روی هر دو اپ
+  # ---------------------------------------------------------------------------
+  verify:
+    name: Verify (workspace)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # ⚠️ باید با "packageManager" در package.json ریشه یکی باشد (pnpm@9.15.9).
+      # لاک‌فایل workspace نسخهٔ v9 است و pnpm 8 نمی‌تواند بخواندش.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: نصب وابستگی‌ها
+        run: pnpm install --frozen-lockfile
+
+      # `--if-present` چون ممکن است اپی اسکریپت‌ها را نداشته باشد.
+      # turbo خودش فقط روی اپ‌هایی اجرا می‌کند که اسکریپت دارند.
+      - name: بررسی نوع‌ها
+        run: pnpm run typecheck
+
+      # ⚠️ `lint` و نه `lint:fix` — lint هرگز نباید فایل تغییر دهد.
+      - name: ESLint
+        run: pnpm run lint
+
+      - name: تست‌ها (بک‌اند + فرانت)
+        run: pnpm run test
+
+  # ---------------------------------------------------------------------------
+  # build: تأیید می‌کند خروجی‌ها همان چیزی هستند که start:prod انتظار دارد
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build (workspace)
+    runs-on: ubuntu-latest
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: نصب وابستگی‌ها
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+        env:
+          # مقادیر ساختگی: Build نباید به سرویس‌های واقعی نیاز داشته باشد.
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      # تأیید می‌کند artefactهای واقعی همان‌جایی هستند که deploy انتظار دارد.
+      - name: تأیید خروجی بک‌اند (start:prod = node dist/src/main)
+        run: test -f apps/api/dist/src/main.js
+
+      - name: تأیید خروجی فرانت
+        run: test -f apps/web/.next/BUILD_ID
+
+  # ---------------------------------------------------------------------------
+  # audit: فقط هشدار — عمداً job را fail نمی‌کند
+  # ---------------------------------------------------------------------------
+  audit:
+    name: Dependency audit (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: نصب وابستگی‌ها
+        run: pnpm install --frozen-lockfile
+
+      # `|| true` چون آسیب‌پذیری شناخته‌شده (xlsx) وجود دارد و نمی‌خواهیم
+      # هر push قرمز شود. هدف، دیدن گزارش است نه شکستن بیلد.
+      - name: pnpm audit
+        run: pnpm audit --audit-level high || true

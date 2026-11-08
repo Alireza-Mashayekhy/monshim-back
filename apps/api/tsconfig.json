@@ -1,0 +1,12 @@
+{
+  "extends": "@monshim/tsconfig/nest.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true
+  },
+  "include": [
+    "src/**/*",
+    "seed.ts"
+  ]
+}
