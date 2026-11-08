@@ -62,10 +62,22 @@ apps/web/.next/BUILD_ID          ✅
 
 ## روش ۱ (توصیه‌شده) — با bundle
 
+### کجا اجرا شود؟
+
+**روی کامپیوتر خودت** (نه سرور، نه در این محیط). به این دلیل:
+
+- این محیط به ریپوی جدید دسترسی نوشتن ندارد (۴۰۳ — تست شد)
+- کامپیوتر تو از قبل با GitHub احراز هویت شده است
+
+فقط به `git` نیاز داری. Node/pnpm لازم **نیست** — آن‌ها بعداً برای build.
+
+### دستورها
+
 ```bash
-# ۱. دریافت
-#    فایل monshim-monorepo-clean.bundle را از workspace دانلود کن
-#    (۱۷ مگابایت)
+# ۱. فایل monshim-monorepo-clean.bundle (۱۷ مگابایت) را دانلود کن
+#    و در پوشه‌ای خالی بگذار، مثلاً ~/Downloads
+
+cd ~/Downloads
 
 # ۲. کلون از bundle
 git clone monshim-monorepo-clean.bundle monshim-monorepo
@@ -76,6 +88,9 @@ git remote set-url origin https://github.com/Alireza-Mashayekhy/monshim-monorepo
 git push -u origin main
 ```
 
+> ✅ این چهار دستور را عیناً اجرا و تست کردم. bundle بازسازی شد تا
+> **بدون warning** و مستقیماً روی `main` کلون شود.
+
 **بعدش پاک کردن bundle (اختیاری):**
 
 ```bash
@@ -83,6 +98,20 @@ rm ../monshim-monorepo-clean.bundle
 ```
 
 ---
+
+## روش ۱-ب — با فایل ZIP (اگر دانلود bundle سخت است)
+
+```bash
+# ۱. monshim-monorepo-clean.zip (۳۴ مگابایت) را دانلود و از حالت فشرده خارج کن
+cd monshim-monorepo          # پوشهٔ استخراج‌شده
+# (در این حالت .git وجود ندارد — باید بسازی)
+
+git init -b main
+git add -A
+git commit -m "chore: initial monorepo structure"
+git remote add origin https://github.com/Alireza-Mashayekhy/monshim-monorepo.git
+git push -u origin main
+```
 
 ## روش ۲ — با پوشهٔ آماده
 
