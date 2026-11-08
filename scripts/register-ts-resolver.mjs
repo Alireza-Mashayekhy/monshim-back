@@ -3,7 +3,7 @@
  *
  * چرا لازم است؟
  * `shared/generate-text-vectors.mjs` فایل‌های TypeScript بک‌اند را مستقیم
- * `import` می‌کند (`back/src/common/utils/digits.util.ts`). Node این فایل‌ها
+ * `import` می‌کند (`apps/api/src/common/utils/digits.util.ts`). Node این فایل‌ها
  * را می‌فهمد، اما importهای **بدون پسوند** داخل خودشان را نه:
  *
  *   national-code.util.ts  →  import { toEnglishDigits } from './digits.util'

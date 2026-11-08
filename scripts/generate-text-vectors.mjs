@@ -9,7 +9,7 @@
  * شناخته می‌شود اما سرور رد می‌کند (یا برعکس).
  *
  * اجرای دوباره فقط اگر آگاهانه الگوریتم را عوض کردید:
- *   node --import ./shared/register-ts-resolver.mjs shared/generate-text-vectors.mjs
+ *   node --import ./scripts/register-ts-resolver.mjs scripts/generate-text-vectors.mjs
  *
  * چرا `--import` اجباری است (نه اختیاری)؟
  * `national-code.util.ts` این خط را دارد:
@@ -22,8 +22,8 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const digits = await import(path.join(ROOT, 'back/src/common/utils/digits.util.ts'));
-const nc = await import(path.join(ROOT, 'back/src/common/utils/national-code.util.ts'));
+const digits = await import(path.join(ROOT, 'apps/api/src/common/utils/digits.util.ts'));
+const nc = await import(path.join(ROOT, 'apps/api/src/common/utils/national-code.util.ts'));
 
 const digitInputs = [
   '', '0', '1', '9', '0123456789',
@@ -60,6 +60,6 @@ const vectors = {
   persian: digitInputs.map(input => ({ input, expect: nc.toPersianDigits(input) })),
 };
 
-const out = path.join(ROOT, 'shared/text-vectors.json');
-writeFileSync(out, JSON.stringify({ generatedBy: 'shared/generate-text-vectors.mjs', vectors }, null, 2) + '\n');
+const out = path.join(ROOT, 'packages/contracts/vectors/text-vectors.json');
+writeFileSync(out, JSON.stringify({ generatedBy: 'scripts/generate-text-vectors.mjs', vectors }, null, 2) + '\n');
 console.log(`✓ ${vectors.digits.length} digit + ${vectors.nationalCode.length} national-code + ${vectors.persian.length} persian بردار نوشته شد`);

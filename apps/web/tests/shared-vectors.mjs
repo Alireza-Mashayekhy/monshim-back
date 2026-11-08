@@ -37,12 +37,12 @@ export function findRepoRoot(startDir = import.meta.dirname) {
 
 /** خواندن و پارس کردن یک فایل JSON از `shared/` با پیام خطای گویا. */
 export function readSharedJson(filename, startDir) {
-  const filePath = path.join(findRepoRoot(startDir), 'shared', filename);
+  const filePath = path.join(findRepoRoot(startDir), 'packages/contracts/vectors', filename);
 
   if (!existsSync(filePath)) {
     throw new Error(
       `فایل بردارها پیدا نشد: ${filePath}\n` +
-        'shared/ باید در ریشهٔ مخزن باشد (کنار pnpm-workspace.yaml).',
+        'packages/contracts/vectors باید در ریشهٔ مخزن باشد (کنار pnpm-workspace.yaml).',
     );
   }
 

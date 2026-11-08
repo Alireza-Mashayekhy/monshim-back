@@ -13,7 +13,7 @@
  * اگر هر کدام از مسیر منحرف شود، تست خودش شکست می‌خورد.
  *
  * اجرای دوباره (فقط اگر آگاهانه الگوریتم را عوض کردید):
- *   node --import ./shared/register-ts-resolver.mjs shared/generate-pricing-vectors.mjs
+ *   node --import ./scripts/register-ts-resolver.mjs scripts/generate-pricing-vectors.mjs
  *
  * دربارهٔ `--import`: مولد، فایل TypeScript بک‌اند را مستقیم import می‌کند.
  * اگر روزی داخل `deposit-amount.ts` یک import **بدون پسوند** اضافه شود
@@ -26,7 +26,7 @@ import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const { computeProgressiveCommission, computeServicePricing, computeOrderPricing, normalizeCommissionTiers } =
-  await import(path.join(ROOT, 'back/src/payment/deposit-amount.ts'));
+  await import(path.join(ROOT, 'apps/api/src/payment/deposit-amount.ts'));
 
 const money = [0, 1, 100, 999, 1_000, 50_000, 100_000, 200_000, 300_000, 500_000, 500_001,
   900_000, 1_500_000, 1_500_001, 2_500_000, 2_500_001, 3_000_000, 4_000_000, 10_000_000,
@@ -110,6 +110,6 @@ for (const basket of baskets) {
   }
 }
 
-const out = path.join(ROOT, 'shared/pricing-vectors.json');
-writeFileSync(out, JSON.stringify({ generatedBy: 'shared/generate-pricing-vectors.mjs', count: vectors.length, vectors }, null, 2) + '\n');
+const out = path.join(ROOT, 'packages/contracts/vectors/pricing-vectors.json');
+writeFileSync(out, JSON.stringify({ generatedBy: 'scripts/generate-pricing-vectors.mjs', count: vectors.length, vectors }, null, 2) + '\n');
 console.log(`✓ ${vectors.length} بردار در ${path.relative(ROOT, out)} نوشته شد`);

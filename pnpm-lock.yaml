@@ -111,6 +111,9 @@ importers:
       '@eslint/js':
         specifier: 9.39.5
         version: 9.39.5
+      '@monshim/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
       '@nestjs/cli':
         specifier: 11.0.24
         version: 11.0.24(@types/node@24.13.4)(prettier@3.9.6)
@@ -331,6 +334,9 @@ importers:
         specifier: 5.0.15
         version: 5.0.15(@types/react@19.3.0)(react@19.2.4)(use-sync-external-store@1.7.0(react@19.2.4))
     devDependencies:
+      '@monshim/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
       '@playwright/test':
         specifier: 1.56.1
         version: 1.56.1
@@ -364,6 +370,8 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+
+  packages/tsconfig: {}
 
 packages:
 

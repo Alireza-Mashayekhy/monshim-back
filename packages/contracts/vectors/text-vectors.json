@@ -1,5 +1,5 @@
 {
-  "generatedBy": "shared/generate-text-vectors.mjs",
+  "generatedBy": "scripts/generate-text-vectors.mjs",
   "vectors": {
     "digits": [
       {

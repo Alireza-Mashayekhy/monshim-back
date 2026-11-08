@@ -1,5 +1,5 @@
 {
-  "generatedBy": "shared/generate-pricing-vectors.mjs",
+  "generatedBy": "scripts/generate-pricing-vectors.mjs",
   "count": 828,
   "vectors": [
     {

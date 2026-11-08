@@ -46,9 +46,9 @@ export function findRepoRoot(startDir: string = __dirname): string {
   return fromCwd;
 }
 
-/** مسیر مطلق یک فایل داخل `shared/` ریشهٔ مخزن. */
+/** مسیر مطلق یک فایل داخل `packages/contracts/vectors` ریشهٔ مخزن. */
 export function sharedPath(...segments: string[]): string {
-  return path.join(findRepoRoot(), 'shared', ...segments);
+  return path.join(findRepoRoot(), 'packages/contracts/vectors', ...segments);
 }
 
 /** خواندن و پارس کردن یک فایل JSON از `shared/`. */
