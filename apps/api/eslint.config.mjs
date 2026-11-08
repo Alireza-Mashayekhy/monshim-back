@@ -3,8 +3,7 @@ import eslint from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import simpleImportSort from 'eslint-plugin-simple-import-sort';
-import unusedImports from 'eslint-plugin-unused-imports';
+import { sharedPlugins, sharedRules, testFileOverrides } from '@monshim/eslint-config';
 
 export default tseslint.config(
   {
@@ -27,10 +26,8 @@ export default tseslint.config(
     },
   },
   {
-    plugins: {
-      'simple-import-sort': simpleImportSort,
-      'unused-imports': unusedImports,
-    },
+    // پلاگین‌های مشترک از @monshim/eslint-config
+    plugins: sharedPlugins,
   },
   {
     rules: {
@@ -45,36 +42,11 @@ export default tseslint.config(
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+      // قواعد یکسان با فرانت
+      ...sharedRules,
+      // فقط بک‌اند: قالب‌بندی از طریق ESLint (فرانت این پلاگین را ندارد)
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
-      'simple-import-sort/imports': 'error',
-      'simple-import-sort/exports': 'error',
-      'unused-imports/no-unused-imports': 'error',
-      'unused-imports/no-unused-vars': [
-        'error',
-        {
-          vars: 'all',
-          varsIgnorePattern: '^_',
-          args: 'after-used',
-          argsIgnorePattern: '^_',
-        },
-      ],
     },
   },
-  {
-    /**
-     * استثنای هدفمند برای فایل‌های تست.
-     *
-     * چرا: دابل‌های تست (repo mock) باید امضای TypeORM را حفظ کنند که
-     * `Promise` برمی‌گرداند. یک تابع `async` که فقط `return value` دارد
-     * درست‌ترین و خواناترین شکل این دابل است؛ تبدیلش به
-     * `() => Promise.resolve(...)` هیچ سودی ندارد و خوانایی را کم می‌کند.
-     *
-     * این استثنا فقط برای `*.spec.ts` است — کد Production همچنان
-     * باید `await` واقعی داشته باشد.
-     */
-    files: ['**/*.spec.ts', '**/*.test.ts'],
-    rules: {
-      '@typescript-eslint/require-await': 'off',
-    },
-  },
+  testFileOverrides,
 );

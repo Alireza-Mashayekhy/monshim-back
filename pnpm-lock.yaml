@@ -119,6 +119,9 @@ importers:
       '@eslint/js':
         specifier: 9.39.5
         version: 9.39.5
+      '@monshim/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
       '@monshim/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
@@ -342,6 +345,9 @@ importers:
         specifier: 5.0.15
         version: 5.0.15(@types/react@19.3.0)(react@19.2.4)(use-sync-external-store@1.7.0(react@19.2.4))
     devDependencies:
+      '@monshim/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
       '@monshim/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
@@ -380,6 +386,30 @@ importers:
         version: 5.9.3
 
   packages/contracts: {}
+
+  packages/eslint-config:
+    dependencies:
+      '@eslint/js':
+        specifier: '*'
+        version: 9.39.5
+      eslint:
+        specifier: '*'
+        version: 9.39.5(jiti@2.7.0)
+      eslint-plugin-prettier:
+        specifier: '*'
+        version: 5.5.6(@types/eslint@9.6.1)(eslint-config-prettier@10.1.8(eslint@9.39.5(jiti@2.7.0)))(eslint@9.39.5(jiti@2.7.0))(prettier@3.9.9)
+      eslint-plugin-simple-import-sort:
+        specifier: '*'
+        version: 13.0.0(eslint@9.39.5(jiti@2.7.0))
+      eslint-plugin-unused-imports:
+        specifier: '*'
+        version: 4.4.1(@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0))
+      globals:
+        specifier: '*'
+        version: 17.12.0
+      typescript-eslint:
+        specifier: '*'
+        version: 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
 
   packages/tsconfig: {}
 
@@ -16625,6 +16655,16 @@ snapshots:
     dependencies:
       eslint: 9.39.5(jiti@2.7.0)
       prettier: 3.9.6
+      prettier-linter-helpers: 1.0.1
+      synckit: 0.11.13
+    optionalDependencies:
+      '@types/eslint': 9.6.1
+      eslint-config-prettier: 10.1.8(eslint@9.39.5(jiti@2.7.0))
+
+  eslint-plugin-prettier@5.5.6(@types/eslint@9.6.1)(eslint-config-prettier@10.1.8(eslint@9.39.5(jiti@2.7.0)))(eslint@9.39.5(jiti@2.7.0))(prettier@3.9.9):
+    dependencies:
+      eslint: 9.39.5(jiti@2.7.0)
+      prettier: 3.9.9
       prettier-linter-helpers: 1.0.1
       synckit: 0.11.13
     optionalDependencies:

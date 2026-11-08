@@ -81,7 +81,8 @@
     "postcss": "8.5.29",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
-    "@monshim/tsconfig": "workspace:*"
+    "@monshim/tsconfig": "workspace:*",
+    "@monshim/eslint-config": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

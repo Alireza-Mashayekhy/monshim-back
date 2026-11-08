@@ -1,0 +1,20 @@
+{
+  "name": "@monshim/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "قواعد مشترک ESLint برای همهٔ اپ‌های Monshim",
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs",
+    "./base": "./base.mjs"
+  },
+  "peerDependencies": {
+    "@eslint/js": "*",
+    "eslint": "*",
+    "eslint-plugin-prettier": "*",
+    "eslint-plugin-simple-import-sort": "*",
+    "eslint-plugin-unused-imports": "*",
+    "globals": "*",
+    "typescript-eslint": "*"
+  }
+}

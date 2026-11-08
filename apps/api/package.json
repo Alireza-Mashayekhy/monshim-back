@@ -83,7 +83,8 @@
     "tsconfig-paths": "4.2.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.0",
-    "@monshim/tsconfig": "workspace:*"
+    "@monshim/tsconfig": "workspace:*",
+    "@monshim/eslint-config": "workspace:*"
   },
   "jest": {
     "moduleFileExtensions": [
