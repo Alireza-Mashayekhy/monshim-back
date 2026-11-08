@@ -96,12 +96,12 @@ export class PaymentController {
 
   // ۳.۳. لینک کوتاه پیامک بیعانه → هدایت به صفحه صورت‌حساب در فرانت
   @Get('deposit/:token')
-  async depositLink(
+  depositLink(
     @Param('token') token: string,
     @Req() req: any,
     @Res() res: Response,
   ) {
-    const redirectUrl = await this.paymentService.getDepositRedirectUrl(
+    const redirectUrl = this.paymentService.getDepositRedirectUrl(
       token,
       getRequestOrigin(req),
     );

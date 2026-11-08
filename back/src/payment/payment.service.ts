@@ -1290,10 +1290,7 @@ export class PaymentService {
   /**
    * URL ریدایرکت لینک پیامک بیعانه → هدایت کاربر به صفحه صورت‌حساب در فرانت
    */
-  async getDepositRedirectUrl(
-    token: string,
-    requestOrigin?: string | null,
-  ): Promise<string> {
+  getDepositRedirectUrl(token: string, requestOrigin?: string | null): string {
     const frontUrl = this.getFrontUrl(requestOrigin);
     const baseToken = extractBaseDepositToken(token);
 

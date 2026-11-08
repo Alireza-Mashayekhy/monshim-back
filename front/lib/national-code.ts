@@ -3,8 +3,6 @@
  * طبق الگوریتم رسمی رقم کنترل سازمان ثبت‌احوال کشور
  */
 
-const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
-const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 
 /**
  * کاراکترهایی که «دیده نمی‌شوند» ولی جزء طول رشته حساب می‌شوند:
@@ -22,17 +20,19 @@ const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 const INVISIBLE_AND_SEPARATORS_REGEX =
   /[\s\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2069\u061c\u0640\-_\u2010-\u2015\u2212.,،٬]/g;
 
-/** تبدیل ارقام فارسی (۰-۹) و عربی (٠-٩) به ارقام لاتین */
-export function toEnglishDigits(input: string): string {
-  return String(input)
-    .replace(/[۰-۹]/g, digit => String(PERSIAN_DIGITS.indexOf(digit)))
-    .replace(/[٠-٩]/g, digit => String(ARABIC_DIGITS.indexOf(digit)));
-}
+/**
+ * ⚠️ این‌ها **دوباره صادر** می‌شوند، نه بازتعریف.
+ *
+ * قبلاً همین دو تابع در این فایل نسخهٔ جداگانه داشتند و نسخهٔ سومشان هم
+ * در `lib/phone.ts` بود. سه پیاده‌سازی از یک قاعده، سه فرصت برای واگرایی است.
+ * منبع واحد: `lib/digits.ts` و `lib/utils.ts`.
+ *
+ * نام‌ها حفظ شده‌اند تا هیچ import موجودی نشکند.
+ */
+import { toEnglishDigits } from './digits';
+import { toPersianDigits } from './utils';
 
-/** تبدیل ارقام لاتین به فارسی؛ برای نمایش تعداد ارقام در پیام خطا */
-export function toPersianDigits(input: string | number): string {
-  return String(input).replace(/\d/g, digit => PERSIAN_DIGITS[Number(digit)]);
-}
+export { toEnglishDigits, toPersianDigits };
 
 /**
  * نرمال‌سازی برای اعتبارسنجی و ارسال به بک‌اند:

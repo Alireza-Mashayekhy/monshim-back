@@ -60,4 +60,21 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    /**
+     * استثنای هدفمند برای فایل‌های تست.
+     *
+     * چرا: دابل‌های تست (repo mock) باید امضای TypeORM را حفظ کنند که
+     * `Promise` برمی‌گرداند. یک تابع `async` که فقط `return value` دارد
+     * درست‌ترین و خواناترین شکل این دابل است؛ تبدیلش به
+     * `() => Promise.resolve(...)` هیچ سودی ندارد و خوانایی را کم می‌کند.
+     *
+     * این استثنا فقط برای `*.spec.ts` است — کد Production همچنان
+     * باید `await` واقعی داشته باشد.
+     */
+    files: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/require-await': 'off',
+    },
+  },
 );

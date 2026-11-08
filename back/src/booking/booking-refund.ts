@@ -72,7 +72,10 @@ export function computeCancellationAmounts(
 
     const totalCommission =
       Number.isFinite(commissionAmount) && commissionAmount > 0
-        ? Math.min(commissionAmount, Math.max(0, paidAmount - totalBarberCredit))
+        ? Math.min(
+            commissionAmount,
+            Math.max(0, paidAmount - totalBarberCredit),
+          )
         : 0;
 
     // اگر بخشی از خدمات توسط مشتری لغو شده باشد، سهم پرداختی همان ردیف‌ها کسر می‌شود.
@@ -83,10 +86,13 @@ export function computeCancellationAmounts(
       .filter(booking => booking.canceledBy === 'customer')
       .reduce((sum, booking) => {
         const matched = metaItems.find(
-          item => booking.id && String(item.bookingId ?? '') === booking.id,
+          item => booking.id != null && String(item.bookingId) === booking.id,
         );
         const itemPayable = Number(matched?.payableAmount);
-        return sum + (Number.isFinite(itemPayable) && itemPayable > 0 ? itemPayable : 0);
+        return (
+          sum +
+          (Number.isFinite(itemPayable) && itemPayable > 0 ? itemPayable : 0)
+        );
       }, 0);
 
     const barberDebit = Math.max(0, totalBarberCredit - customerCanceledShare);
@@ -125,7 +131,7 @@ export function computeCancellationAmounts(
     .reduce((total, booking, index) => {
       const matched =
         metaItems.find(
-          item => booking.id && String(item.bookingId ?? '') === booking.id,
+          item => booking.id != null && String(item.bookingId) === booking.id,
         ) ?? metaItems[index];
       const itemPayable = Number(matched?.payableAmount);
       if (Number.isFinite(itemPayable) && itemPayable > 0) {

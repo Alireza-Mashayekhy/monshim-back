@@ -1,14 +1,16 @@
 import * as z from 'zod';
 
 /**
- * تبدیل ارقام فارسی (۰-۹) و عربی (٠-٩) به ارقام انگلیسی (0-9)
+ * ⚠️ دوباره صادر می‌شود، نه بازتعریف — منبع واحد `lib/digits.ts` است.
+ *
+ * قبل از این تغییر، همین تابع سه نسخه داشت (`digits.ts`, `national-code.ts`,
+ * `phone.ts`). هر سه یک نتیجه می‌دادند، اما سه نسخه = سه فرصت واگرایی.
+ *
+ * نام حفظ شده تا importهای موجود نشکنند.
  */
-export function toEnglishDigits(value: string): string {
-  return value.replace(/[۰-۹٠-٩]/g, digit =>
-    // هر دو بازه به ۰..۹ ختم می‌شوند، بنابراین ۴ بیت آخر همان رقم است
-    String(digit.charCodeAt(0) & 0xf),
-  );
-}
+import { toEnglishDigits } from './digits';
+
+export { toEnglishDigits };
 
 /** حذف هر چیزی به‌جز ارقام (فاصله، خط تیره، پرانتز و...) */
 export function onlyDigits(value: string | null | undefined): string {

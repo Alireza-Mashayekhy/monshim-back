@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { jalaliToIso } from './date-utils';
+import { jalaliToIso } from './date-utils.ts';
 import {
   sanitizeDecimalInput,
   sanitizeIntegerInput,
   stripNumericSeparators,
   toEnglishDigits,
-} from './digits';
-import { sanitizeNationalCodeInput } from './national-code';
-import { normalizePhone } from './phone';
+} from './digits.ts';
+import { sanitizeNationalCodeInput } from './national-code.ts';
+import { normalizePhone } from './phone.ts';
 import {
   formatFaNumber,
   formatNumberInput,
   formatPrice,
   unformatNumberInput,
-} from './utils';
+} from './utils.ts';
 
 describe('frontend Persian & Arabic digit support', () => {
   it('converts Persian and Arabic-Indic digits to English ASCII digits', () => {

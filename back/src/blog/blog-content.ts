@@ -65,6 +65,15 @@ const bool = (v: unknown) => v === true;
 /** Only relative paths and explicitly supported schemes; never protocol-relative or script URLs. */
 export function safeUrl(value: unknown, media = false): string {
   const s = str(value, 2048).trim();
+  /**
+   * بایت‌های کنترلی (NULL، CR، LF، TAB و ...) و بک‌اسلش رد می‌شوند؛
+   * بک‌اسلش در برخی مرورگرها به‌جای `/` تفسیر می‌شود و می‌تواند
+   * `//evil.test` را دور بزند.
+   *
+   * نویسه‌های کنترلی عمداً با `no-control-regex` نوشته شده‌اند: این تنها راه
+   * بیان «همهٔ بایت‌های ۰x00 تا ۰x20» است و دقیقاً همان چیزی است که باید رد شود.
+   */
+  // eslint-disable-next-line no-control-regex -- ردکردن بایت‌های کنترلی، هدفِ خودِ این بررسی است
   if (!s || /[\u0000-\u0020\\]/.test(s)) return '';
   if (s.startsWith('/') && !s.startsWith('//')) return s;
   try {

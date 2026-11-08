@@ -1,10 +1,5 @@
-import {
-  Body,
-  Controller,
-  INestApplication,
-  Post,
-  ValidationPipe,
-} from '@nestjs/common';
+import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { CreateManualBookingDto } from 'src/club/dto/create-manual-booking.dto';
 import request from 'supertest';
@@ -63,7 +58,7 @@ const MANUAL_BOOKING_PAYLOAD = {
 const LARGE_BODY = { content: 'ی'.repeat(300_000) };
 
 describe('body parsers (همان ترتیب main.ts)', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({

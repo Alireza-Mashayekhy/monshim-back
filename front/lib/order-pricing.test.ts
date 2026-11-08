@@ -5,7 +5,7 @@ import {
   computeOrderPricing,
   computeProgressiveCommission,
   formatCommissionLabel,
-} from './order-pricing';
+} from './order-pricing.ts';
 
 describe('front/lib/order-pricing (progressive commission & label)', () => {
   it('پله‌های ۱۰٪، ۷٪، ۵٪ و ۳٪ را با سقف ۲۰۰ هزار تومان دقیقاً منطبق با بک‌اند محاسبه می‌کند', () => {

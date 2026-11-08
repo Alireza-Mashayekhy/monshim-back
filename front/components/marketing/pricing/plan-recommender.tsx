@@ -13,8 +13,6 @@ const MIN_BOOKINGS = 25;
 const MAX_BOOKINGS = 750;
 const DEFAULT_BOOKINGS = 150;
 
-const SLIDER_STEPS = PRICING_PLANS.map(plan => plan.maxBookingsPerMonth);
-
 const toFa = (n: number) => formatFaNumber(n);
 
 /**

@@ -40,7 +40,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
   const { reset } = methods;
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = (_data: FormData) => {
     // TODO: API call to send feedback
     toast.success('بازخورد شما با موفقیت ثبت شد.');
     reset();

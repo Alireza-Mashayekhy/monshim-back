@@ -7,9 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { isDuplicateEntryError } from 'src/common/utils/db-error.util';
 import { Repository } from 'typeorm';
-import { safeUrl, sanitizeContent } from './blog-content';
+
 import { BlogDto } from './blog.dto';
 import { BlogArticle } from './blog.entity';
+import { safeUrl, sanitizeContent } from './blog-content';
 
 @Injectable()
 export class BlogService {

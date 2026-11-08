@@ -111,7 +111,7 @@ describe('PaymentService — آدرس ریدایرکت پرداخت', () => {
 
     const service = buildService({ FRONTEND_URL: 'https://monshiim.ir' });
 
-    const redirect = await service.getDepositRedirectUrl(
+    const redirect = service.getDepositRedirectUrl(
       'a1b2c3d4e5f60718293a4b5c:1',
     );
     expect(redirect).toBe(
@@ -124,7 +124,7 @@ describe('PaymentService — آدرس ریدایرکت پرداخت', () => {
 
     const service = buildService({ FRONTEND_URL: 'https://monshiim.ir' });
 
-    const redirect = await service.getDepositRedirectUrl('bad%token');
+    const redirect = service.getDepositRedirectUrl('bad%token');
     expect(redirect).toContain(
       'https://monshiim.ir/panel/payment/callback?status=failed',
     );

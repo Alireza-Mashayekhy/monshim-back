@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
-import { cn, formatFaNumber } from '@/lib/utils';
+import { cn, formatFaNumber, toPersianDigits } from '@/lib/utils';
 import { useCurrentUser } from '@/services/features/auth/hooks';
 import { useBarberList } from '@/services/features/barber/hooks';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -58,10 +58,6 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'salonName:asc', label: 'نام سالن (الف تا ی)' },
 ];
 
-const toPersianDigits = (num: number | string): string => {
-  const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-  return String(num).replace(/[0-9]/g, w => farsiDigits[+w]);
-};
 
 const normalizeDigits = (str: string): string => {
   const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build && node scripts/inline-critical-css.mjs",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "node --import ./tests/register-resolver.mjs --test lib/digits.test.ts lib/order-pricing.test.ts lib/pricing-parity.test.ts lib/text-parity.test.ts lib/session-policy.test.ts lib/pwa/platform.test.ts lib/blog/types.test.ts services/api/client.test.mjs services/api/session-coordination.test.ts services/api/session-refresh.test.ts",
     "test:session-refresh": "node --test services/api/session-refresh.test.ts",
     "test:session": "node --test services/api/client.test.mjs services/api/session-refresh.test.ts services/api/session-coordination.test.ts lib/session-policy.test.ts",
     "test:session:e2e": "node tests/session/run-e2e.mjs",
@@ -78,5 +80,11 @@
     "postcss": "^8.5.29",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

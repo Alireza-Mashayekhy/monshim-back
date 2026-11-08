@@ -20,11 +20,6 @@ export const endpoints = {
     edit: `/users/me`,
   },
 
-  categories: {
-    list: '/categories',
-    create: '/categories',
-  },
-
   locations: {
     provinceList: '/locations/provinces',
     searchCities: '/locations/cities',

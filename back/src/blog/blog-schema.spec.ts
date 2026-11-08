@@ -1,8 +1,8 @@
 import { Logger } from '@nestjs/common';
-import { DataSource, Table } from 'typeorm';
-import { ConnectionMetadataBuilder } from 'typeorm/connection/ConnectionMetadataBuilder';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { DataSource, Table } from 'typeorm';
+import { ConnectionMetadataBuilder } from 'typeorm/connection/ConnectionMetadataBuilder';
 
 import { BlogArticle } from './blog.entity';
 import { BlogSchemaService, CREATE_BLOG_TABLE } from './blog-schema.service';

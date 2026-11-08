@@ -6,9 +6,6 @@
  * هر تغییری این‌جا باید در سمت کلاینت هم اعمال شود.
  */
 
-const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
-const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
-
 /**
  * فاصله‌ها (حتی NBSP و فاصلهٔ باریک)، نیم‌فاصله (ZWNJ/ZWJ)، علامت‌های
  * جهت‌دهی متن (LRM/RLM و ...)، خط تیره و جداکننده‌های عددی.
@@ -19,16 +16,22 @@ const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 const INVISIBLE_AND_SEPARATORS_REGEX =
   /[\s\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2069\u061c\u0640\-_\u2010-\u2015\u2212.,،٬]/g;
 
-/** تبدیل ارقام فارسی (۰-۹) و عربی (٠-٩) به ارقام لاتین */
-export function toEnglishDigits(input: string): string {
-  return String(input)
-    .replace(/[۰-۹]/g, digit => String(PERSIAN_DIGITS.indexOf(digit)))
-    .replace(/[٠-٩]/g, digit => String(ARABIC_DIGITS.indexOf(digit)));
-}
+/**
+ * ⚠️ دوباره صادر می‌شود، نه بازتعریف.
+ *
+ * این دو تابع قبلاً در همین فایل نسخهٔ جداگانه داشتند، در حالی که
+ * `src/common/utils/digits.util.ts` دقیقاً همان‌ها را دارد.
+ * دو نسخه از یک قاعده = دو فرصت واگرایی.
+ *
+ * منبع واحد: `digits.util.ts`. نام‌ها حفظ شده‌اند تا هیچ import نشکند.
+ */
+import { toEnglishDigits } from './digits.util';
+
+export { toEnglishDigits };
 
 /** تبدیل ارقام لاتین به فارسی؛ برای نمایش در پیام خطا */
 export function toPersianDigits(input: string | number): string {
-  return String(input).replace(/\d/g, digit => PERSIAN_DIGITS[Number(digit)]);
+  return String(input).replace(/\d/g, digit => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
 }
 
 /**
