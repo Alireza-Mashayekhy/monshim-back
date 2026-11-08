@@ -1,3 +1,4 @@
+import type { ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { ThrottlerModuleOptions } from '@nestjs/throttler';
 
@@ -45,6 +46,20 @@ export function createThrottlerOptions(
       ttl,
       limit,
       getTracker: createAuthAwareTracker(jwt),
+      /**
+       * مسیرهای بررسی سلامت از محدودیت نرخ مستثنا هستند.
+       *
+       * چرا: یک healthcheck هر ۵ تا ۳۰ ثانیه صدا زده می‌شود. اگر شمرده شود،
+       * اولاً سهمیهٔ IP سرور را می‌خورد و ثانیاً در لحظهٔ قطعی واقعی،
+       * healthcheck با ۴۲۹ پاسخ می‌گیرد نه ۵۰۳ — و مانیتور «سالم» گزارش می‌کند.
+       * این مسیرها هیچ عملیات سنگین یا حساسی انجام نمی‌دهند، پس مستثنا کردنشان
+       * سطح حمله را بالا نمی‌برد (پاسخشان اطلاعاتی افشا نمی‌کند).
+       */
+      skipIf: (context: ExecutionContext) => {
+        const request = context.switchToHttp().getRequest<{ path?: string }>();
+        const path = request?.path ?? '';
+        return path === '/api/health' || path === '/api/health/ready';
+      },
     },
   ];
 }

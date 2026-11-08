@@ -23,6 +23,21 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
+
+  /**
+   * فعال‌کردن هوک‌های خاموشی (SIGTERM / SIGINT).
+   *
+   * بدون این خط، `pm2 restart` و `docker stop` پروسه را بدون بستن اتصال‌های
+   * Redis و MySQL می‌کشند. نتیجه: درخواست‌های در حال پردازش رها می‌شوند و
+   * هر restart در لاگ به‌صورت kill دیده می‌شود.
+   *
+   * با این خط، Nest به `OnModuleDestroy` همهٔ ماژول‌ها فرصت اجرا می‌دهد
+   * (مثلاً `RedisService.onModuleDestroy` اتصال را تمیز می‌بندد).
+   *
+   * ⚠️ هیچ تغییری در مسیرها، پورت یا رفتار API ایجاد نمی‌کند.
+   */
+  app.enableShutdownHooks();
+
   app.setGlobalPrefix('api');
 
   if (process.env.NODE_ENV !== 'production') {

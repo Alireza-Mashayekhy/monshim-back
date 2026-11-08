@@ -19,6 +19,7 @@ import { ClubModule } from './club/club.module';
 import { createThrottlerOptions } from './common/config/throttler.config';
 import { TypeOrmConfigService } from './common/config/typeorm.config';
 import { FilesModule } from './files/files.module';
+import { HealthModule } from './health/health.module';
 import { LocationsModule } from './locations/locations.module';
 import { NotificationModule } from './notification/notification.module';
 import { OtpModule } from './otp/otp.module';
@@ -63,6 +64,7 @@ import { WalletModule } from './wallet/wallet.module';
       useFactory: createThrottlerOptions,
     }),
     FilesModule,
+    HealthModule,
     UsersModule,
     AuthModule,
     RedisModule,
