@@ -5,10 +5,11 @@ import { BlogAdminController, BlogPublicController } from './blog.controller';
 import { BlogArticle } from './blog.entity';
 import { BlogMediaService } from './blog-media.service';
 import { BlogService } from './blog.service';
+import { BlogSchemaService } from './blog-schema.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([BlogArticle]), PublicPageModule],
   controllers: [BlogAdminController, BlogPublicController],
-  providers: [BlogService, BlogMediaService],
+  providers: [BlogService, BlogMediaService, BlogSchemaService],
 })
 export class BlogModule {}
