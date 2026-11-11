@@ -1,11 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsDateString,
+  IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
 } from 'class-validator';
+import { REMINDER_HOURS_OPTIONS } from 'src/booking/reminder-options';
 
 export class InitiateBookingPaymentDto {
   @ApiProperty({ description: 'شناسه آرایشگر (User.id)' })
@@ -44,4 +47,13 @@ export class InitiateBookingPaymentDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @ApiPropertyOptional({
+    enum: REMINDER_HOURS_OPTIONS,
+    description: 'زمان یادآوری رایگان، چند ساعت قبل از نوبت',
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn(REMINDER_HOURS_OPTIONS)
+  reminderHours?: number;
 }
