@@ -154,6 +154,20 @@ describe('ReminderService', () => {
     expect(bookingRepo.update).not.toHaveBeenCalled();
   });
 
+  it('releases the claim after an SMS failure so the next run can retry', async () => {
+    jest.setSystemTime(new Date('2026-10-20T06:31:00.000Z'));
+    const { service, bookingRepo, bookingSmsService } = setup();
+    bookingRepo.find.mockResolvedValue([buildBooking()]);
+    bookingSmsService.sendReminderToCustomer.mockRejectedValue(
+      new Error('provider down'),
+    );
+    await service.processReminders();
+    expect(bookingRepo.update).toHaveBeenLastCalledWith(
+      { id: 'booking-1', reminderSentAt: expect.any(Date) },
+      { reminderSentAt: null },
+    );
+  });
+
   it('اگر نمونهٔ دیگری یادآوری را رزرو کرده باشد، پیامک دوباره نمی‌فرستد', async () => {
     jest.setSystemTime(new Date('2026-10-20T06:31:00.000Z'));
 

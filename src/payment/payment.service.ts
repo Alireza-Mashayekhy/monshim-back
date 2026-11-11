@@ -16,6 +16,7 @@ import { BarberWorkHours } from 'src/barber/entities/barber-work-hours.entity';
 import { getBookingClock, isBookingSlotInPast } from 'src/booking/booking-time';
 import { Booking, BookingStatus } from 'src/booking/entities/booking.entity';
 import { SlotHold } from 'src/booking/entities/slot-hold.entity';
+import { isReminderHours } from 'src/booking/reminder-options';
 import { hasOverlap, timeToMinutes } from 'src/booking/slot-intervals';
 import {
   DEFAULT_APP_ORIGIN,
@@ -806,6 +807,7 @@ export class PaymentService {
           barberProfileId: barber.id,
           date: dto.date,
           note: dto.note ?? '',
+          reminderHours: dto.reminderHours ?? null,
           items: bookingItems,
           totalPrice,
           depositAmount,
@@ -2087,10 +2089,22 @@ export class PaymentService {
         onlinePaidAt: payment.paidAt ?? new Date(),
       };
 
+      // The choice survives the gateway in payment metadata. Only the first
+      // service gets a reminder; old payments have no reminder selection.
+      // Online reminders are free and never debit the salon's SMS balance.
+      const reminderHours = isReminderHours(meta.reminderHours)
+        ? meta.reminderHours
+        : null;
+      const reminder = {
+        sendSmsReminder: reminderHours !== null,
+        reminderHours,
+      };
+
       if (meta.serviceId && !meta.items) {
         const saved = await bookingRepo.save(
           bookingRepo.create({
             ...baseBooking,
+            ...reminder,
             serviceId: meta.serviceId,
             time: meta.time,
             price: meta.price,
@@ -2105,10 +2119,13 @@ export class PaymentService {
           throw new BadRequestException('جزئیات رزرو در پرداخت ثبت نشده است.');
         }
 
-        for (const item of items) {
+        for (const [index, item] of items.entries()) {
           const saved = await bookingRepo.save(
             bookingRepo.create({
               ...baseBooking,
+              ...(index === 0
+                ? reminder
+                : { sendSmsReminder: false, reminderHours: null }),
               serviceId: item.serviceId,
               time: item.time,
               price: item.price,

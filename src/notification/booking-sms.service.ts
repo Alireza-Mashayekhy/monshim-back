@@ -27,7 +27,8 @@ import {
  * سرویس ارسال پیامک‌های مرتبط با نوبت‌ها.
  *
  * نکته مهم: هیچ‌کدام از متدهای این سرویس نباید جریان اصلی
- * (ثبت/لغو نوبت) را بشکنند؛ خطاها فقط لاگ می‌شوند.
+ * (ثبت/لغو نوبت) را بشکنند؛ تنها ارسال یادآوری خطا را به پردازش‌گر
+ * زمان‌بندی‌شده می‌دهد تا در نوبت بعدی دوباره تلاش کند.
  */
 @Injectable()
 export class BookingSmsService {
@@ -113,17 +114,20 @@ export class BookingSmsService {
     );
   }
 
-  /** ⏰ یادآوری نوبت برای مشتری (قالب 121540) — ۲ پیامک از آرایشگر کسر می‌شود */
+  /** ⏰ یادآوری نوبت برای مشتری (قالب 121540).
+   * هزینه در مسیر ثبت نوبت تعیین می‌شود، نه در سرویس ارسال.
+   * خطا باید به پردازش‌گر یادآوری برسد تا بتواند قفل ارسال را آزاد کند.
+   */
   async sendReminderToCustomer(
     customerPhone: string,
     params: BookingSmsParams,
   ): Promise<void> {
-    await this.safeSend(
+    const result = await this.smsIrService.sendTemplate(
       customerPhone,
       SMS_TEMPLATES.BOOKING_REMINDER_CUSTOMER,
       bookingParams(params),
-      'یادآوری نوبت به مشتری',
     );
+    if (!result) throw new Error('سرویس پیامک برای ارسال یادآوری آماده نیست');
   }
 
   /** ⏳ لینک پرداخت بیعانه برای مشتری (قالب 196593) — رایگان برای آرایشگر */

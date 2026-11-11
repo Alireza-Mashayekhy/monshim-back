@@ -11,8 +11,9 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { REMINDER_HOURS_OPTIONS } from 'src/booking/reminder-options';
 
-export const REMINDER_HOURS_OPTIONS = [1, 2, 4, 6, 12, 24] as const;
+export { REMINDER_HOURS_OPTIONS } from 'src/booking/reminder-options';
 
 export class CreateManualBookingDto {
   @ApiProperty({ description: 'شناسه مشتری باشگاه' })
